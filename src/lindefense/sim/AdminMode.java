@@ -13,7 +13,7 @@ public final class AdminMode {
     private AdminMode() { }
 
     /** The admin code (case-insensitive, surrounding spaces ignored). */
-    static final String CODE = "austin";
+    static final String CODE = "lindeveloper";
 
     private static final String PREFS_NODE = "lindefense/admin";
     private static final String PREFS_KEY = "enabled";

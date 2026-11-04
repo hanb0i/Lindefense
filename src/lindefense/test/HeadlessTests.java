@@ -876,9 +876,9 @@ public final class HeadlessTests {
 
     /** SETTINGS > ADMIN CODE: the code check, and a match in admin mode (unlimited credits, every hero unlocked). */
     private static void adminMode() {
-        check(lindefense.sim.AdminMode.matches("austin"), "admin code accepted");
-        check(lindefense.sim.AdminMode.matches("  Austin "), "admin code ignores case and spaces");
-        check(!lindefense.sim.AdminMode.matches("austin1") && !lindefense.sim.AdminMode.matches("") && !lindefense.sim.AdminMode.matches(null), "wrong codes rejected");
+        check(lindefense.sim.AdminMode.matches("lindeveloper"), "admin code accepted");
+        check(lindefense.sim.AdminMode.matches("  LinDeveloper "), "admin code ignores case and spaces");
+        check(!lindefense.sim.AdminMode.matches("lindeveloper1") && !lindefense.sim.AdminMode.matches("austin") && !lindefense.sim.AdminMode.matches("") && !lindefense.sim.AdminMode.matches(null), "wrong codes rejected");
         Game normal = newGame(0);
         check(!normal.isAdmin() && !normal.isHeroUnlocked(TowerType.ROHAN), "games start without admin mode");
         Game g = newGame(0);
