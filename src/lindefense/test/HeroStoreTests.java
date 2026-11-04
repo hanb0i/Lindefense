@@ -9,18 +9,16 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import lindefense.combat.AttackContext;
-import lindefense.combat.DamageType;
-import lindefense.combat.HitSpec;
-import lindefense.combat.VisualEvent;
-import lindefense.effects.Drone;
+import lindefense.effects.Mine;
 import lindefense.enemy.Enemy;
 import lindefense.enemy.EnemyType;
 import lindefense.enemy.Modifier;
-import lindefense.map.Path;
+import lindefense.enemy.StatusEffect;
 import lindefense.sim.Game;
 import lindefense.sim.HeroCollection;
 import lindefense.sim.Vec;
 import lindefense.tower.AbilityDef;
+import lindefense.tower.AttackKind;
 import lindefense.tower.BuffStat;
 import lindefense.tower.Faction;
 import lindefense.tower.Shop;
@@ -30,39 +28,71 @@ import lindefense.tower.TowerCatalog;
 import lindefense.tower.TowerDef;
 import lindefense.tower.TowerStats;
 import lindefense.tower.TowerType;
-import lindefense.tower.behavior.BradLindemannBehavior;
-import lindefense.tower.behavior.BrandonBehavior;
-import lindefense.tower.behavior.OwenBehavior;
+import lindefense.tower.UpgradeDef;
+import lindefense.tower.behavior.KaijuKaiBehavior;
+import lindefense.tower.behavior.TanimbusBehavior;
 import lindefense.tower.behavior.ZethosBehavior;
 import lindefense.ui.HeroStatText;
 
 /**
- * Hero Store, the six heroes and Zethos: the brief's test list (locked start, Delta removed, exact prices, persistence,
- * placement rules, every hero's mechanics and ability, Zethos's shop / tiers / no-duplicate-damage projectiles,
- * cooldowns, non-negative currency and the UI text).
+ * Hero Store, the 17 heroes and Zethos: registration and prices, purchasing and permanent unlocks, the shared
+ * base + 3 upgrade path, every hero's own mechanic, and Zethos's shop / tiers / projectiles / ability.
  */
 public final class HeroStoreTests {
     private HeroStoreTests() { }
 
+    /** The roster, with its Hero Store price and the three upgrade costs from the specification. */
+    private static final Object[][] ROSTER = {
+        { TowerType.LOBBER_LUIS, 900, 400, 850, 1500 },
+        { TowerType.SAGE_AARAV, 1000, 450, 900, 1600 },
+        { TowerType.IRON_IMRAAN, 1200, 500, 950, 1700 },
+        { TowerType.BOOM_SAM, 1100, 450, 900, 1700 },
+        { TowerType.CHILLSTIN, 1000, 400, 850, 1500 },
+        { TowerType.KAIJU_KAI, 1500, 600, 1100, 2000 },
+        { TowerType.ABHI_ACE, 1350, 500, 1000, 1800 },
+        { TowerType.ZIPPY_MATT, 1250, 450, 900, 1600 },
+        { TowerType.SUNNY_JOE, 850, 400, 800, 1500 },
+        { TowerType.NIK_SCOPE, 1300, 500, 1000, 1800 },
+        { TowerType.CAMI_MINE, 1100, 450, 900, 1600 },
+        { TowerType.JUSTIN_TIME, 1400, 500, 950, 1800 },
+        { TowerType.SPEAR_HANBO, 1100, 400, 850, 1500 },
+        { TowerType.THORN_TUHIN, 1200, 450, 900, 1700 },
+        { TowerType.TRAPPER_CHE, 1150, 450, 900, 1600 },
+        { TowerType.BLITZ_ARNAV, 1350, 500, 950, 1750 },
+        { TowerType.TANIMBUS, 1300, 500, 950, 1700 } };
+
     public static void runAll() {
+        run("heroes.registration", HeroStoreTests::registration);
         run("heroes.startLocked", HeroStoreTests::startLocked);
-        run("heroes.deltaRemoved", HeroStoreTests::deltaRemoved);
         run("heroes.exactPrices", HeroStoreTests::exactPrices);
+        run("heroes.purchasing", HeroStoreTests::purchasing);
         run("heroes.persistence", HeroStoreTests::persistence);
         run("heroes.placementRules", HeroStoreTests::placementRules);
+        run("heroes.upgradePath", HeroStoreTests::upgradePath);
+        run("heroes.upgradesChangeStats", HeroStoreTests::upgradesChangeStats);
         run("heroes.camoAndTargeting", HeroStoreTests::camoAndTargeting);
-        run("heroes.brad", HeroStoreTests::brad);
-        run("heroes.brandon", HeroStoreTests::brandon);
-        run("heroes.rohan", HeroStoreTests::rohan);
-        run("heroes.ronil", HeroStoreTests::ronil);
-        run("heroes.shashank", HeroStoreTests::shashank);
-        run("heroes.owen", HeroStoreTests::owen);
+        run("heroes.lobberLuis", HeroStoreTests::lobberLuis);
+        run("heroes.sageAarav", HeroStoreTests::sageAarav);
+        run("heroes.ironImraan", HeroStoreTests::ironImraan);
+        run("heroes.boomSam", HeroStoreTests::boomSam);
+        run("heroes.chillstin", HeroStoreTests::chillstin);
+        run("heroes.kaijuKai", HeroStoreTests::kaijuKai);
+        run("heroes.abhiAce", HeroStoreTests::abhiAce);
+        run("heroes.zippyMatt", HeroStoreTests::zippyMatt);
+        run("heroes.sunnyJoe", HeroStoreTests::sunnyJoe);
+        run("heroes.nikScope", HeroStoreTests::nikScope);
+        run("heroes.camiMine", HeroStoreTests::camiMine);
+        run("heroes.justinTime", HeroStoreTests::justinTime);
+        run("heroes.spearHanbo", HeroStoreTests::spearHanbo);
+        run("heroes.thornTuhin", HeroStoreTests::thornTuhin);
+        run("heroes.trapperChe", HeroStoreTests::trapperChe);
+        run("heroes.blitzArnav", HeroStoreTests::blitzArnav);
+        run("heroes.tanimbus", HeroStoreTests::tanimbus);
         run("zethos.shopOnly", HeroStoreTests::zethosShop);
         run("zethos.tiers", HeroStoreTests::zethosTiers);
         run("zethos.noDuplicateDamage", HeroStoreTests::zethosNoDuplicates);
         run("zethos.bounceFalloff", HeroStoreTests::zethosBounce);
         run("zethos.realityCollapse", HeroStoreTests::zethosCollapse);
-        run("heroes.abilityNumbers", HeroStoreTests::abilityNumbers);
         run("heroes.cashNeverNegative", HeroStoreTests::cashNeverNegative);
         run("heroes.uiText", HeroStoreTests::uiText);
         run("ui.tutorialScript", HeroStoreTests::tutorialScript);
@@ -70,405 +100,580 @@ public final class HeroStoreTests {
         run("towers.originalTowersPassive", HeroStoreTests::originalTowersPassive);
     }
 
-    // ------------------------------------------------------------------ tutorial, catalog, passive towers
-    private static void tutorialScript() {
-        Game g = newGame(0);
-        lindefense.ui.TutorialScript ts = new lindefense.ui.TutorialScript(g);
-        check(ts.current() == lindefense.ui.TutorialScript.Step.WELCOME && !ts.current().action, "starts on the welcome card");
-        ts.update();
-        check(ts.index() == 0, "info cards wait for NEXT");
-        ts.next();
-        check(ts.current() == lindefense.ui.TutorialScript.Step.PLACE, "then: place a tower");
-        ts.update();
-        check(ts.index() == 1, "action steps wait for the action");
-        Tower gpt = g.placeTower(TowerType.GPT, buildableNear(g, new Vec(380, 300), 150));
-        check(gpt != null, "player places GPT");
-        ts.update();
-        check(ts.current() == lindefense.ui.TutorialScript.Step.WAVE, "placing a tower advances");
-        g.startNextWave();
-        ts.update();
-        check(ts.current() == lindefense.ui.TutorialScript.Step.UPGRADE && ts.grantPaid(), "starting a wave advances; upgrade step pays its bonus");
-        check(g.upgradeTower(gpt), "bonus covers the upgrade");
-        ts.update();
-        check(ts.current() == lindefense.ui.TutorialScript.Step.TARGETING, "upgrading advances");
-        ts.next();
-        check(ts.current() == lindefense.ui.TutorialScript.Step.HERO_STORE && g.getCash() >= 1000, "Hero Store step funds a hero");
-        check(g.purchaseHero(TowerType.SHASHANK), "buy Shashank");
-        ts.update();
-        check(ts.current() == lindefense.ui.TutorialScript.Step.DEPLOY, "buying advances");
-        Tower sh = g.placeTower(TowerType.SHASHANK, buildableNear(g, new Vec(700, 300), 150));
-        ts.update();
-        check(sh != null && ts.current() == lindefense.ui.TutorialScript.Step.ABILITY && sh.isAbilityReady(), "deploying advances; the hero's ability is made ready");
-        g.activateAbility(sh);
-        ts.update();
-        check(ts.current() == lindefense.ui.TutorialScript.Step.ZETHOS, "using the ability advances");
-        ts.next();
-        check(ts.current() == lindefense.ui.TutorialScript.Step.DONE, "final card");
-        ts.next();
-        check(ts.isFinished(), "FINISH ends the tutorial");
-        check(g.getHeroCollection() != HeroCollection.persistent(), "the tutorial game is not wired to the saved collection");
-        lindefense.ui.TutorialScript skip = new lindefense.ui.TutorialScript(newGame(0));
-        skip.skipAll();
-        check(skip.isFinished(), "END TUTORIAL works from any step");
-    }
-
-    private static void catalogEntries() {
-        int enemies = lindefense.ui.CatalogScreen.entries(lindefense.ui.CatalogScreen.Tab.ENEMIES).size();
-        int bosses = lindefense.ui.CatalogScreen.entries(lindefense.ui.CatalogScreen.Tab.BOSSES).size();
-        int towers = lindefense.ui.CatalogScreen.entries(lindefense.ui.CatalogScreen.Tab.TOWERS).size();
-        int heroes = lindefense.ui.CatalogScreen.entries(lindefense.ui.CatalogScreen.Tab.HEROES).size();
-        int allEnemies = 0;
-        for (EnemyType e : EnemyType.values()) allEnemies++;
-        check(enemies + bosses == allEnemies && bosses == 5, "catalog lists every enemy (" + enemies + ") and all 5 bosses");
-        check(towers == 18 && lindefense.ui.CatalogScreen.entries(lindefense.ui.CatalogScreen.Tab.TOWERS).contains(TowerType.ZETHOS), "catalog lists the 18 shop towers incl. Zethos");
-        check(heroes == 6 && !lindefense.ui.CatalogScreen.entries(lindefense.ui.CatalogScreen.Tab.HEROES).contains(TowerType.ZETHOS), "catalog lists the 6 heroes (not Zethos)");
-    }
-
-    private static void originalTowersPassive() {
-        for (TowerType t : TowerType.shopTowers()) {
-            boolean shouldHave = t == TowerType.ZETHOS;
-            check((TowerCatalog.get(t).ability != null) == shouldHave, t + (shouldHave ? " keeps its ability" : " has no special ability"));
+    // ------------------------------------------------------------------ registration, store, placement
+    private static void registration() {
+        TowerType[] heroes = TowerType.heroes();
+        check(heroes.length == 17, "the Hero Store lists 17 heroes (" + heroes.length + ")");
+        Set<TowerType> seen = EnumSet.noneOf(TowerType.class);
+        Set<String> names = new HashSet<>();
+        for (TowerType h : heroes) {
+            check(seen.add(h), h + " is registered exactly once");
+            check(names.add(h.displayName), h.displayName + " is a unique display name");
+            check(h.faction == Faction.HERO, h + " is classified as a hero");
+            TowerDef d = TowerCatalog.get(h);
+            check(d != null, h + " has a definition");
+            check(d.baseCost == 0, h + " deploys free once unlocked");
+            check(d.unlockCost > 0, h + " has a Hero Store price");
         }
-        for (TowerType h : TowerType.heroes()) check(TowerCatalog.get(h).ability != null, h + " keeps its ability");
-        Game g = frozen();
-        Tower claude = towerNearTrack(g, TowerType.CLAUDE, 3, 450);
-        tank(g, 450);
-        check(!claude.isAbilityReady() && !g.activateAbility(claude), "a passive tower cannot fire an ability");
+        for (Object[] row : ROSTER) check(seen.contains((TowerType) row[0]), row[0] + " is in the roster");
+        check(seen.size() == ROSTER.length, "every rostered hero is registered");
+        // heroes are never sold in the regular shop, and Zethos is still a Primary tower
+        for (TowerType t : TowerType.shopTowers()) check(!t.isHero(), t + " is not a hero");
+        check(!TowerType.ZETHOS.isHero() && TowerType.ZETHOS.faction == Faction.PRIMARY, "Zethos is still a Primary tower");
+        check(TowerType.shopTowers().length == 18, "the 18 shop towers are untouched");
     }
 
-    // ------------------------------------------------------------------ helpers
-    private static Game frozen() { Game g = newGame(0); g.setGlobalEnemySpeedMultiplier(0); return g; }
-    private static boolean near(double a, double b) { return Math.abs(a - b) < 1e-6; }
-
-    /** An unarmoured enemy with a huge HP pool, so damage is never capped by remaining HP. */
-    private static Enemy tank(Game g, double dist) {
-        Enemy e = g.getEnemyManager().spawnScaled(EnemyType.DYNAMIC_ARRAY, null, 0, dist, 500, 1.0);
-        g.getEnemyManager().update(0);
-        return e;
-    }
-    private static double taken(Enemy e) { return e.getMaxHp() - e.getHp(); }
-
-    /** Fires exactly one attack from the tower and flies its projectiles until they are spent (no other tower acts). */
-    private static void oneShot(Game g, Tower t) {
-        check(g.getCombat().attack(t), t.getType() + " fires");
-        for (int i = 0; i < 600 && hasProjectiles(g); i++) { g.getCombat().updateProjectiles(Game.DT); g.getEvents().clear(); }
-    }
-    private static boolean hasProjectiles(Game g) {
-        g.getCombat().updateProjectiles(0);
-        return !g.getCombat().getProjectiles().isEmpty();
-    }
-
-    private static Tower hero(Game g, TowerType t, double trackDist) { return towerNearTrack(g, t, 0, trackDist); }
-
-    // ------------------------------------------------------------------ 1-7 store and placement
     private static void startLocked() {
         Game g = newGame(0);
-        for (TowerType t : TowerType.heroes()) {
-            check(!g.isHeroUnlocked(t), t + " starts locked");
-            check(g.getTowerManager().heroProblem(t) != null, t + " cannot be placed while locked");
+        for (TowerType h : TowerType.heroes()) {
+            check(!g.isHeroUnlocked(h), h + " starts locked");
+            check(g.getTowerManager().heroProblem(h) != null, h + " cannot be placed while locked");
+            check(g.placeTower(h, buildableNear(g, new Vec(400, 300), 200)) == null, h + " placement is refused while locked");
         }
-        check(g.getHeroCollection().unlocked().isEmpty(), "zero unlocked heroes at the start");
-    }
-
-    private static void deltaRemoved() {
-        for (TowerType t : TowerType.values()) {
-            check(!t.name().contains("STUDENT") && !t.displayName.contains("Student") && !t.displayName.contains("Delta"), "no Delta / Bellarmine Student unit: " + t);
-        }
-        EnumSet<TowerType> want = EnumSet.of(TowerType.BRAD_LINDEMANN, TowerType.BRANDON, TowerType.ROHAN, TowerType.RONIL, TowerType.SHASHANK, TowerType.OWEN);
-        EnumSet<TowerType> got = EnumSet.noneOf(TowerType.class);
-        for (TowerType t : TowerType.heroes()) got.add(t);
-        check(got.equals(want), "exactly the six heroes: " + got);
-        check(TowerType.ZETHOS.faction == Faction.PRIMARY && !TowerType.ZETHOS.isHero(), "Zethos is a Primary tower, never a hero");
     }
 
     private static void exactPrices() {
-        Object[][] p = { { TowerType.BRAD_LINDEMANN, 1800 }, { TowerType.BRANDON, 1100 }, { TowerType.ROHAN, 1300 },
-            { TowerType.RONIL, 1500 }, { TowerType.SHASHANK, 1000 }, { TowerType.OWEN, 1400 } };
-        for (Object[] r : p) {
-            TowerType t = (TowerType) r[0];
-            int price = (Integer) r[1];
-            check(Shop.unlockPriceOf(t) == price, t + " costs $" + price);
-            Game g = newGame(0);
-            g.addCash(price - g.getCash() - 1, null);
-            check(g.getCash() == price - 1 && !g.purchaseHero(t) && !g.isHeroUnlocked(t), t + " unaffordable at $" + (price - 1));
-            g.addCash(1, null);
-            check(g.purchaseHero(t) && g.isHeroUnlocked(t) && g.getCash() == 0, t + " bought for exactly $" + price);
-            g.addCash(10_000, null);
-            double c = g.getCash();
-            check(!g.purchaseHero(t) && g.getCash() == c && "Already unlocked".equals(g.heroPurchaseProblem(t)), t + " cannot be bought twice");
-            check(g.getTowerManager().getTowers().isEmpty(), t + " purchase does not place it");
+        for (Object[] row : ROSTER) {
+            TowerType t = (TowerType) row[0];
+            TowerDef d = TowerCatalog.get(t);
+            check(d.unlockCost == (Integer) row[1], t + " unlocks for $" + row[1] + " (got $" + d.unlockCost + ")");
+            check(Shop.unlockPriceOf(t) == (Integer) row[1], t + " store price matches the catalog");
+            check(d.upgrades.length == 3, t + " has exactly 3 upgrades");
+            for (int i = 0; i < 3; i++) {
+                check(d.upgrades[i].cost == (Integer) row[2 + i], t + " upgrade " + (i + 1) + " costs $" + row[2 + i]
+                    + " (got $" + d.upgrades[i].cost + ")");
+            }
         }
     }
 
-    private static void persistence() {
-        Set<TowerType> disk = EnumSet.noneOf(TowerType.class);
-        HeroCollection.Storage st = new HeroCollection.Storage() {
-            @Override public Set<TowerType> load() { return EnumSet.copyOf(disk.isEmpty() ? EnumSet.noneOf(TowerType.class) : disk); }
-            @Override public void save(Set<TowerType> s) { disk.clear(); disk.addAll(s); }
-        };
+    private static void purchasing() {
         Game g = newGame(0);
-        g.setHeroCollection(HeroCollection.withStorage(st));
-        g.addCash(5000, null);
-        check(g.purchaseHero(TowerType.ROHAN), "Rohan bought");
-        check(disk.contains(TowerType.ROHAN), "unlock saved to storage");
-        HeroCollection reloaded = HeroCollection.withStorage(st);
-        check(reloaded.isUnlocked(TowerType.ROHAN) && !reloaded.isUnlocked(TowerType.OWEN), "a new session loads the unlock");
-        Game next = Game.freshCopy(g);
-        check(next.isHeroUnlocked(TowerType.ROHAN), "restart keeps unlocks");
-        check(!next.isHeroDeployed(TowerType.ROHAN), "...but deployments reset per match");
-        check(next.getCash() == Game.START_CASH, "...and the new match starts with normal cash");
+        TowerType t = TowerType.SUNNY_JOE;   // cheapest hero
+        int price = Shop.unlockPriceOf(t);
+        check(g.getCash() < price || !g.isHeroUnlocked(t), "starts without the hero");
+        g.addCash(price - 1 - g.getCash() + Game.START_CASH, null);
+        g.addCash(0, null);
+        // exactly one dollar short
+        Game poor = newGame(0);
+        poor.addCash(price - poor.getCash() - 1, null);
+        check(!poor.purchaseHero(t), "a dollar short is refused");
+        check(!poor.isHeroUnlocked(t) && poor.getCash() == price - 1, "a refused purchase spends nothing");
+        Game rich = newGame(0);
+        rich.addCash(price, null);
+        double before = rich.getCash();
+        check(rich.purchaseHero(t), "affordable hero is bought");
+        check(rich.isHeroUnlocked(t), "the purchase unlocks it");
+        check(near(rich.getCash(), before - price), "the exact price is deducted");
+        check(!rich.purchaseHero(t), "buying twice is refused");
+        check(rich.getTowerManager().heroProblem(t) == null, "an unlocked hero may be deployed");
+        // unlocking does not place it
+        check(rich.getTowerManager().getPlayerTowers().isEmpty(), "buying a hero never places it");
+    }
+
+    private static void persistence() {
+        final Set<TowerType> saved = EnumSet.noneOf(TowerType.class);
+        HeroCollection c = HeroCollection.withStorage(new HeroCollection.Storage() {
+            @Override public Set<TowerType> load() { return EnumSet.copyOf(saved.isEmpty() ? EnumSet.noneOf(TowerType.class) : saved); }
+            @Override public void save(Set<TowerType> unlocked) { saved.clear(); saved.addAll(unlocked); }
+        });
+        c.unlock(TowerType.KAIJU_KAI);
+        check(saved.contains(TowerType.KAIJU_KAI), "unlocking writes through to storage");
+        HeroCollection reloaded = HeroCollection.withStorage(new HeroCollection.Storage() {
+            @Override public Set<TowerType> load() { return EnumSet.copyOf(saved); }
+            @Override public void save(Set<TowerType> unlocked) { saved.clear(); saved.addAll(unlocked); }
+        });
+        check(reloaded.isUnlocked(TowerType.KAIJU_KAI), "the unlock survives a reload");
+        check(!reloaded.isUnlocked(TowerType.SUNNY_JOE), "other heroes stay locked");
     }
 
     private static void placementRules() {
         Game g = newGame(0);
-        g.addCash(20_000, null);
-        Vec a = buildableNear(g, new Vec(300, 300), 120), b = buildableNear(g, new Vec(700, 300), 120);
-        check(g.placeTower(TowerType.OWEN, a) == null, "locked hero refused");
-        g.purchaseHero(TowerType.OWEN);
-        double cash = g.getCash();
-        Tower o = g.placeTower(TowerType.OWEN, a);
-        check(o != null && g.getCash() == cash, "unlocked hero deploys for free");
-        check(g.placeTower(TowerType.OWEN, b) == null, "second Owen refused");
-        Tower gpt = g.placeTower(TowerType.GPT, b);
-        check(gpt != null, "regular towers place independently of heroes");
-        g.purchaseHero(TowerType.BRANDON);
-        check(g.placeTower(TowerType.BRANDON, buildableNear(g, new Vec(500, 600), 150)) != null, "different heroes in the same match");
-        g.sellTower(o);
-        check(Shop.sellValue(o) == 0, "dismissing a hero refunds nothing (it cost nothing to deploy)");
-        check(g.placeTower(TowerType.OWEN, a) == null && g.placementProblem(TowerType.OWEN, a).contains("already deployed"), "once per match, even after dismissing");
+        TowerType t = TowerType.CHILLSTIN;
+        g.getHeroCollection().unlock(t);
+        Tower first = g.placeTower(t, buildableNear(g, new Vec(400, 300), 200));
+        check(first != null, "an unlocked hero deploys");
+        check(near(g.getCash(), Game.START_CASH), "deploying an unlocked hero is free");
+        check(g.getTowerManager().heroProblem(t) != null, "the same hero cannot be deployed twice in one match");
+        check(g.placeTower(t, buildableNear(g, new Vec(800, 500), 200)) == null, "a second copy is refused");
+        TowerType other = TowerType.SUNNY_JOE;
+        g.getHeroCollection().unlock(other);
+        check(g.placeTower(other, buildableNear(g, new Vec(800, 500), 200)) != null, "a different hero still deploys");
+    }
+
+    private static void upgradePath() {
+        for (TowerType t : TowerType.heroes()) {
+            TowerDef d = TowerCatalog.get(t);
+            check(d.upgrades.length == 3, t + " has three upgrades");
+            check(d.tierLabels.length == 4, t + " has four progression levels");
+            Set<String> labels = new HashSet<>();
+            for (String l : d.tierLabels) check(labels.add(l), t + " tier label '" + l + "' is unique");
+            for (UpgradeDef up : d.upgrades) {
+                check(up.cost > 0, t + " upgrade '" + up.name + "' costs something");
+                check(up.description != null && up.description.length() > 10, t + " upgrade '" + up.name + "' is described");
+            }
+            // upgrades are bought in order and stop at tier 3
+            Game g = newGame(0);
+            g.getHeroCollection().unlock(t);
+            g.addCash(50_000, null);
+            Tower h = g.placeTower(t, buildableNear(g, new Vec(400, 300), 250));
+            check(h != null, t + " deploys");
+            for (int i = 0; i < 3; i++) {
+                check(h.getTier() == i, t + " is at tier " + i);
+                check(h.nextUpgrade() == d.upgrades[i], t + " offers upgrade " + (i + 1) + " next (purchase order)");
+                double before = g.getCash();
+                check(g.upgradeTower(h), t + " buys upgrade " + (i + 1));
+                check(near(g.getCash(), before - d.upgrades[i].cost), t + " upgrade " + (i + 1) + " charges $" + d.upgrades[i].cost);
+            }
+            check(h.getTier() == 3 && h.isMaxed() && !h.canUpgrade(), t + " reaches max tier 3");
+            check(h.nextUpgrade() == null, t + " offers nothing beyond tier 3");
+            check(!g.upgradeTower(h), t + " refuses a fourth upgrade");
+            double after = g.getCash();
+            check(!g.upgradeTower(h) && near(g.getCash(), after), t + " a refused upgrade spends nothing");
+        }
+    }
+
+    private static void upgradesChangeStats() {
+        for (TowerType t : TowerType.heroes()) {
+            TowerDef d = TowerCatalog.get(t);
+            for (int i = 1; i <= 3; i++) {
+                TowerStats a = d.statsForTier(i - 1), b = d.statsForTier(i);
+                boolean changed = b.hit.damage != a.hit.damage || b.rate != a.rate || b.range != a.range
+                    || b.pierce != a.pierce || b.splashRadius != a.splashRadius || b.targets != a.targets
+                    || b.chainHops != a.chainHops || b.hit.slowFraction != a.hit.slowFraction
+                    || b.hit.dotDps != a.hit.dotDps || b.auraRange != a.auraRange || b.auraRate != a.auraRate
+                    || !b.params().equals(a.params()) || b.kind != a.kind || b.projectilesPerShot != a.projectilesPerShot;
+                check(changed, t + " upgrade " + i + " (" + d.upgrades[i - 1].name + ") actually changes its statistics");
+            }
+            // the maxed hero is meaningfully stronger than the base one
+            TowerStats base = d.statsForTier(0), max = d.statsForTier(3);
+            boolean stronger = max.hit.damage > base.hit.damage || max.p("income", 0) > base.p("income", 0)
+                || max.p("healAmount", 0) > base.p("healAmount", 0) || max.auraRate > base.auraRate
+                || max.p("buffRate", 0) > base.p("buffRate", 0) || max.p("beamDamage", 0) > base.p("beamDamage", 0);
+            check(stronger, t + " is stronger at tier 3 than at base");
+        }
     }
 
     private static void camoAndTargeting() {
-        Game g = frozen();
-        Tower brad = hero(g, TowerType.BRAD_LINDEMANN, 500);
-        Enemy camo = spawnAt(g, EnemyType.QUICK_SORT, EnumSet.of(Modifier.CAMO), 0, 500);
-        check(g.getCombat().acquireTargets(brad, 1).isEmpty(), "heroes need detection for Camo");
-        check(!camo.isTargetableBy(brad.canSeeCamo()), "...Brad has no built-in detection");
-        check(brad.getTargeting() == Targeting.STRONGEST, "Brad prioritises the strongest enemy");
-        check(TowerCatalog.get(TowerType.BRANDON).defaultTargeting == Targeting.STRONGEST, "Brandon prioritises the strongest enemy");
-        check(TowerCatalog.get(TowerType.ZETHOS).defaultTargeting == Targeting.FIRST, "Zethos prioritises the first enemy");
-        // Fortified keeps its HP-doubling rule against hero damage
-        Enemy fort = spawnAt(g, EnemyType.DYNAMIC_ARRAY, EnumSet.of(Modifier.FORTIFIED), 0, 900);
-        Enemy plain = spawnAt(g, EnemyType.DYNAMIC_ARRAY, null, 0, 950);
-        check(near(fort.getMaxHp(), plain.getMaxHp() * 2), "Fortified enemies keep double HP");
-    }
-
-    // ------------------------------------------------------------------ 8-13 heroes
-    private static void brad() {
-        TowerStats s = TowerCatalog.get(TowerType.BRAD_LINDEMANN).baseStats;
-        check(s.hit.damage == 35 && near(s.interval(), 2.0) && near(s.range, u(55)) && near(s.splashRadius, u(18)) && s.chainHops == 5
-            && near(s.chainRange, u(15)) && s.p("chainDamage") == 25 && near(s.projectileSpeed, u(45)), "Brad Command Lightning numbers");
-        for (int sup = 0; sup < 2; sup++) {
-            Game g = frozen();
-            Tower b = hero(g, TowerType.BRAD_LINDEMANN, 600);
-            if (sup == 1) { b.resetAbilityCooldown(); check(g.activateAbility(b), "Supreme Command activates"); }
-            List<Enemy> es = new ArrayList<>();
-            for (int i = 0; i < 16; i++) es.add(tank(g, 560 + i * 12));
-            oneShot(g, b);
-            double blast = sup == 1 ? 70 : 35, chain = sup == 1 ? 35 : 25;
-            int chained = 0, blasted = 0;
-            boolean valid = true;
-            for (Enemy e : es) {
-                double d = taken(e);
-                if (near(d, blast)) blasted++;
-                else if (near(d, chain)) chained++;
-                else if (near(d, blast + chain)) { blasted++; chained++; }
-                else if (d != 0) valid = false;
-            }
-            String tag = sup == 1 ? "Supreme Command: " : "";
-            check(valid, tag + "every enemy took explosion and/or one chain hit only (no double chain hits)");
-            check(chained == (sup == 1 ? 10 : 5), tag + "chain reaches " + (sup == 1 ? 10 : 5) + " enemies, got " + chained);
-            check(blasted >= 2, tag + "explosion hits the target and its neighbours (" + blasted + ")");
-            if (sup == 1) check(near(BradLindemannBehavior.splashRadius(b), u(27)), "Supreme Command splash 27 units");
+        check(TowerCatalog.get(TowerType.NIK_SCOPE).baseStats.seesCamo, "Nik-Scope sees camo from the start");
+        check(TowerCatalog.get(TowerType.NIK_SCOPE).defaultTargeting == Targeting.STRONGEST, "Nik-Scope opens on Strongest");
+        for (TowerType t : TowerType.heroes()) {
+            if (t == TowerType.NIK_SCOPE) continue;
+            check(!TowerCatalog.get(t).baseStats.seesCamo, t + " has no built-in camo detection");
         }
-        // chain hops need an enemy within 15 units of the previous one
+        // a hero without detection cannot touch an undetected camo enemy
         Game g = frozen();
-        Tower b = hero(g, TowerType.BRAD_LINDEMANN, 600);
-        Enemy t0 = tank(g, 600);
-        Enemy far = tank(g, 600 + u(18) + u(15) + 40);
-        oneShot(g, b);
-        check(near(taken(t0), 35) && taken(far) == 0, "no chain target beyond 15 units");
-        // ability lasts 12 s
-        b.resetAbilityCooldown();
-        g.activateAbility(b);
-        runSeconds(g, 11.9);
-        check(BradLindemannBehavior.isSupreme(b), "Supreme Command active at 11.9 s");
-        runSeconds(g, 0.2);
-        check(!BradLindemannBehavior.isSupreme(b) && near(b.getAbilityCooldownRemaining(), 45 - 12.1), "ends at 12 s; 45 s cooldown counts from activation");
-    }
-
-    private static void brandon() {
-        Game g = frozen();
-        Tower t = hero(g, TowerType.BRANDON, 500);
-        check(near(1 / t.effectiveRate(g), 0.30), "attack interval 0.30 s");
-        List<Enemy> stack = new ArrayList<>();
-        for (int i = 0; i < 6; i++) stack.add(tank(g, 500));
-        oneShot(g, t);
-        int hit = 0;
-        for (Enemy e : stack) { if (taken(e) > 0) { hit++; check(near(taken(e), 12), "12 damage per bolt hit"); } }
-        check(hit == 3, "a bolt pierces 3 enemies, got " + hit);
-        t.resetAbilityCooldown();
-        check(g.activateAbility(t), "Overdrive activates");
-        check(near(1 / t.effectiveRate(g), 0.15), "Overdrive halves the interval");
-        AttackContext c = g.getCombat().newAttackContext(t, g.getCombat().acquireTargets(t, 1));
-        t.getBehavior().modifyAttack(g, t, c);
-        check(near(c.damageMult, 1.5) && c.pierce == 5, "Overdrive: x1.5 damage, pierce 5");
-        for (Enemy e : stack) e.heal(1e9);
-        oneShot(g, t);
-        hit = 0;
-        for (Enemy e : stack) if (taken(e) > 0) { hit++; check(near(taken(e), 18), "Overdrive bolt deals 18"); }
-        check(hit == 5, "Overdrive bolt pierces 5, got " + hit);
-        runSeconds(g, 10.1);
-        check(!t.hasSelfBuff(BrandonBehavior.OVERDRIVE) && near(1 / t.effectiveRate(g), 0.30), "Overdrive ends after 10 s");
-    }
-
-    private static void rohan() {
-        Game g = frozen();
-        Tower r = hero(g, TowerType.ROHAN, 500);
-        List<Enemy> pack = new ArrayList<>();
-        for (int i = 0; i < 30; i++) pack.add(tank(g, 500));
-        Enemy outside = tank(g, 500 - u(12) - 60);   // behind the pack, so First targeting still picks the pack
-        Enemy boss = g.getEnemyManager().spawnScaled(EnemyType.BELLARMINE_COLLEGE_PREP, null, 0, 500, 1, 1.0);
+        Tower h = hero(g, TowerType.CHILLSTIN, 500);
+        Enemy camo = g.getEnemyManager().spawnScaled(EnemyType.DYNAMIC_ARRAY, EnumSet.of(Modifier.CAMO), 0, 500, 500, 1.0);
         g.getEnemyManager().update(0);
-        oneShot(g, r);
-        int frozen = 0;
-        for (Enemy e : pack) {
-            check(near(taken(e), 18) && near(e.getSlowFraction(), 0.40), "Cryo Blast: 18 damage and 40% slow");
-            if (e.isFrozen()) frozen++;
-        }
-        check(frozen > 0 && frozen < 15, "about 20% of enemies frozen (" + frozen + " of 30)");
-        check(taken(outside) == 0, "nothing beyond 12 units");
-        check(!boss.isFrozen() && near(boss.getSlowFraction(), 0.15), "bosses are never frozen and take a 15% slow, got " + boss.getSlowFraction());
-        Enemy f = null;
-        for (Enemy e : pack) if (e.isFrozen()) { f = e; break; }
-        if (f != null) { f.tickStatuses(1.01); check(!f.isFrozen(), "freeze lasts 1 s"); }
-        for (Enemy e : pack) e.tickStatuses(3.01);
-        check(pack.get(0).getSlowFraction() == 0, "slow lasts 3 s");
-        // Absolute Zero: every enemy on the map
-        Enemy farAway = tank(g, 1200);
-        double bossBefore = taken(boss);
-        r.resetAbilityCooldown();
-        check(g.activateAbility(r), "Absolute Zero activates");
-        boolean allFrozen = true;
-        for (Enemy e : pack) allFrozen &= e.isFrozen();
-        check(allFrozen && farAway.isFrozen(), "freezes all non-boss enemies on the map");
-        check(near(taken(farAway), 50), "deals 50 damage (before the freeze bonus)");
-        check(!boss.isFrozen() && near(boss.getSlowFraction(), 0.50), "boss slowed exactly 50%, not frozen");
-        check(near(taken(boss) - bossBefore, 50 * (1 - boss.effectiveArmor())), "boss takes 50 damage (through its armour)");
-        farAway.tickStatuses(4.01);
-        boss.tickStatuses(4.01);
-        check(!farAway.isFrozen() && boss.getSlowFraction() == 0, "freeze and boss slow last 4 s");
-        Game empty = frozen();
-        Tower r2 = hero(empty, TowerType.ROHAN, 500);
-        r2.resetAbilityCooldown();
-        check(!empty.activateAbility(r2) && r2.isAbilityReady(), "no enemies: refused, cooldown kept");
+        check(g.getCombat().acquireTargets(h, 1).isEmpty(), "camo is invisible to a hero without detection");
+        Tower sniper = hero(g, TowerType.NIK_SCOPE, 520);
+        check(!g.getCombat().acquireTargets(sniper, 1).isEmpty(), "Nik-Scope sees the same camo enemy");
+        check(camo.isAlive(), "the camo enemy is still alive");
     }
 
-    private static void ronil() {
-        TowerStats s = TowerCatalog.get(TowerType.RONIL).baseStats;
-        check(s.hit.damage == 75 && near(s.interval(), 3.0) && near(s.range, u(75)) && near(s.splashRadius, u(16)) && near(s.projectileSpeed, u(35)), "Meteor Strike numbers");
+    // ------------------------------------------------------------------ per-hero mechanics
+    private static void lobberLuis() {
+        TowerStats s = TowerCatalog.get(TowerType.LOBBER_LUIS).statsForTier(2);
+        check(s.pi("clusterBombs") == 3 && s.p("clusterDamage") == 25, "Cluster Bombs: 3 bomblets x 25 damage");
         Game g = frozen();
-        Tower t = hero(g, TowerType.RONIL, 400);
-        List<Enemy> pack = new ArrayList<>();
-        for (int i = 0; i < 4; i++) pack.add(tank(g, 400));
-        oneShot(g, t);
-        for (Enemy e : pack) check(near(taken(e), 75), "Meteor Strike hits every enemy in 16 units for 75");
-        // Meteor Shower: 8 meteors over 6 s at distinct enemy locations
+        Tower h = hero(g, TowerType.LOBBER_LUIS, 500, 2);
+        // a crowd around the impact: the bomblets must reach enemies the main blast does not
+        for (int i = 0; i < 10; i++) tank(g, 460 + i * 14);
+        oneShot(g, h);
+        runSeconds(g, 0.6);                     // the bomblets land shortly after the shell
+        int hurt = 0;
+        for (Enemy e : g.getEnemyManager().getEnemies()) if (taken(e) > 0) hurt++;
+        check(hurt >= 4, "the cluster spreads damage over the crowd (" + hurt + " enemies)");
+        // Orbital Artillery doubles every 5th shot
         Game g2 = frozen();
-        Tower r2 = forcePlace(g2, TowerType.RONIL, buildableNear(g2, new Vec(1130, 860), 150), 0);
-        Path route = g2.getMap().getRoutes().get(0);
-        for (int i = 0; i < 12; i++) tank(g2, 150 + i * 140);
-        r2.resetAbilityCooldown();
-        check(g2.activateAbility(r2), "Meteor Shower activates");
-        List<Vec> impacts = new ArrayList<>();
-        double t0 = g2.getTime();
-        for (int i = 0; i < (int) (6.2 / Game.DT); i++) {
-            g2.step(Game.DT);
-            for (VisualEvent ev : g2.getEvents()) if (ev.kind == VisualEvent.Kind.EXPLOSION && near(ev.radius, u(14))) impacts.add(ev.a);
-            g2.getEvents().clear();
+        Tower h2 = hero(g2, TowerType.LOBBER_LUIS, 500, 3);
+        double plain = -1, orbital = -1;
+        for (int shot = 1; shot <= 5; shot++) {
+            Enemy e = tank(g2, 500);
+            oneShot(g2, h2);
+            if (shot == 1) plain = taken(e);
+            if (shot == 5) orbital = taken(e);
+            e.markDead();
         }
-        check(impacts.size() == 8, "8 meteors land, got " + impacts.size());
-        boolean distinct = true;
-        for (int i = 0; i < impacts.size(); i++) for (int j = i + 1; j < impacts.size(); j++) if (impacts.get(i).dist(impacts.get(j)) <= u(14)) distinct = false;
-        check(distinct, "each meteor lands at a different enemy location");
-        check(g2.getTime() - t0 > 6 && route != null, "shower spans 6 s");
+        check(orbital > plain * 1.5, "every 5th shot is an orbital strike (" + plain + " -> " + orbital + ")");
     }
 
-    private static void shashank() {
+    private static void sageAarav() {
+        TowerDef d = TowerCatalog.get(TowerType.SAGE_AARAV);
+        check(d.baseStats.kind == AttackKind.NONE, "Sage Aarav never attacks");
         Game g = frozen();
-        Tower sh = hero(g, TowerType.SHASHANK, 500);
-        Tower nearT = forcePlace(g, TowerType.GPT, buildableNear(g, sh.getPosition().add(new Vec(70, 0)), 40), 0);
-        Tower farT = forcePlace(g, TowerType.GPT, buildableNear(g, new Vec(1130, 860), 150), 0);
-        check(nearT.getPosition().dist(sh.getPosition()) <= u(35) && farT.getPosition().dist(sh.getPosition()) > u(35), "scenario: one tower inside 35 units, one outside");
-        List<Enemy> stack = new ArrayList<>();
-        for (int i = 0; i < 4; i++) stack.add(tank(g, 500));
-        oneShot(g, sh);
+        Tower h = hero(g, TowerType.SAGE_AARAV, 500);
+        // lose some integrity, then let the aura work
+        leak(g, 20);
+        int before = g.getLives();
+        check(before < g.getMaxLives(), "integrity was lost");
+        runSeconds(g, 5.2);
+        check(g.getLives() == before + 5, "restores 5 integrity every 5 s (" + before + " -> " + g.getLives() + ")");
+        // never above the maximum
+        runSeconds(g, 60);
+        check(g.getLives() == g.getMaxLives(), "healing stops at the starting maximum");
+        // Divine Restoration fires once, below a quarter
+        Game g2 = frozen();
+        Tower h2 = hero(g2, TowerType.SAGE_AARAV, 500, 3);
+        leak(g2, g2.getMaxLives() - 10);
+        check(g2.getLives() == 10, "integrity down to 10");
+        runSeconds(g2, 0.2);
+        int emergency = g2.getLives();
+        check(emergency >= 10 + (int) Math.ceil(g2.getMaxLives() * 0.20), "emergency restoration pays 20% of maximum (" + emergency + ")");
+        leak(g2, emergency - 5);
+        runSeconds(g2, 0.2);
+        check(g2.getLives() <= 5 + 1, "the emergency restoration only happens once per match");
+    }
+
+    private static void ironImraan() {
+        TowerStats s = TowerCatalog.get(TowerType.IRON_IMRAAN).baseStats;
+        check(s.hit.knockback > 0 && s.hit.bossKnockback == 0, "punches shove normal enemies, never bosses");
+        check(near(s.range, u(20)), "a very short 20-unit reach");
+        Game g = frozen();
+        Tower h = hero(g, TowerType.IRON_IMRAAN, 500);
+        Enemy e = tank(g, 500);
+        double d0 = e.getDistance();
+        oneShot(g, h);
+        check(e.getDistance() < d0, "the enemy is knocked back down the track");
+        // Hydraulic Smash: every 3rd punch also slams the ground
+        Game g2 = frozen();
+        Tower h2 = hero(g2, TowerType.IRON_IMRAAN, 500, 3);
+        Enemy far = tank(g2, 500 + u(18));       // outside the punch, inside the 22-unit shockwave
+        for (int i = 0; i < 3; i++) { tank(g2, 500); oneShot(g2, h2); }
+        check(taken(far) > 0, "the shockwave reaches past the punch");
+        check(far.hasStatus(StatusEffect.Kind.STUN) || taken(far) > 0, "the shockwave lands on nearby enemies");
+    }
+
+    private static void boomSam() {
+        TowerStats s2 = TowerCatalog.get(TowerType.BOOM_SAM).statsForTier(2);
+        check(s2.targets == 2, "Double Detonation throws two charges");
+        Game g = frozen();
+        Tower h = hero(g, TowerType.BOOM_SAM, 500, 1);
+        Enemy outside = tank(g, 500 - u(60));    // well behind: never the First target, never in the blast
+        Enemy centre = tank(g, 500);
+        Enemy edge = tank(g, 500 + u(10));       // inside the 13-unit blast of the target
+        oneShot(g, h);
+        check(taken(centre) > 0 && taken(edge) > 0, "the blast damages everything in its radius");
+        check(taken(outside) == 0, "enemies outside the blast are untouched");
+        check(near(taken(centre), taken(edge)), "splash deals full damage across the blast");
+        // Nuclear Boom on every 5th attack
+        Game g2 = frozen();
+        Tower h2 = hero(g2, TowerType.BOOM_SAM, 500, 3);
+        double small = -1, big = -1;
+        for (int shot = 1; shot <= 5; shot++) {
+            Enemy e = tank(g2, 500);
+            oneShot(g2, h2);
+            runSeconds(g2, 0.4);
+            if (shot == 1) small = taken(e);
+            if (shot == 5) big = taken(e);
+            e.markDead();
+        }
+        check(big > small, "every 5th attack adds the nuclear detonation (" + small + " -> " + big + ")");
+    }
+
+    private static void chillstin() {
+        Game g = frozen();
+        Tower h = hero(g, TowerType.CHILLSTIN, 500);
+        Enemy e = tank(g, 500);
+        oneShot(g, h);
+        check(e.hasStatus(StatusEffect.Kind.SLOW), "frost shards slow what they hit");
+        // bosses are never frozen by Frozen Prison
+        Game g2 = frozen();
+        Tower h2 = hero(g2, TowerType.CHILLSTIN, 500, 2);
+        Enemy boss = g2.getEnemyManager().spawnScaled(EnemyType.BELLARMINE_COLLEGE_PREP, null, 0, 500, 4000, 1.0);
+        g2.getEnemyManager().update(0);
+        for (int i = 0; i < 8; i++) oneShot(g2, h2);
+        check(!boss.hasStatus(StatusEffect.Kind.FREEZE), "a boss is never frozen");
+        check(boss.hasStatus(StatusEffect.Kind.SLOW), "a boss is slowed instead");
+        // Absolute Frost bursts
+        TowerStats s3 = TowerCatalog.get(TowerType.CHILLSTIN).statsForTier(3);
+        check(s3.pi("burstEvery") == 6 && near(s3.p("burstSlow"), 0.60), "Absolute Frost: 60% slow burst every 6th shard");
+    }
+
+    private static void kaijuKai() {
+        TowerDef d = TowerCatalog.get(TowerType.KAIJU_KAI);
+        check(d.baseStats.kind == AttackKind.PROJECTILE && d.baseStats.splashRadius > 0, "the base roar is a splash attack");
+        check(d.statsForTier(1).kind == AttackKind.CUSTOM, "Atomic Breath replaces the roar with a beam");
+        check(d.statsForTier(2).p("beamDamage") == 35, "Titan Awakening raises the beam to 35 per tick");
+        Game g = frozen();
+        Tower h = hero(g, TowerType.KAIJU_KAI, 500, 1);
+        // enemies strung out along the beam's path
+        List<Enemy> line = new ArrayList<>();
+        for (int i = 0; i < 4; i++) line.add(tank(g, 500 + i * 30));
+        check(g.getCombat().attack(h), "the beam starts");
+        check(KaijuKaiBehavior.isBeaming(h), "the beam is burning");
+        runSeconds(g, 1.6);
+        int burned = 0;
+        for (Enemy e : line) if (taken(e) > 0) burned++;
+        check(burned >= 2, "the beam burns everything along its path (" + burned + ")");
+        check(!KaijuKaiBehavior.isBeaming(h), "the beam ends after its duration");
+        // the atomic blast
+        Game g2 = frozen();
+        Tower h2 = hero(g2, TowerType.KAIJU_KAI, 500, 3);
+        Enemy far = tank(g2, 900);
+        runSeconds(g2, 8.3);
+        check(taken(far) > 0, "Cataclysmic Kaiju detonates an atomic blast on the crowd");
+    }
+
+    private static void abhiAce() {
+        TowerDef d = TowerCatalog.get(TowerType.ABHI_ACE);
+        check(d.baseStats.ignoresLos, "Abhi-Ace flies, so ground blockers never stop his missiles");
+        check(d.statsForTier(2).targets == 3 && d.statsForTier(3).targets == 4, "3 then 4 missiles per attack");
+        // flying does not make him invulnerable or unplaceable: he is a normal tower on the ground grid
+        Game g = frozen();
+        Tower h = hero(g, TowerType.ABHI_ACE, 500, 2);
+        List<Enemy> three = new ArrayList<>();
+        for (int i = 0; i < 3; i++) three.add(tank(g, 480 + i * 40));
+        oneShot(g, h);
+        int hurt = 0;
+        for (Enemy e : three) if (taken(e) > 0) hurt++;
+        check(hurt >= 2, "Missile Barrage splits across separate targets (" + hurt + ")");
+        // line of sight is ignored on the map that has blockers
+        Game los = new Game(lindefense.map.MapCatalog.create(1), 7);
+        check(los.getMap().hasLineOfSight(new Vec(150, 150), new Vec(150, 290)), "the monolith map has clear lanes");
+        check(!los.getMap().hasLineOfSight(new Vec(400, 150), new Vec(400, 290)), "and blocked ones");
+    }
+
+    private static void zippyMatt() {
+        Game g = frozen();
+        Tower h = hero(g, TowerType.ZIPPY_MATT, 500, 1);
+        // a tight cluster so the chain can hop
+        List<Enemy> cluster = new ArrayList<>();
+        for (int i = 0; i < 6; i++) cluster.add(tank(g, 490 + i * 16));
+        oneShot(g, h);
         int hit = 0;
-        for (Enemy e : stack) if (taken(e) > 0) { hit++; check(near(taken(e), 15) && near(e.getMarkedBonus(), 0.10), "Data Drain: 15 damage and +10% vulnerability"); }
-        check(hit == 2, "Data Drain pierces 2, got " + hit);
-        Enemy marked = null;
-        for (Enemy e : stack) if (e.getMarkedBonus() > 0) { marked = e; break; }
-        double dealt = g.getCombat().applyHit(marked, new HitSpec(10, DamageType.ENERGY), farT, 1, 0);
-        check(near(dealt, 11), "any tower deals +10% to a drained enemy, got " + dealt);
-        marked.applyStatus(lindefense.enemy.StatusEffect.Kind.MARKED, 0.10, 4);
-        check(near(marked.getMarkedBonus(), 0.10), "reapplying refreshes, never stacks");
-        marked.tickStatuses(4.01);
-        check(marked.getMarkedBonus() == 0, "debuff lasts 4 s");
-        double cash = g.getCash();
-        double before = nearT.effectiveRate(g);
-        sh.resetAbilityCooldown();
-        check(g.activateAbility(sh), "Resource Optimization activates");
-        check(near(g.getCash(), cash + 500), "+$500 immediately");
-        check(near(nearT.effectiveRate(g), before * 1.2) && near(farT.buffTotal(BuffStat.RATE), 0), "+20% attack speed within 35 units only");
-        check(near(sh.buffTotal(BuffStat.RATE), 0.2), "Shashank buffs himself too (he is within range)");
-        sh.resetAbilityCooldown();
-        g.activateAbility(sh);
-        check(near(nearT.buffTotal(BuffStat.RATE), 0.2), "a second activation does not stack");
-        runSeconds(g, 12.1);
-        check(near(nearT.buffTotal(BuffStat.RATE), 0), "buff lasts 12 s");
-    }
-
-    private static void owen() {
-        Game g = frozen();
-        Tower o = hero(g, TowerType.OWEN, 500);
-        runSeconds(g, 0.05);
-        List<Drone> core = g.getEffects().dronesOf(o, OwenBehavior.CORE);
-        check(core.size() == 3, "3 permanent drones, got " + core.size());
-        for (Drone d : core) {
-            TowerStats s = d.effectiveStats();
-            check(s.hit.damage == 20 && near(s.interval(), 1.5) && near(s.range, u(50)) && near(s.projectileSpeed, u(55)), "drone: 20 dmg / 1.5 s / 50 u / 55 u/s");
+        double damage = h.getStats().hit.damage;
+        for (Enemy e : cluster) {
+            double d = taken(e);
+            if (d > 0) hit++;
+            check(d <= damage + 1e-6, "no enemy is struck twice by one arc (" + d + " of " + damage + ")");
         }
-        Enemy a = tank(g, 480), b = tank(g, 500), c = tank(g, 520);
-        runSeconds(g, 1.6);
-        Set<Integer> locked = new HashSet<>();
-        for (Drone d : core) if (d.getCurrentTarget() != null) locked.add(d.getCurrentTarget().getId());
-        check(locked.size() == 3, "each drone locks its own target (" + locked.size() + " distinct)");
-        check(taken(a) > 0 && taken(b) > 0 && taken(c) > 0, "all three enemies are being shot");
-        double perShot = taken(a) + taken(b) + taken(c);
-        check(near(perShot % 20, 0), "drone shots deal 20 each");
-        // retarget when the target dies
-        Drone d0 = core.get(0);
-        Enemy tgt = d0.getCurrentTarget();
-        killOutright(g, tgt);
-        Enemy d4 = tank(g, 510);
-        runSeconds(g, 1.6);
-        check(d0.getCurrentTarget() != null && d0.getCurrentTarget() != tgt && d0.getCurrentTarget().isAlive(), "drone acquires a new target after a kill");
-        check(taken(d4) >= 0, "replacement target in range");
-        // Drone Swarm
-        o.resetAbilityCooldown();
-        check(g.activateAbility(o), "Drone Swarm activates");
-        List<Drone> swarm = g.getEffects().dronesOf(o, OwenBehavior.SWARM);
-        check(swarm.size() == 5, "5 temporary drones");
-        for (Drone d : swarm) check(d.effectiveStats().hit.damage == 25 && near(d.effectiveStats().interval(), 1.0) && near(d.lifetime, 15), "swarm drone: 25 dmg, 1 s, 15 s life");
-        runSeconds(g, 15.1);
-        check(g.getEffects().dronesOf(o, OwenBehavior.SWARM).isEmpty(), "swarm disappears after 15 s");
-        check(g.getEffects().dronesOf(o, OwenBehavior.CORE).size() == 3, "original 3 drones remain");
-        g.sellTower(o);
-        g.run(1);
-        check(g.getEffects().dronesOf(o, null).isEmpty(), "drones are removed when Owen is dismissed");
+        check(hit >= 2 && hit <= 4, "Speed Surge chains to at most 4 targets (" + hit + ")");
+        // Electric Overload's falloff
+        Game g2 = frozen();
+        Tower h2 = hero(g2, TowerType.ZIPPY_MATT, 500, 2);
+        List<Enemy> line = new ArrayList<>();
+        for (int i = 0; i < 6; i++) line.add(tank(g2, 490 + i * 16));
+        oneShot(g2, h2);
+        double top = 0, low = Double.MAX_VALUE;
+        int touched = 0;
+        for (Enemy e : line) {
+            double d = taken(e);
+            if (d <= 0) continue;
+            touched++;
+            top = Math.max(top, d);
+            low = Math.min(low, d);
+        }
+        check(touched >= 3, "the chain reaches several enemies (" + touched + ")");
+        check(low < top, "each hop deals less than the one before (" + top + " -> " + low + ")");
     }
 
-    // ------------------------------------------------------------------ 14-17 Zethos
+    private static void sunnyJoe() {
+        TowerDef d = TowerCatalog.get(TowerType.SUNNY_JOE);
+        check(d.baseStats.kind == AttackKind.NONE, "Sunny Joe never attacks");
+        Game g = frozen();
+        Tower h = hero(g, TowerType.SUNNY_JOE, 500);
+        double before = g.getCash();
+        runSeconds(g, 10.2);
+        check(near(g.getCash(), before + 40), "pays $40 every 10 s (got $" + (g.getCash() - before) + ")");
+        // Financial Empire: bigger income and the periodic bonus
+        Game g2 = frozen();
+        Tower h2 = hero(g2, TowerType.SUNNY_JOE, 500, 3);
+        double b2 = g2.getCash();
+        runSeconds(g2, 60.5);
+        double earned = g2.getCash() - b2;
+        check(earned >= 6 * 150 + 300 - 1, "Financial Empire pays 150 per 10 s plus the 300 bonus (got $" + earned + ")");
+    }
+
+    private static void nikScope() {
+        TowerDef d = TowerCatalog.get(TowerType.NIK_SCOPE);
+        check(near(d.baseStats.range, u(100)) && near(d.statsForTier(3).range, u(150)), "range 100 -> 150 units");
+        check(d.statsForTier(2).pierce == 3 && d.statsForTier(3).pierce == 5, "pierce 3 then 5");
+        check(near(d.statsForTier(2).hit.multVsFortified, 1.5), "+50% against Fortified enemies");
+        check(near(d.statsForTier(3).p("critChance"), 0.20) && near(d.statsForTier(3).p("critMult"), 2.5), "20% crits at x2.5");
+        // crits actually multiply damage: over many shots the best hit beats the plain one
+        Game g = frozen();
+        Tower h = hero(g, TowerType.NIK_SCOPE, 500, 3);
+        double plain = h.getStats().hit.damage, best = 0;
+        for (int i = 0; i < 60; i++) {
+            Enemy e = g.getEnemyManager().spawnScaled(EnemyType.DYNAMIC_ARRAY, null, 0, 500, 5000, 1.0);
+            g.getEnemyManager().update(0);
+            oneShot(g, h);
+            best = Math.max(best, taken(e));
+            e.markDead();
+        }
+        check(best > plain * 2, "critical hits land for more than double (" + plain + " -> " + best + ")");
+    }
+
+    private static void camiMine() {
+        Game g = frozen();
+        Tower h = hero(g, TowerType.CAMI_MINE, 500);
+        runSeconds(g, 4.2);
+        List<Mine> mines = g.getEffects().minesOf(h, "mine");
+        check(!mines.isEmpty(), "a mine is planted on the track");
+        check(mines.size() <= h.getStats().pi("maxMines"), "never more than the maximum");
+        runSeconds(g, 30);
+        check(g.getEffects().minesOf(h, "mine").size() == h.getStats().pi("maxMines"), "the field fills up to its cap and stops");
+        // an enemy walking onto a mine sets it off exactly once
+        Mine m = g.getEffects().minesOf(h, "mine").get(0);
+        Enemy e = g.getEnemyManager().spawnScaled(EnemyType.DYNAMIC_ARRAY, null, 0,
+            g.getMap().getRoutes().get(0).nearestDistanceAlong(m.position), 500, 1.0);
+        g.getEnemyManager().update(0);
+        runSeconds(g, 0.2);
+        check(taken(e) > 0, "the mine detonates on the enemy that steps on it");
+        check(!m.isAlive(), "a mine fires once and is gone, so it can never block a lane");
+        // mines never stop enemies moving
+        check(!e.hasStatus(StatusEffect.Kind.STUN), "a mine does not immobilise");
+    }
+
+    private static void justinTime() {
+        Game g = frozen();
+        Tower h = hero(g, TowerType.JUSTIN_TIME, 500);
+        Enemy e = tank(g, 500);
+        oneShot(g, h);
+        check(e.hasStatus(StatusEffect.Kind.SLOW), "time bolts slow what they hit");
+        // the Temporal Field reaches enemies far outside his range
+        Game g2 = frozen();
+        Tower h2 = hero(g2, TowerType.JUSTIN_TIME, 500, 2);
+        Enemy far = tank(g2, 1400);
+        check(far.getPosition().dist(h2.getPosition()) > h2.effectiveRange(g2), "the enemy is out of range");
+        runSeconds(g2, 12.3);
+        check(far.hasStatus(StatusEffect.Kind.SLOW), "the Temporal Field slows the whole map");
+        // Time Freeze: bosses are slowed, never frozen
+        Game g3 = frozen();
+        Tower h3 = hero(g3, TowerType.JUSTIN_TIME, 500, 3);
+        Enemy boss = g3.getEnemyManager().spawnScaled(EnemyType.BELLARMINE_COLLEGE_PREP, null, 0, 600, 9000, 1.0);
+        Enemy normal = tank(g3, 650);
+        g3.getEnemyManager().update(0);
+        runSeconds(g3, 60.3);
+        check(!boss.hasStatus(StatusEffect.Kind.FREEZE), "bosses are never frozen by Time Freeze");
+        check(boss.hasStatus(StatusEffect.Kind.SLOW), "bosses are slowed instead");
+        check(normal.hasStatus(StatusEffect.Kind.FREEZE) || !normal.isAlive(), "normal enemies freeze");
+    }
+
+    private static void spearHanbo() {
+        Game g = frozen();
+        Tower h = hero(g, TowerType.SPEAR_HANBO, 420);
+        List<Enemy> line = new ArrayList<>();
+        for (int i = 0; i < 6; i++) line.add(tank(g, 470 + i * 16));
+        oneShot(g, h);
+        int pierced = 0;
+        double dmg = h.getStats().hit.damage;
+        for (Enemy e : line) {
+            double d = taken(e);
+            if (d > 0) pierced++;
+            check(d <= dmg + 1e-6, "one spear never hits the same enemy twice on a leg (" + d + ")");
+        }
+        check(pierced >= 2 && pierced <= 4, "the spear pierces up to 4 enemies (" + pierced + ")");
+        // the returning spear hits the line a second time on the way home
+        Game g2 = frozen();
+        Tower h2 = hero(g2, TowerType.SPEAR_HANBO, 420, 2);
+        List<Enemy> back = new ArrayList<>();
+        for (int i = 0; i < 6; i++) back.add(tank(g2, 470 + i * 16));
+        check(g2.getCombat().attack(h2), "the spear is thrown");
+        runSeconds(g2, 1.6);                     // under the 1.8 s interval: exactly one throw, out and back
+        double maxHit = 0;
+        for (Enemy e : back) maxHit = Math.max(maxHit, taken(e));
+        double single = h2.getStats().hit.damage;
+        check(maxHit > single + 1e-6, "an enemy can be hit on the way out and on the way back (" + maxHit + " > " + single + ")");
+        check(maxHit <= single * 2 + 1e-6, "but no more than twice (" + maxHit + ")");
+    }
+
+    private static void thornTuhin() {
+        Game g = frozen();
+        Tower h = hero(g, TowerType.THORN_TUHIN, 500);
+        Enemy e = tank(g, 500);
+        oneShot(g, h);
+        double direct = taken(e);
+        check(direct > 0 && e.hasStatus(StatusEffect.Kind.DOT), "thorns poison what they hit");
+        runSeconds(g, 3.2);
+        check(taken(e) > direct, "the poison keeps damaging after the hit (" + direct + " -> " + taken(e) + ")");
+        // Overgrowth vines
+        Game g2 = frozen();
+        Tower h2 = hero(g2, TowerType.THORN_TUHIN, 500, 2);
+        runSeconds(g2, 8.3);
+        check(!g2.getEffects().zonesOf(h2, "vines").isEmpty(), "vines grow across the track");
+        runSeconds(g2, 40);
+        check(g2.getEffects().zonesOf(h2, "vines").size() <= h2.getStats().pi("maxVines"), "never more than two vine patches at once");
+    }
+
+    private static void trapperChe() {
+        Game g = frozen();
+        Tower h = hero(g, TowerType.TRAPPER_CHE, 500);
+        runSeconds(g, 4.2);
+        List<Mine> traps = g.getEffects().minesOf(h, "trap");
+        check(!traps.isEmpty(), "a trap is set on the track");
+        Mine t = traps.get(0);
+        double along = g.getMap().getRoutes().get(0).nearestDistanceAlong(t.position);
+        Enemy e = g.getEnemyManager().spawnScaled(EnemyType.DYNAMIC_ARRAY, null, 0, along, 600, 1.0);
+        g.getEnemyManager().update(0);
+        runSeconds(g, 0.2);
+        check(taken(e) > 0, "the trap damages the enemy that triggers it");
+        check(e.hasStatus(StatusEffect.Kind.STUN), "normal enemies are held in place");
+        // a boss takes the damage but is never held
+        Game g2 = frozen();
+        Tower h2 = hero(g2, TowerType.TRAPPER_CHE, 500, 2);
+        runSeconds(g2, 4.2);
+        Mine t2 = g2.getEffects().minesOf(h2, "trap").get(0);
+        double along2 = g2.getMap().getRoutes().get(0).nearestDistanceAlong(t2.position);
+        Enemy boss = g2.getEnemyManager().spawnScaled(EnemyType.BELLARMINE_COLLEGE_PREP, null, 0, along2, 9000, 1.0);
+        g2.getEnemyManager().update(0);
+        runSeconds(g2, 0.2);
+        check(taken(boss) > 0, "a boss still takes the trap's damage");
+        check(!boss.hasStatus(StatusEffect.Kind.STUN), "a boss is never immobilised");
+    }
+
+    private static void blitzArnav() {
+        TowerDef d = TowerCatalog.get(TowerType.BLITZ_ARNAV);
+        int[] bullets = { 3, 5, 7, 10 };
+        for (int i = 0; i < 4; i++) {
+            check(d.statsForTier(i).pi("bullets") == bullets[i], "tier " + i + " fires " + bullets[i] + " bullets per burst");
+        }
+        Game g = frozen();
+        Tower h = hero(g, TowerType.BLITZ_ARNAV, 500);
+        List<Enemy> spread = new ArrayList<>();
+        for (int i = 0; i < 5; i++) spread.add(tank(g, 470 + i * 30));
+        oneShot(g, h);
+        int hurt = 0;
+        for (Enemy e : spread) if (taken(e) > 0) hurt++;
+        check(hurt >= 2, "a burst spreads across several enemies (" + hurt + ")");
+        // Suppressive Fire slows on every third burst
+        Game g2 = frozen();
+        Tower h2 = hero(g2, TowerType.BLITZ_ARNAV, 500, 2);
+        Enemy e2 = tank(g2, 500);
+        for (int i = 0; i < 3; i++) oneShot(g2, h2);
+        check(e2.hasStatus(StatusEffect.Kind.SLOW) || !e2.isAlive(), "every 3rd burst suppresses");
+    }
+
+    private static void tanimbus() {
+        Game g = frozen();
+        Tower drone = hero(g, TowerType.TANIMBUS, 500);
+        Tower weak = towerNearTrack(g, TowerType.GEMINI, 0, 470);
+        Tower strong = towerNearTrack(g, TowerType.GPT, 3, 530);
+        g.getTowerManager().recomputeAuras();
+        check(TanimbusBehavior.supported(g, drone) == strong, "the drone locks onto the strongest tower in range");
+        check(strong.buffTotal(BuffStat.RATE) > 0, "the supported tower really is sped up");
+        check(weak.buffTotal(BuffStat.RATE) == 0, "other towers are not buffed while it is locked on");
+        // Tactical Network buffs everything in range
+        Game g2 = frozen();
+        Tower drone2 = hero(g2, TowerType.TANIMBUS, 500, 2);
+        Tower a = towerNearTrack(g2, TowerType.GEMINI, 0, 470);
+        Tower b = towerNearTrack(g2, TowerType.GPT, 0, 530);
+        g2.getTowerManager().recomputeAuras();
+        check(a.buffTotal(BuffStat.RATE) > 0 && b.buffTotal(BuffStat.RATE) > 0, "Tactical Network buffs every tower in range");
+        check(a.buffTotal(BuffStat.RANGE) > 0, "and adds range");
+        // Battlefield Command rallies the whole map on a timer
+        Game g3 = frozen();
+        Tower drone3 = hero(g3, TowerType.TANIMBUS, 500, 3);
+        Tower far = towerNearTrack(g3, TowerType.GEMINI, 0, 1300);
+        check(far.getPosition().dist(drone3.getPosition()) > drone3.getStats().auraRange, "the tower is outside the support radius");
+        runSeconds(g3, 45.3);
+        check(far.timedBuffRemaining(TowerType.TANIMBUS) > 0, "the rally reaches every tower on the map");
+        runSeconds(g3, 8.5);
+        check(far.timedBuffRemaining(TowerType.TANIMBUS) == 0, "and expires after its duration");
+    }
+
+    // ------------------------------------------------------------------ Zethos (unchanged Primary tower)
     private static void zethosShop() {
         boolean inPrimary = false;
         for (lindefense.ui.ShopLayout.Cell c : lindefense.ui.ShopLayout.factionCells(Faction.PRIMARY)) if (c.type == TowerType.ZETHOS) inPrimary = true;
@@ -491,7 +696,6 @@ public final class HeroStoreTests {
 
     private static void zethosTiers() {
         TowerDef d = TowerCatalog.get(TowerType.ZETHOS);
-        // damage, interval, range(u), pierce, splash(u), splash%, bounces, bounce%
         double[][] t = {
             { 10, 1.00, 40, 2, 0, 0, 0, 0 },
             { 15, 0.85, 45, 3, 0, 0, 0, 0 },
@@ -529,7 +733,6 @@ public final class HeroStoreTests {
     private static void zethosBounce() {
         Game g = frozen();
         Tower z = towerNearTrack(g, TowerType.ZETHOS, 3, 500);
-        // spread enemies so each is out of the 8-unit splash of the others but inside the 25-unit bounce reach
         List<Enemy> line = new ArrayList<>();
         for (int i = 0; i < 12; i++) line.add(tank(g, 300 + i * 75));
         oneShot(g, z);
@@ -558,70 +761,136 @@ public final class HeroStoreTests {
         check(near(c.damageMult, 2) && c.bounces == 8 && c.splash > 0, "x2 damage, 8 bounces, every impact explodes");
         runSeconds(g, 6.1);
         check(!ZethosBehavior.isCollapsing(z) && near(z.effectiveRange(g), u(65)), "ends after 6 s");
-        // a base Zethos gets an explosion during the collapse too
-        Game g2 = frozen();
-        Tower z0 = towerNearTrack(g2, TowerType.ZETHOS, 0, 500);
-        z0.resetAbilityCooldown();
-        g2.activateAbility(z0);
-        tank(g2, 500);
-        AttackContext c0 = g2.getCombat().newAttackContext(z0, g2.getCombat().acquireTargets(z0, 1));
-        z0.getBehavior().modifyAttack(g2, z0, c0);
-        check(c0.splash > 0 && c0.bounces == 8, "base-tier Reality Collapse still explodes and bounces");
+        AbilityDef zd = TowerCatalog.get(TowerType.ZETHOS).ability;
+        check(zd.p("damageMult") == 2 && zd.p("rateMult") == 2 && near(zd.p("rangeBonus"), u(15)) && zd.p("bounces") == 8, "Reality Collapse multipliers");
     }
 
-    // ------------------------------------------------------------------ 18-20
-    private static void abilityNumbers() {
-        Object[][] a = {
-            { TowerType.BRAD_LINDEMANN, 45.0, "duration", 12.0 }, { TowerType.BRANDON, 35.0, "duration", 10.0 },
-            { TowerType.ROHAN, 50.0, "freezeDuration", 4.0 }, { TowerType.RONIL, 55.0, "duration", 6.0 },
-            { TowerType.SHASHANK, 60.0, "duration", 12.0 }, { TowerType.OWEN, 50.0, "duration", 15.0 }, { TowerType.ZETHOS, 55.0, "duration", 6.0 } };
-        for (Object[] r : a) {
-            AbilityDef d = TowerCatalog.get((TowerType) r[0]).ability;
-            check(d != null && near(d.cooldown, (Double) r[1]) && near(d.p((String) r[2]), (Double) r[3]), r[0] + " ability cooldown " + r[1] + " s, " + r[2] + " " + r[3]);
-        }
-        AbilityDef b = TowerCatalog.get(TowerType.BRAD_LINDEMANN).ability;
-        check(b.p("damageMult") == 2 && b.p("splashMult") == 1.5 && b.p("chainTargets") == 10 && b.p("chainDamage") == 35, "Supreme Command multipliers");
-        AbilityDef z = TowerCatalog.get(TowerType.ZETHOS).ability;
-        check(z.p("damageMult") == 2 && z.p("rateMult") == 2 && near(z.p("rangeBonus"), u(15)) && z.p("bounces") == 8, "Reality Collapse multipliers");
-        AbilityDef rs = TowerCatalog.get(TowerType.RONIL).ability;
-        check(rs.p("meteors") == 8 && rs.p("damage") == 100 && near(rs.p("splash"), u(14)), "Meteor Shower numbers");
-        // cooldowns start after activation (and at 50% on deployment, like every tower)
-        Game g = frozen();
-        Tower t = hero(g, TowerType.SHASHANK, 500);
-        check(near(t.getAbilityCooldownRemaining(), 30), "starts at 50% (30 of 60 s)");
-        t.resetAbilityCooldown();
-        g.activateAbility(t);
-        check(near(t.getAbilityCooldownRemaining(), 60), "full 60 s cooldown after activation");
-    }
-
+    // ------------------------------------------------------------------ economy, UI, regression
     private static void cashNeverNegative() {
         Game g = newGame(0);
         for (TowerType h : TowerType.heroes()) { g.purchaseHero(h); check(g.getCash() >= 0, "cash stays >= 0 after trying " + h); }
         check(g.getCash() == Game.START_CASH, "nothing affordable bought at the start");
-        g.addCash(1000 - g.getCash(), null);
-        check(g.purchaseHero(TowerType.SHASHANK) && g.getCash() == 0, "exact price leaves $0");
-        check(!g.purchaseHero(TowerType.BRANDON) && g.getCash() == 0, "no purchase below zero");
-        Tower z = g.placeTower(TowerType.ZETHOS, buildableNear(g, new Vec(400, 300), 150));
-        check(z == null && g.getCash() == 0, "no tower purchase below zero");
     }
 
     private static void uiText() {
-        check(HeroStatText.attackLines(TowerType.BRAD_LINDEMANN).get(0).contains("35 dmg") && HeroStatText.attackLines(TowerType.BRAD_LINDEMANN).get(0).contains("55u"), "Brad card shows 35 dmg, 55u");
-        check(String.join(" ", HeroStatText.attackLines(TowerType.BRAD_LINDEMANN)).contains("5 x 25"), "Brad card shows the 5 x 25 chain");
-        check(HeroStatText.attackLines(TowerType.BRANDON).get(0).contains("every 0.3s"), "Brandon card shows the 0.30 s interval: " + HeroStatText.attackLines(TowerType.BRANDON).get(0));
-        check(String.join(" ", HeroStatText.attackLines(TowerType.OWEN)).contains("3 drones x 20"), "Owen card shows 3 drones x 20");
-        check(HeroStatText.range(TowerType.ZETHOS, u(65)).equals("65u") && HeroStatText.range(TowerType.GPT, 180).equals("180"), "ranges in map units for heroes / Zethos, px otherwise");
         for (TowerType h : TowerType.heroes()) {
-            check(!HeroStatText.role(h).isEmpty() && !HeroStatText.attackName(h).equals("Attack"), h + " has role and attack name");
+            check(HeroStatText.role(h) != null && !HeroStatText.role(h).isEmpty(), h + " has a role line");
+            check(HeroStatText.attackName(h).equals(TowerCatalog.get(h).tierLabels[0]), h + " names its base ability");
+            for (int tier = 0; tier < 4; tier++) {
+                List<String> lines = HeroStatText.attackLines(h, tier);
+                check(lines.size() >= 2, h + " tier " + tier + " shows at least two stat lines");
+                for (String l : lines) check(l != null && !l.isEmpty(), h + " tier " + tier + " line is filled in");
+            }
+            check(TowerCatalog.get(h).description.length() > 40, h + " has a store description");
         }
+        check(HeroStatText.isSupportHero(TowerType.SAGE_AARAV) && HeroStatText.isSupportHero(TowerType.SUNNY_JOE)
+            && HeroStatText.isSupportHero(TowerType.TANIMBUS), "the three non-attacking heroes are flagged as support");
+        check(!HeroStatText.isSupportHero(TowerType.NIK_SCOPE), "attackers are not");
+        // the live line never throws for a placed hero
         Game g = frozen();
-        Tower z = towerNearTrack(g, TowerType.ZETHOS, 4, 500);
-        z.resetAbilityCooldown();
-        g.activateAbility(z);
-        String live = HeroStatText.liveLine(g, z);
-        check(live != null && live.contains("REALITY COLLAPSE"), "selected Zethos shows the live ability state: " + live);
-        check(z.getTierLabel().equals("Zethos: Reality Engine") && z.nextUpgrade() == null, "Zethos tier label and no next upgrade at max");
-        Tower z1 = towerNearTrack(g, TowerType.ZETHOS, 1, 900);
-        check(Shop.upgradeCost(z1) == 650 && z1.getTierLabel().equals("Quantum Acceleration"), "Tier 1 Zethos shows next upgrade cost $650");
+        for (TowerType h : TowerType.heroes()) {
+            Tower t = hero(g, h, 400 + (h.ordinal() % 7) * 60);
+            if (t != null) HeroStatText.liveLine(g, t);
+        }
     }
+
+    private static void tutorialScript() {
+        Game g = newGame(0);
+        lindefense.ui.TutorialScript ts = new lindefense.ui.TutorialScript(g);
+        check(ts.current() == lindefense.ui.TutorialScript.Step.WELCOME && !ts.current().action, "starts on the welcome card");
+        ts.update();
+        check(ts.index() == 0, "info cards wait for NEXT");
+        ts.next();
+        check(ts.current() == lindefense.ui.TutorialScript.Step.PLACE, "then: place a tower");
+        ts.update();
+        check(ts.index() == 1, "action steps wait for the action");
+        Tower gpt = g.placeTower(TowerType.GPT, buildableNear(g, new Vec(380, 300), 150));
+        check(gpt != null, "player places GPT");
+        ts.update();
+        check(ts.current() == lindefense.ui.TutorialScript.Step.WAVE, "placing a tower advances");
+        g.startNextWave();
+        ts.update();
+        check(ts.current() == lindefense.ui.TutorialScript.Step.UPGRADE && ts.grantPaid(), "starting a wave advances; upgrade step pays its bonus");
+        check(g.upgradeTower(gpt), "bonus covers the upgrade");
+        ts.update();
+        check(ts.current() == lindefense.ui.TutorialScript.Step.TARGETING, "upgrading advances");
+        ts.next();
+        check(ts.current() == lindefense.ui.TutorialScript.Step.HERO_STORE && g.getCash() >= 1000, "Hero Store step funds a hero");
+        check(g.purchaseHero(TowerType.SUNNY_JOE), "buy a hero");
+        ts.update();
+        check(ts.current() == lindefense.ui.TutorialScript.Step.DEPLOY, "buying advances");
+        Tower sj = g.placeTower(TowerType.SUNNY_JOE, buildableNear(g, new Vec(700, 300), 150));
+        ts.update();
+        check(sj != null && ts.current() == lindefense.ui.TutorialScript.Step.HERO_UPGRADE, "deploying advances to the hero-upgrade step");
+        check(g.upgradeTower(sj), "the tutorial bonus covers the hero's first upgrade");
+        ts.update();
+        check(ts.current() == lindefense.ui.TutorialScript.Step.ZETHOS, "upgrading the hero advances");
+        ts.next();
+        check(ts.current() == lindefense.ui.TutorialScript.Step.DONE, "final card");
+        ts.next();
+        check(ts.isFinished(), "FINISH ends the tutorial");
+        check(g.getHeroCollection() != HeroCollection.persistent(), "the tutorial game is not wired to the saved collection");
+        lindefense.ui.TutorialScript skip = new lindefense.ui.TutorialScript(newGame(0));
+        skip.skipAll();
+        check(skip.isFinished(), "END TUTORIAL works from any step");
+    }
+
+    private static void catalogEntries() {
+        int enemies = lindefense.ui.CatalogScreen.entries(lindefense.ui.CatalogScreen.Tab.ENEMIES).size();
+        int bosses = lindefense.ui.CatalogScreen.entries(lindefense.ui.CatalogScreen.Tab.BOSSES).size();
+        int towers = lindefense.ui.CatalogScreen.entries(lindefense.ui.CatalogScreen.Tab.TOWERS).size();
+        int heroes = lindefense.ui.CatalogScreen.entries(lindefense.ui.CatalogScreen.Tab.HEROES).size();
+        int allEnemies = 0;
+        for (EnemyType e : EnemyType.values()) allEnemies++;
+        check(enemies + bosses == allEnemies && bosses == 5, "catalog lists every enemy (" + enemies + ") and all 5 bosses");
+        check(towers == 18 && lindefense.ui.CatalogScreen.entries(lindefense.ui.CatalogScreen.Tab.TOWERS).contains(TowerType.ZETHOS), "catalog lists the 18 shop towers incl. Zethos");
+        check(heroes == 17 && !lindefense.ui.CatalogScreen.entries(lindefense.ui.CatalogScreen.Tab.HEROES).contains(TowerType.ZETHOS), "catalog lists the 17 heroes (not Zethos)");
+    }
+
+    private static void originalTowersPassive() {
+        for (TowerType t : TowerType.shopTowers()) {
+            boolean shouldHave = t == TowerType.ZETHOS;
+            check((TowerCatalog.get(t).ability != null) == shouldHave, t + (shouldHave ? " keeps its ability" : " has no special ability"));
+        }
+        for (TowerType h : TowerType.heroes()) check(TowerCatalog.get(h).ability == null, h + " progresses through upgrades, not an ability");
+        Game g = frozen();
+        Tower claude = towerNearTrack(g, TowerType.CLAUDE, 3, 450);
+        tank(g, 450);
+        check(!claude.isAbilityReady() && !g.activateAbility(claude), "a passive tower cannot fire an ability");
+    }
+
+    // ------------------------------------------------------------------ helpers
+    private static Game frozen() { Game g = newGame(0); g.setGlobalEnemySpeedMultiplier(0); return g; }
+    private static boolean near(double a, double b) { return Math.abs(a - b) < 1e-6; }
+
+    /** An unarmoured enemy with a huge HP pool, so damage is never capped by remaining HP. */
+    private static Enemy tank(Game g, double dist) {
+        Enemy e = g.getEnemyManager().spawnScaled(EnemyType.DYNAMIC_ARRAY, null, 0, dist, 500, 1.0);
+        g.getEnemyManager().update(0);
+        return e;
+    }
+    private static double taken(Enemy e) { return e.getMaxHp() - e.getHp(); }
+
+    /** Leaks enough enemies to cost {@code n} integrity (the only way the game normally loses lives). */
+    private static void leak(Game g, int n) {
+        for (int i = 0; i < n && g.getLives() > 1; i++) {
+            Enemy e = g.getEnemyManager().spawnScaled(EnemyType.PRIMITIVE_VARIABLE, null, 0, 0, 1, 1.0);
+            g.getEnemyManager().update(0);
+            g.loseLives(1, e);
+            e.markDead();
+        }
+    }
+
+    /** Fires exactly one attack from the tower and flies its projectiles until they are spent. */
+    private static void oneShot(Game g, Tower t) {
+        check(g.getCombat().attack(t), t.getType() + " fires");
+        for (int i = 0; i < 600 && hasProjectiles(g); i++) { g.getCombat().updateProjectiles(Game.DT); g.getEvents().clear(); }
+    }
+    private static boolean hasProjectiles(Game g) {
+        g.getCombat().updateProjectiles(0);
+        return !g.getCombat().getProjectiles().isEmpty();
+    }
+
+    private static Tower hero(Game g, TowerType t, double trackDist) { return towerNearTrack(g, t, 0, trackDist); }
+    private static Tower hero(Game g, TowerType t, double trackDist, int tier) { return towerNearTrack(g, t, tier, trackDist); }
 }

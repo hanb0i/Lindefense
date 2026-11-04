@@ -68,12 +68,18 @@ public final class ProjectileSprites {
             case GLM: return new ProjectileSprite(Style.PULSE, tier, sz, pri, sec);
             case KIMI: return new ProjectileSprite(Style.ROUND, tier, sz, pri, sec);
             case MINIMAX: return new ProjectileSprite(Style.ORB, tier, sz, pri, sec);
-            case BRAD_LINDEMANN: return new ProjectileSprite(Style.COMMAND, 2, sz, pri, sec);
-            case BRANDON: return new ProjectileSprite(Style.VOLLEY, 0, sz, pri, sec);
-            case ROHAN: return new ProjectileSprite(Style.CRYO, 1, sz, pri, sec);
-            case RONIL: return new ProjectileSprite(Style.METEOR, 2, sz, pri, sec);
-            case SHASHANK: return new ProjectileSprite(Style.DATA, 0, sz, pri, sec);
-            case OWEN: return new ProjectileSprite(Style.DRONE, 0, sz, pri, sec);
+            case LOBBER_LUIS: return new ProjectileSprite(Style.METEOR, 2, sz, pri, sec);
+            case BOOM_SAM: return new ProjectileSprite(Style.METEOR, 1, sz, pri, sec);
+            case IRON_IMRAAN: return new ProjectileSprite(Style.COMMAND, 0, sz, pri, sec);
+            case CHILLSTIN: return new ProjectileSprite(Style.CRYO, 1, sz, pri, sec);
+            case KAIJU_KAI: return new ProjectileSprite(Style.COMMAND, 2, sz, pri, sec);
+            case ABHI_ACE: return new ProjectileSprite(Style.DRONE, 1, sz, pri, sec);
+            case NIK_SCOPE: return new ProjectileSprite(Style.VOLLEY, 2, sz, pri, sec);
+            case BLITZ_ARNAV: return new ProjectileSprite(Style.VOLLEY, 0, sz, pri, sec);
+            case SPEAR_HANBO: return new ProjectileSprite(Style.VOLLEY, 1, sz, pri, sec);
+            case THORN_TUHIN: return new ProjectileSprite(Style.DATA, 1, sz, pri, sec);
+            case JUSTIN_TIME: return new ProjectileSprite(Style.DATA, 0, sz, pri, sec);
+            case CAMI_MINE: case TRAPPER_CHE: return new ProjectileSprite(Style.METEOR, 0, sz, pri, sec);
             case ZETHOS: return new ProjectileSprite(Style.QUANTUM, tier, sz, pri, sec);
             default: return new ProjectileSprite(Style.DOT, tier, sz, Art.rgb(rgb), Color.WHITE);
         }

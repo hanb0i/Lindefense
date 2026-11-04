@@ -74,10 +74,23 @@ public final class Cyber {
     private static final Map<String, Font> FILES = new HashMap<>();
     private static boolean loaded;
 
+    public static final String VALORAX_FILE = "Valorax.otf";
+
     public static final String[] FONT_FILES = {
         "Rajdhani-Medium.ttf", "Rajdhani-SemiBold.ttf", "Rajdhani-Bold.ttf",
         "Barlow-Regular.ttf", "Barlow-Medium.ttf", "Barlow-SemiBold.ttf", "Barlow-Bold.ttf",
-        "IBMPlexMono-Regular.ttf", "IBMPlexMono-Medium.ttf", "IBMPlexMono-SemiBold.ttf", "IBMPlexMono-Bold.ttf" };
+        "IBMPlexMono-Regular.ttf", "IBMPlexMono-Medium.ttf", "IBMPlexMono-SemiBold.ttf", "IBMPlexMono-Bold.ttf",
+        VALORAX_FILE };
+
+    /**
+     * Valorax (Makna Studio): the wide angular gaming face used for headings, buttons, tabs, names and tags. It is a
+     * personal-use font, so the file is bundled locally and git-ignored; when it is absent everything falls back to
+     * Rajdhani. It is uppercase-only (lowercase draws as small caps) and about 1.6x as wide as Rajdhani, so sizes are
+     * scaled by {@link #VALORAX_SCALE} to keep existing layouts, with a floor so small text stays legible.
+     */
+    private static final double VALORAX_SCALE = 0.8;
+    private static final int VALORAX_MIN = 11;
+    private static final double MONO_SCALE = 0.9;
 
     private static synchronized void loadFonts() {
         if (loaded) return;
@@ -120,8 +133,43 @@ public final class Cyber {
         }
     }
 
-    /** Condensed techno display font (headings, labels): Rajdhani. */
-    public static Font display(int style, int size) { return font("D", "Rajdhani-Medium.ttf", "Rajdhani-Bold.ttf", Font.SANS_SERIF, style, size); }
+    /**
+     * Which face the display role uses: {@code mono} (IBM Plex Mono, default), {@code valorax} (personal-use font, needs
+     * assets/fonts/Valorax.otf, falls back to Rajdhani when absent) or {@code rajdhani}. Switch with
+     * {@code -Dlindefense.font=...}.
+     */
+    private static final String DISPLAY_FACE = System.getProperty("lindefense.font", "mono").toLowerCase();
+
+    /** Display font (headings, buttons, tabs, names, tags): see {@link #DISPLAY_FACE}. */
+    public static Font display(int style, int size) { return displayFont("V", style, size, 1.0, VALORAX_MIN); }
+
+    /**
+     * Compact display font for tight spots (tab strips, small chips): the same face at a smaller scale and a lower
+     * size floor than {@link #display}.
+     */
+    public static Font displayCompact(int style, int size) { return displayFont("C", style, size, 0.94, 9); }
+
+    private static Font displayFont(String kind, int style, int size, double compact, int floor) {
+        String key = kind + DISPLAY_FACE + style + "/" + size;
+        synchronized (Cyber.class) {
+            Font f = FONTS.get(key);
+            if (f != null) return f;
+            loadFonts();
+            if (DISPLAY_FACE.equals("valorax") && FILES.get(VALORAX_FILE) != null) {
+                // uppercase-only, ~1.6x as wide as Rajdhani: scaled down to keep layouts
+                f = FILES.get(VALORAX_FILE).deriveFont((float) Math.max(kind.equals("C") ? 9 : VALORAX_MIN, Math.round(size * (kind.equals("C") ? 0.75 : VALORAX_SCALE) * 2) / 2.0));
+            } else if (DISPLAY_FACE.equals("mono")) {
+                // IBM Plex Mono is ~1.4x as wide as Rajdhani: scaled down to keep layouts
+                Font base = FILES.get((style & Font.BOLD) != 0 ? "IBMPlexMono-Bold.ttf" : "IBMPlexMono-Medium.ttf");
+                f = base != null ? base.deriveFont((float) Math.max(floor, Math.round(size * MONO_SCALE * compact * 2) / 2.0)) : new Font(Font.MONOSPACED, style, Math.max(floor, (int) Math.round(size * MONO_SCALE * compact)));
+            } else {
+                f = font("D", "Rajdhani-Medium.ttf", "Rajdhani-Bold.ttf", Font.SANS_SERIF, style, size);
+            }
+            FONTS.put(key, f);
+            return f;
+        }
+    }
+
     /** Monospace font for numbers and data readouts: IBM Plex Mono. */
     public static Font mono(int style, int size) { return font("M", "IBMPlexMono-Medium.ttf", "IBMPlexMono-Bold.ttf", Font.MONOSPACED, style, size); }
     /** Clean sans font for paragraph text: Barlow. */

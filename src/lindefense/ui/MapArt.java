@@ -163,6 +163,30 @@ public final class MapArt extends GObject {
             g.drawString(s, (float) x, (float) y);
         }
 
+        /**
+         * A legible map label: bright display-font text on a dark, outlined plate, centred on (cx, cy) and kept inside the
+         * world. Every functional label (building, pad, hub, portal, hazard) goes through this so it reads over any art.
+         */
+        void tag(String s, double cx, double cy, Color c) { tag(s, cx, cy, c, true); }
+
+        /** A tag whose right edge sits at {@code rx} (for labels that must stay clear of something to their right). */
+        void tagRight(String s, double rx, double cy, Color c) {
+            tag(s, rx - textWidth(s.toUpperCase(), Cyber.display(Font.BOLD, 14)) - 14, cy, c, false);
+        }
+
+        void tag(String s, double cx, double cy, Color c, boolean centered) {
+            Font f = Cyber.display(Font.BOLD, 14);
+            String u = s.toUpperCase();
+            double tw = textWidth(u, f), pw = tw + 14, ph = 18;
+            double x = centered ? cx - pw / 2 : cx;
+            x = Math.max(4, Math.min(W - pw - 4, x));
+            double y = Math.max(4, Math.min(H - ph - 4, cy - ph / 2));
+            RoundRectangle2D.Double plate = new RoundRectangle2D.Double(x, y, pw, ph, 6, 6);
+            fill(plate, new Color(3, 6, 16, 225));
+            draw(plate, alpha(c, 190), 1);
+            text(u, x + 7, y + ph / 2 + g.getFontMetrics().getAscent() / 2.0 - 1, f, Cyber.lerp(c, Color.WHITE, 0.35));
+        }
+
         void textCentered(String s, double cx, double y, Font f, Color c) {
             g.setFont(f);
             FontMetrics fm = g.getFontMetrics();
@@ -259,21 +283,18 @@ public final class MapArt extends GObject {
             }
             glow(br, alpha(c, 170), 2, 2);
             Path2D.Double ticks = new Path2D.Double();
-            Font f = Cyber.mono(Font.PLAIN, 7);
             for (double x = 50; x < W; x += 50) {
                 double len = x % 100 == 0 ? 7 : 3.5;
                 ticks.append(new Line2D.Double(x, 0, x, len), false);
                 ticks.append(new Line2D.Double(x, H, x, H - len), false);
-                if (x % 200 == 0) text(String.format("%04d", (int) x), x + 3, 13, f, alpha(c, 70));
             }
             for (double y = 50; y < H; y += 50) {
                 double len = y % 100 == 0 ? 7 : 3.5;
                 ticks.append(new Line2D.Double(0, y, len, y), false);
                 ticks.append(new Line2D.Double(W, y, W - len, y), false);
-                if (y % 200 == 0) text(String.format("%03d", (int) y), W - 22, y - 3, f, alpha(c, 70));
             }
             draw(ticks, alpha(c, 90), 1);
-            if (tag != null) text(tag, 14, H - 12, Cyber.mono(Font.BOLD, 8), alpha(c, 110));
+            if (tag != null) tag(tag, 14, H - 20, c, false);
         }
 
         // ---------------------------------------------------------------- track
@@ -417,7 +438,8 @@ public final class MapArt extends GObject {
         }
 
         /** Floating holographic ad panel. */
-        void holo(double x, double y, double w, double h, Color c1, Color c2, String l1, String l2) {
+        void holo(double x, double y, double w0, double h, Color c1, Color c2, String l1, String l2) {
+            double w = Math.max(w0, textWidth(l1.toUpperCase(), Cyber.display(Font.BOLD, 14)) + 22);
             glowBlob(x + w / 2, y + h / 2, w * 0.8, alpha(c1, 40));
             g.setPaint(new GradientPaint((float) x, (float) y, alpha(c1, 110), (float) (x + w), (float) (y + h), alpha(c2, 90)));
             g.fill(new Rectangle2D.Double(x, y, w, h));
@@ -425,8 +447,7 @@ public final class MapArt extends GObject {
             for (double yy = y + 2; yy < y + h; yy += 3) lines.append(new Line2D.Double(x, yy, x + w, yy), false);
             draw(lines, new Color(255, 255, 255, 22), 1);
             glow(new Rectangle2D.Double(x, y, w, h), alpha(c1, 220), 1.2, 2);
-            textCentered(l1, x + w / 2, y + h * 0.48, Cyber.display(Font.BOLD, (int) Math.max(8, h * 0.32)), new Color(255, 255, 255, 235));
-            if (l2 != null) textCentered(l2, x + w / 2, y + h * 0.82, Cyber.mono(Font.PLAIN, (int) Math.max(6, h * 0.2)), alpha(c2, 230));
+            textCentered(l1.toUpperCase(), x + w / 2, y + h / 2 + 4, Cyber.display(Font.BOLD, 14), new Color(255, 255, 255, 240));
             // projector beam to the ground
             Path2D.Double beam = new Path2D.Double();
             beam.moveTo(x + w * 0.4, y + h); beam.lineTo(x + w * 0.6, y + h); beam.lineTo(x + w / 2 + 2, y + h + 14); beam.lineTo(x + w / 2 - 2, y + h + 14); beam.closePath();
@@ -451,13 +472,7 @@ public final class MapArt extends GObject {
         }
 
         void hudTag(String s, double x, double y, Color c) {
-            Font f = Cyber.mono(Font.BOLD, 9);
-            double tw = textWidth(s, f) + 14;
-            Path2D p = Cyber.chamfer(x, y, tw, 15, 4);
-            fill(p, new Color(4, 7, 18, 200));
-            draw(p, alpha(c, 200), 1);
-            fill(new Rectangle2D.Double(x + 3, y + 4, 2, 7), c);
-            text(s, x + 9, y + 11, f, c);
+            tag(s, x, y + 9, c, false);
         }
 
         void fan(double cx, double cy, double r, Color c) {
@@ -574,7 +589,6 @@ public final class MapArt extends GObject {
                     fill(new Rectangle2D.Double(x0, y0, w, h), c(0x15181d));
                     draw(new Rectangle2D.Double(x0, y0, w, h), c(0x3a4250), 0.8);
                     fill(new Ellipse2D.Double(x0 + 2, y0 + 2, 2.4, 2.4), c(0x606a78));
-                    text("U" + (made + 1), x0, y0 - 5, Cyber.mono(Font.PLAIN, 7), silk);
                 } else {
                     boolean cap = rnd.nextBoolean();
                     fill(new Rectangle2D.Double(x0, y0, w, h), cap ? c(0x9c7a4c) : c(0x1a1a1c));
@@ -582,7 +596,6 @@ public final class MapArt extends GObject {
                     Color end = c(0xd8dce2);
                     if (!vert) { fill(new Rectangle2D.Double(x0, y0, cw, h), end); fill(new Rectangle2D.Double(x0 + w - cw, y0, cw, h), end); }
                     else { fill(new Rectangle2D.Double(x0, y0, w, cw), end); fill(new Rectangle2D.Double(x0, y0 + h - cw, w, cw), end); }
-                    if (rnd.nextDouble() < 0.45) text(pre[rnd.nextInt(pre.length)] + (made + 1), x0 + w + 3, y0 + h, Cyber.mono(Font.PLAIN, 7), silk);
                 }
                 made++;
             }
@@ -599,14 +612,10 @@ public final class MapArt extends GObject {
         }
 
         void silkscreen() {
-            textCentered("LX-MAINBOARD  //  REV 4.2", 600, 470, Cyber.mono(Font.BOLD, 11), silk);
-            textCentered("DUAL-LANE DATA BUS  -  2 x 64 GT/s", 600, 486, Cyber.mono(Font.PLAIN, 8), alpha(silk, 100));
-            Path2D.Double box = new Path2D.Double();
-            box.append(new Rectangle2D.Double(468, 452, 264, 42), false);
-            draw(box, alpha(silk, 70), 0.8);
+            tag("LX-MAINBOARD // REV 4B", 600, 470, Cyber.lerp(silk, c(0x7fd8a8), 0.4));
             for (Path r : map.getRoutes()) {
                 Vec s = r.getStart();
-                text(r.getName().toUpperCase(), s.x + 34, s.y - HW - 10, Cyber.mono(Font.BOLD, 9), alpha(gold, 200));
+                tag(r.getName(), s.x + 34, s.y - HW - 18, gold, false);
             }
         }
 
@@ -639,7 +648,6 @@ public final class MapArt extends GObject {
             draw(die, new Color(0, 240, 255, 150), 1);
             fill(new Ellipse2D.Double(x + in + 3, y + in + 3, 4, 4), c(0x8a929a));
             textCentered(l, x + w / 2, die.y + die.height / 2 + 2, Cyber.display(Font.BOLD, 15), c(0xd9f6ff));
-            textCentered("LX-9000  3.2 THz", x + w / 2, die.y + die.height - 3, Cyber.mono(Font.PLAIN, 7), new Color(0, 240, 255, 150));
         }
 
         void dimm(Obstacle o) {
@@ -662,8 +670,7 @@ public final class MapArt extends GObject {
                 draw(chip, c(0x3a4250), 0.8);
                 fill(new Rectangle2D.Double(chip.x + 3, chip.y + 3, chip.width - 6, 2), new Color(0, 240, 255, 60));
             }
-            text("RAM", x + 8, y + h - 15, Cyber.mono(Font.BOLD, 9), c(0xc0c8d0));
-            text("DDR9 64G", x + w - 52, y + h - 15, Cyber.mono(Font.PLAIN, 7), alpha(silk, 120));
+            text("RAM", x + 8, y + h - 15, Cyber.display(Font.BOLD, 14), c(0xe6eef6));
         }
 
         void connector(Obstacle o) {
@@ -678,7 +685,7 @@ public final class MapArt extends GObject {
             for (int row = 0; row < 2; row++) for (double px = x + 18; px < x + w - 16; px += 9) pins.append(new Rectangle2D.Double(px, y + 18 + row * 12, 4, 5), false);
             fill(pins, gold);
             for (int i = 0; i < 3; i++) fill(new Ellipse2D.Double(x + w - 14 - i * 8, y + 4, 4, 4), i == 0 ? Cyber.GREEN : new Color(0x2a3a30));
-            text("I/O", x + 10, y + 9, Cyber.mono(Font.BOLD, 8), c(0x1a1f26));
+            text("I/O", x + 10, y + 10, Cyber.display(Font.BOLD, 14), c(0x10141a));
         }
 
         void pad(Vec p) {
@@ -709,7 +716,7 @@ public final class MapArt extends GObject {
             plus.append(new Line2D.Double(p.x - 6, p.y, p.x + 6, p.y), false);
             plus.append(new Line2D.Double(p.x, p.y - 6, p.x, p.y + 6), false);
             draw(plus, alpha(c(0x7fd8a8), 200), 2);
-            textCentered("CAPACITOR PAD", p.x, p.y + r + 22, Cyber.mono(Font.BOLD, 9), c(0x7fd8a8));
+            tag("CAPACITOR PAD", p.x, p.y + r + 24, c(0x7fd8a8));
         }
     }
 
@@ -751,7 +758,7 @@ public final class MapArt extends GObject {
             vignette(140);
             int n = 0;
             for (Obstacle o : map.getObstacles()) blade(o, n++);
-            for (int i = 0; i < floors.length; i++) hudTag("FLOOR " + (i + 1) + "  //  " + (i < 2 ? "COLD AISLE" : "HOT AISLE"), 960, floors[i][0] + 6, i < 2 ? accent : amber);
+            for (int i = 0; i < floors.length; i++) tagRight("FLOOR " + (i + 1) + " // " + (i < 2 ? "COLD AISLE" : "HOT AISLE"), 1086, floors[i][0] + 15, i < 2 ? accent : amber);
             track(0.45, accent);
             hudFrame(accent, "RACK-07 // LEGACY CLUSTER");
             scanlines(12);
@@ -781,7 +788,6 @@ public final class MapArt extends GObject {
                 int u = 1;
                 for (double y = 12; y < H - 6; y += 22, u++) {
                     sq.append(new Rectangle2D.Double(x0 + 10, y, 6, 6), false);
-                    if (u % 4 == 1) text(String.format("U%02d", u), x0 < W / 2 ? x0 + 30 : x0 - 20, y + 6, Cyber.mono(Font.PLAIN, 7), alpha(steel, 120));
                 }
                 fill(sq, c(0x07090d));
             }
@@ -803,14 +809,14 @@ public final class MapArt extends GObject {
         }
 
         void header() {
-            text("LEGACY MONOLITH  //  RACK 07  //  UPTIME 9,412 d  //  42U", 130, 30, Cyber.mono(Font.BOLD, 11), alpha(accent, 170));
+            tag("LEGACY MONOLITH // RACK 07 // 42U", 130, 30, accent, false);
             for (int i = 0; i < 18; i++) {
                 double x = 660 + i * 12;
                 Color led = i % 7 == 3 ? amber : i % 5 == 0 ? Cyber.RED : Cyber.GREEN;
                 glowBlob(x + 2, 26, 6, alpha(led, 60));
                 fill(new Rectangle2D.Double(x, 24, 5, 3), led);
             }
-            text("PWR  A+B  OK", 900, 30, Cyber.mono(Font.PLAIN, 9), alpha(Cyber.GREEN, 170));
+            tag("PWR A+B OK", 900, 30, Cyber.GREEN, false);
         }
 
         void footerVents() {
@@ -872,9 +878,8 @@ public final class MapArt extends GObject {
             fill(lcd, c(0x061420));
             draw(lcd, alpha(accent, 170), 1);
             int load = 40 + r.nextInt(58);
-            text("LOAD", x + 140, y + 19, Cyber.mono(Font.PLAIN, 7), alpha(accent, 170));
-            text(load + "%", x + 162, y + 28, Cyber.mono(Font.BOLD, 10), load > 85 ? amber : Cyber.CYAN);
-            fill(new Rectangle2D.Double(x + 140, y + 25, 18 * load / 100.0, 3), alpha(Cyber.CYAN, 150));
+            text(load + "%", x + 142, y + 24, Cyber.display(Font.BOLD, 14), load > 85 ? amber : Cyber.CYAN);
+            fill(new Rectangle2D.Double(x + 140, y + 27, 44 * load / 100.0, 3), alpha(load > 85 ? amber : Cyber.CYAN, 190));
             // grill
             Shape old = g.getClip();
             Rectangle2D.Double gr = new Rectangle2D.Double(x + 136, y + 36, 52, h - 46);
@@ -889,8 +894,7 @@ public final class MapArt extends GObject {
             fill(new Rectangle2D.Double(x + 24, y + h - 18, 106, 2), alpha(accent, 140));
             fill(new Ellipse2D.Double(x + w - 22, y + 8 - 0.5, 8, 8), c(0x5ce07a));
             glowBlob(x + w - 18, y + 12, 8, new Color(92, 224, 122, 90));
-            text(o.label, x + 24, y + h - 5, Cyber.mono(Font.BOLD, 9), c(0xa6b0c4));
-            text("BLADE " + (idx + 1) + "/6", x + 80, y + h - 5, Cyber.mono(Font.PLAIN, 7), alpha(steel, 170));
+            text(o.label, x + 24, y + h - 5, Cyber.display(Font.BOLD, 14), c(0xe2eaf6));
         }
     }
 
@@ -916,7 +920,6 @@ public final class MapArt extends GObject {
             glowBlob(300, 200, 360, new Color(255, 140, 240, 22));
             glowBlob(920, 720, 380, new Color(120, 90, 255, 26));
             network();
-            fragments();
             for (Obstacle o : map.getObstacles()) chasm(o);
             vignette(150);
             track(0.5, violet);
@@ -958,26 +961,6 @@ public final class MapArt extends GObject {
                 glowBlob(n.x, n.y, r * 5, alpha(c, 70));
                 fill(new Ellipse2D.Double(n.x - r, n.y - r, 2 * r, 2 * r), Cyber.lerp(c, Color.WHITE, 0.5));
                 draw(new Ellipse2D.Double(n.x - r - 3, n.y - r - 3, 2 * r + 6, 2 * r + 6), alpha(c, 110), 0.8);
-            }
-        }
-
-        void fragments() {
-            String[] bits = { "p=0.73", "<unk>", "token 4096", "attn[12]", "logit -2.1", "NaN", "softmax", "h=0.618", "kv-cache", "temp 1.4", "drift", "0x7F3A" };
-            Font f = Cyber.mono(Font.PLAIN, 8);
-            int made = 0;
-            List<Rectangle2D> used = new ArrayList<>();
-            for (int tries = 0; made < 22 && tries < 800; tries++) {
-                double x = rnd.nextDouble() * W, y = rnd.nextDouble() * H;
-                String s = bits[rnd.nextInt(bits.length)];
-                double tw = textWidth(s, f);
-                if (!clear(x + tw / 2, y - 3, tw / 2 + 2)) continue;
-                Rectangle2D box = new Rectangle2D.Double(x - 12, y - 22, tw + 24, 32);
-                boolean overlaps = false;
-                for (Rectangle2D u : used) if (u.intersects(box)) { overlaps = true; break; }
-                if (overlaps) continue;
-                used.add(box);
-                text(s, x, y, f, alpha(rnd.nextBoolean() ? pale : pink, 80));
-                made++;
             }
         }
 
@@ -1025,8 +1008,7 @@ public final class MapArt extends GObject {
                 double by = (top ? o.y : o.y + o.h) + (rnd.nextDouble() - 0.5) * 8;
                 fill(new Rectangle2D.Double(bx, by, bw, 1.5 + rnd.nextDouble() * 2), alpha(rnd.nextBoolean() ? pink : Cyber.CYAN, 110));
             }
-            text("NULL REGION", o.x + 8, o.y + 16, Cyber.mono(Font.BOLD, 8), alpha(pink, 140));
-            text(String.format("%dx%d", (int) o.w, (int) o.h), o.x + 8, o.y + 26, Cyber.mono(Font.PLAIN, 7), alpha(pale, 90));
+            tag(o.w < 140 ? "VOID" : "NULL REGION", o.x + (o.w < 140 ? o.w / 2 : 10), o.y + 18, pink, o.w < 140);
         }
 
         void node(HallucinationCanyon.BridgeNode n) {
@@ -1061,8 +1043,7 @@ public final class MapArt extends GObject {
             draw(spokes, alpha(pale, 170), 1.2);
             glow(new Ellipse2D.Double(c.x - 40, c.y - 40, 80, 80), alpha(pale, 230), 1.6, 3);
             fill(hexagon(c.x, c.y, 9, 30), alpha(pale, 200));
-            textCentered("ATTENTION HUB", c.x, c.y - 80, Cyber.mono(Font.BOLD, 10), pale);
-            textCentered("softmax(QK^T / sqrt d)", c.x, c.y + 92, Cyber.mono(Font.PLAIN, 9), alpha(pink, 170));
+            tag("ATTENTION HUB", c.x, c.y - 84, pale);
         }
     }
 
@@ -1116,7 +1097,6 @@ public final class MapArt extends GObject {
             draw(spokes, alpha(violet, 14), 1);
             draw(major, alpha(violet, 40), 1);
             Font f = Cyber.mono(Font.PLAIN, 7);
-            for (double r = 80; r < R - 20; r += 80) text("R-" + (int) r, c.x + 4, c.y - r - 3, f, alpha(violet, 110));
         }
 
         void accretionSwirl(Vec c) {
@@ -1150,12 +1130,6 @@ public final class MapArt extends GObject {
             draw(ticks, alpha(violet, 120), 1);
             glow(new Ellipse2D.Double(c.x - R - 9, c.y - R - 9, 2 * R + 18, 2 * R + 18), alpha(violet, 200), 1.4, 2.5);
             glow(new Ellipse2D.Double(c.x - R + 9, c.y - R + 9, 2 * R - 18, 2 * R - 18), alpha(magenta, 120), 1, 2);
-            Font f = Cyber.mono(Font.PLAIN, 8);
-            String[] deg = { "NE-045", "SE-135", "SW-225", "NW-315" };
-            for (int i = 0; i < 4; i++) {
-                double a = Math.toRadians(-90 + 90 * i + 45);
-                textCentered(deg[i], c.x + Math.cos(a) * (R + 30), c.y + Math.sin(a) * (R + 30) + 3, f, alpha(violet, 150));
-            }
         }
 
         void portal(Vec p, String name) {
@@ -1168,7 +1142,7 @@ public final class MapArt extends GObject {
             }
             double ang = Math.atan2(p.y - 450, p.x - 600);
             double lx = p.x + Math.cos(ang) * 0 + (Math.abs(Math.cos(ang)) > 0.5 ? 0 : 44), ly = p.y + (Math.abs(Math.cos(ang)) > 0.5 ? (Math.cos(ang) > 0 ? -48 : 56) : 4);
-            textCentered(name.toUpperCase(), lx + (Math.abs(Math.cos(ang)) > 0.5 ? 0 : 30), ly, Cyber.mono(Font.BOLD, 8), alpha(c(0xc0a0ff), 200));
+            tag(name, lx + (Math.abs(Math.cos(ang)) > 0.5 ? 0 : 30), ly - 4, c(0xc0a0ff));
         }
 
         void horizon(Vec c) {
@@ -1184,7 +1158,7 @@ public final class MapArt extends GObject {
             g.setStroke(new BasicStroke(1.4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND, 10f, new float[] { 4f, 6f }, 0f));
             g.draw(new Ellipse2D.Double(c.x - 70, c.y - 70, 140, 140));
             fill(new Ellipse2D.Double(c.x - 30, c.y - 30, 60, 60), Color.BLACK);
-            textCentered("EVENT HORIZON", c.x, c.y + 88, Cyber.mono(Font.BOLD, 8), alpha(hot, 200));
+            tag("EVENT HORIZON", c.x, c.y + 94, hot);
         }
     }
 
@@ -1321,10 +1295,7 @@ public final class MapArt extends GObject {
             glow(roof, alpha(cyan, 200), 1.4, 2);
             draw(new Line2D.Double(x, y, x + w, y), new Color(255, 255, 255, 70), 1);
             if (!l.contains("HOLO")) {
-                Font f = Cyber.mono(Font.BOLD, 8);
-                double tw = textWidth(l, f) + 10;
-                fill(new Rectangle2D.Double(x + 4, y + 4, tw, 12), new Color(4, 8, 18, 200));
-                text(l, x + 9, y + 13, f, alpha(cyan, 230));
+                tag(l, x + 5, y + 15, cyan, false);
             }
         }
 
@@ -1400,8 +1371,9 @@ public final class MapArt extends GObject {
             Path2D.Double lines = new Path2D.Double();
             for (double yy = y + 2; yy < y + h; yy += 3) lines.append(new Line2D.Double(x, yy, x + w, yy), false);
             draw(lines, new Color(255, 255, 255, 20), 1);
-            textCentered("SCALE IS ALL YOU NEED", x + w / 2, y + h * 0.5, Cyber.display(Font.BOLD, 15), new Color(255, 255, 255, 235));
-            textCentered("NOW SHIPPING: 10T PARAMS", x + w / 2, y + h * 0.78, Cyber.mono(Font.PLAIN, 8), alpha(cyan, 230));
+            textCentered("SCALE IS", x + w / 2, y + h * 0.36, Cyber.display(Font.BOLD, 15), new Color(255, 255, 255, 240));
+            textCentered("ALL YOU NEED", x + w / 2, y + h * 0.62, Cyber.display(Font.BOLD, 15), new Color(255, 255, 255, 240));
+            textCentered("NOW SHIPPING", x + w / 2, y + h * 0.88, Cyber.mono(Font.BOLD, 11), Cyber.lerp(cyan, Color.WHITE, 0.4));
             glowBlob(x + w / 2, y + h / 2, w * 0.5, alpha(magenta, 40));
         }
 
@@ -1423,12 +1395,19 @@ public final class MapArt extends GObject {
         }
 
         void holos() {
-            String[][] ads = { { "AGI SOON", "pre-order now" }, { "TOKENS 50% OFF", "this week only" }, { "HIRE AN AI", "it never sleeps" }, { "GPU CLOUD", "zero queue" } };
+            String[] ads = { "AGI SOON", "50% OFF", "HIRE AN AI", "GPU CLOUD" };
+            List<Rectangle2D> used = new ArrayList<>();
             int made = 0;
-            for (int tries = 0; made < ads.length && tries < 900; tries++) {
-                double x = rnd.nextDouble() * W, y = rnd.nextDouble() * H;
-                if (!clear(x + 32, y + 22, 36)) continue;
-                holo(x, y, 64, 30, made % 2 == 0 ? magenta : cyan, made % 2 == 0 ? cyan : magenta, ads[made][0], ads[made][1]);
+            for (int tries = 0; made < ads.length && tries < 1500; tries++) {
+                double w = Math.max(64, textWidth(ads[made], Cyber.display(Font.BOLD, 14)) + 22), h = 30;
+                double x = rnd.nextDouble() * (W - w), y = rnd.nextDouble() * (H - h - 16);
+                if (!clear(x + w / 2, y + h / 2, w / 2 + 8)) continue;
+                Rectangle2D box = new Rectangle2D.Double(x - 24, y - 24, w + 48, h + 56);
+                boolean hit = false;
+                for (Rectangle2D u : used) if (u.intersects(box)) { hit = true; break; }
+                if (hit) continue;
+                used.add(box);
+                holo(x, y, w, h, made % 2 == 0 ? magenta : cyan, made % 2 == 0 ? cyan : magenta, ads[made], null);
                 made++;
             }
         }
@@ -1548,16 +1527,16 @@ public final class MapArt extends GObject {
 
         void fragments() {
             String[] bits = { "[0.42]", "w=1.7", "relu", "dL/dw", "bias +0.3", "0x3F", "softmax", "[ ]", "epoch 812", "lr 3e-4", "grad", "{ }" };
-            Font f = Cyber.mono(Font.PLAIN, 9);
+            Font f = Cyber.mono(Font.BOLD, 11);
             List<Rectangle2D> used = new ArrayList<>();
             int made = 0;
-            for (int tries = 0; made < 26 && tries < 1500; tries++) {
+            for (int tries = 0; made < 20 && tries < 1500; tries++) {
                 double x = rnd.nextDouble() * W, y = rnd.nextDouble() * H;
-                boolean box = rnd.nextDouble() < 0.35;
+                boolean box = rnd.nextDouble() < 0.4;
                 String s = bits[rnd.nextInt(bits.length)];
                 double tw = box ? 10 : textWidth(s, f);
-                if (!clear(x + tw / 2, y - 3, tw / 2 + 4)) continue;
-                Rectangle2D r = new Rectangle2D.Double(x - 10, y - 20, tw + 20, 30);
+                if (!clear(x + tw / 2, y - 3, tw / 2 + 10)) continue;
+                Rectangle2D r = new Rectangle2D.Double(x - 14, y - 26, tw + 28, 40);
                 boolean hit = false;
                 for (Rectangle2D u : used) if (u.intersects(r)) { hit = true; break; }
                 if (hit) continue;
@@ -1570,7 +1549,9 @@ public final class MapArt extends GObject {
                     fill(new Rectangle2D.Double(x + 3, y - 7, 4, 4), alpha(c, 110));
                     g.setTransform(old);
                 } else {
-                    text(s, x, y, f, alpha(c, 110));
+                    fill(new RoundRectangle2D.Double(x - 5, y - 13, tw + 10, 18, 5, 5), new Color(3, 6, 16, 215));
+                    draw(new RoundRectangle2D.Double(x - 5, y - 13, tw + 10, 18, 5, 5), alpha(c, 140), 1);
+                    text(s, x, y, f, Cyber.lerp(c, Color.WHITE, 0.45));
                 }
                 made++;
             }
@@ -1599,11 +1580,7 @@ public final class MapArt extends GObject {
             g.draw(new Ellipse2D.Double(p.x - r * 0.68, p.y - r * 0.68, r * 1.36, r * 1.36));
             String[] names = { "J1", "J2", "H1", "H2", "H3", "H4", "H5", "OUT" };
             String n = i < names.length ? names[i] : "N";
-            Font f = Cyber.mono(Font.BOLD, 9);
-            double tw = textWidth(n, f) + 10;
-            fill(new Rectangle2D.Double(p.x - tw / 2, p.y - r - 18, tw, 13), new Color(4, 6, 18, 210));
-            draw(new Rectangle2D.Double(p.x - tw / 2, p.y - r - 18, tw, 13), alpha(cyan, 160), 1);
-            textCentered(n, p.x, p.y - r - 8, f, cyan);
+            tag(n, p.x, p.y - r - 14, cyan);
         }
 
         void ports() {
@@ -1614,7 +1591,7 @@ public final class MapArt extends GObject {
                 g.setColor(alpha(c, 200));
                 g.setStroke(round(3));
                 g.draw(new Arc2D.Double(p.x - 40, p.y - 40, 80, 80, in ? -70 : 110, 140, Arc2D.OPEN));
-                textCentered(in ? (p.y < H / 2 ? "INPUT A" : "INPUT B") : "OUTPUT", in ? p.x + 46 : p.x - 52, p.y - 46, Cyber.mono(Font.BOLD, 9), alpha(c, 220));
+                tag(in ? (p.y < H / 2 ? "INPUT A" : "INPUT B") : "OUTPUT", in ? p.x + 62 : p.x - 66, p.y - 52, c);
             }
         }
     }
@@ -1641,7 +1618,7 @@ public final class MapArt extends GObject {
             debris();
             vignette(175);
             track(0.62, amber);
-            for (int i = 0; i < dc.getHazards().size(); i++) hazardMarks(dc.getHazards().get(i));
+            for (int i = 0; i < dc.getHazards().size(); i++) hazardMarks(dc.getHazards().get(i), false);
             for (Obstacle o : map.getObstacles()) {
                 String l = o.label == null ? "" : o.label;
                 if (l.startsWith("COOLING")) coolingPlant(o);
@@ -1649,6 +1626,7 @@ public final class MapArt extends GObject {
                 else rack(o);
             }
             props();
+            for (int i = 0; i < dc.getHazards().size(); i++) hazardMarks(dc.getHazards().get(i), true);
             hudFrame(amber, "SERVER GRAVEYARD // SECTOR 7 // POWER 12%");
             scanlines(14);
             synchronized (FLICKER) { FLICKER.put(map.getName(), lights); }
@@ -1745,11 +1723,13 @@ public final class MapArt extends GObject {
             }
         }
 
-        void hazardMarks(AbandonedDataCenter.Hazard hz) {
+        /** {@code labels == false} draws the striped zone under the props; {@code true} draws its warning tag on top of them. */
+        void hazardMarks(AbandonedDataCenter.Hazard hz, boolean labels) {
             Path r = map.getRoutes().get(0);
             Path2D zone = subPath(r, hz.from, hz.to);
             Shape band = new Area(new BasicStroke((float) (2 * HW + 10), BasicStroke.CAP_BUTT, BasicStroke.JOIN_ROUND).createStrokedShape(zone));
             Color hc = c(hz.rgb);
+            if (labels) { hazardLabel(hz, r, hc); return; }
             draw(band, new Color(0, 0, 0, 200), 4);
             g.setColor(alpha(Cyber.YELLOW, 220));
             g.setStroke(new BasicStroke(4f, BasicStroke.CAP_BUTT, BasicStroke.JOIN_ROUND, 10f, new float[] { 7f, 7f }, 0f));
@@ -1758,6 +1738,9 @@ public final class MapArt extends GObject {
             g.clip(trackArea(HW));
             fill(band, alpha(hc, 22));
             g.setClip(old);
+        }
+
+        void hazardLabel(AbandonedDataCenter.Hazard hz, Path r, Color hc) {
             // tag on the side of the zone, with a warning triangle
             Vec mid = r.positionAt((hz.from + hz.to) / 2), dir = r.directionAt((hz.from + hz.to) / 2);
             double side = 1;
@@ -1770,11 +1753,7 @@ public final class MapArt extends GObject {
             fill(tri, alpha(Cyber.YELLOW, 230));
             draw(tri, new Color(0, 0, 0, 220), 1.4);
             textCentered("!", tagAt.x, tagAt.y + 6, Cyber.mono(Font.BOLD, 12), Color.BLACK);
-            Font f = Cyber.mono(Font.BOLD, 8);
-            double tw = textWidth(hz.kind, f);
-            double tx = Math.max(6, Math.min(W - tw - 6, tagAt.x - tw / 2));
-            fill(new Rectangle2D.Double(tx - 4, tagAt.y + 12, tw + 8, 12), new Color(0, 0, 0, 200));
-            text(hz.kind, tx, tagAt.y + 21, f, hc);
+            tag(hz.kind, tagAt.x, tagAt.y + 24, hc);
             lights.add(new double[] { tagAt.x, tagAt.y - 2, 2, Cyber.YELLOW.getRGB() & 0xffffff });
         }
 
@@ -1807,7 +1786,6 @@ public final class MapArt extends GObject {
                 fill(new Rectangle2D.Double(x - 4, y + h * 0.5, 6, h * 0.42), c(0x2c3036));
                 g.setTransform(old);
             }
-            text("RK-" + (100 + rnd.nextInt(900)), x + 3, y - 3, Cyber.mono(Font.PLAIN, 7), new Color(160, 170, 180, 120));
         }
 
         void coolingPlant(Obstacle o) {
@@ -1842,7 +1820,7 @@ public final class MapArt extends GObject {
             g.fill(body);
             draw(body, c(0x5a6470), 1.6);
             fill(new Rectangle2D.Double(x + 14, y + 12, w - 28, 14), new Color(0, 0, 0, 200));
-            textCentered("COOLING PLANT // OFFLINE", x + w / 2, y + 22, Cyber.mono(Font.BOLD, 8), amber);
+            tag("COOLING PLANT // OFFLINE", x + w / 2, y + 19, amber);
             lights.add(new double[] { x + w - 16, y + 19, 2, amber.getRGB() & 0xffffff });
         }
 
@@ -1856,11 +1834,11 @@ public final class MapArt extends GObject {
                 fill(cab, c(0x23282e));
                 draw(cab, c(0x3a4048), 1);
                 fill(new Rectangle2D.Double(cx + 4, y + 14, cw - 8, 10), new Color(20, 6, 6));
-                text(i == 2 ? "FAULT" : "LOW", cx + 6, y + 22, Cyber.mono(Font.BOLD, 7), Cyber.RED);
+                text(i == 2 ? "FAULT" : "LOW", cx + 5, y + 23, Cyber.mono(Font.BOLD, 10), Cyber.RED);
                 for (double by = y + 32; by < y + h - 14; by += 6) fill(new Rectangle2D.Double(cx + 4, by, (cw - 8) * (i == 2 ? 0.15 : 0.3), 3), alpha(Cyber.RED, 160));
                 lights.add(new double[] { cx + cw / 2, y + 19, 1, Cyber.RED.getRGB() & 0xffffff });
             }
-            text("UPS BANK", x + 4, y - 3, Cyber.mono(Font.BOLD, 8), alpha(amber, 180));
+            tag("UPS BANK", x + 2, y + h + 14, amber, false);
         }
 
         void props() {

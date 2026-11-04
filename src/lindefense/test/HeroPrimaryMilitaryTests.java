@@ -309,7 +309,7 @@ public final class HeroPrimaryMilitaryTests {
         g.getTowerManager().recomputeAuras();
         check(near(farMil.getAuraRateBonus(), 0.15) && farMil.flatDamageBuff() == 1, "Enterprise Network reaches a far MILITARY tower");
         check(farOther.getAuraRateBonus() == 0 && farOther.flatDamageBuff() == 0 && farOther.effectivePierce() == farOther.getStats().pierce, "...but not a far non-MILITARY tower");
-        Tower hero = forcePlace(g, TowerType.BRANDON, buildableNear(g, new Vec(1130, 660), 100), 0);
+        Tower hero = forcePlace(g, TowerType.BLITZ_ARNAV, buildableNear(g, new Vec(1130, 660), 100), 0);
         g.getTowerManager().recomputeAuras();
         check(hero.getAuraRateBonus() == 0 && hero.flatDamageBuff() == 0, "HERO towers get no Enterprise bonus");
         // before U3 there is no global bonus

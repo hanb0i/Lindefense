@@ -20,9 +20,9 @@ public final class TutorialScript {
         TARGETING("Targeting", "With a tower selected, press T or the < > arrows to choose who it shoots: First, Last, Strongest, Weakest or Closest.", false, 0),
         HERO_STORE("Open the Hero Store", "Press HEROES at the top right (or K) and BUY a hero. Real unlocks are permanent; this one is a practice unlock. Tutorial bonus: +$1,000.", true, 1000),
         DEPLOY("Deploy your hero", "Press DEPLOY on the hero's card and click a spot on the map. Deploying is free, but each hero can be deployed only once per match.", true, 0),
-        ABILITY("Use the hero's ability", "Heroes have an active ability. Select the hero and press A, or click its slot in the ability bar at the bottom. The ring shows the cooldown.", true, 0),
+        HERO_UPGRADE("Upgrade your hero", "Heroes level up like towers: select the hero and press UPGRADE (or U) to buy the first of its three upgrades. Each one changes what it does and how it looks. Tutorial bonus: +$600.", true, 600),
         ZETHOS("Meet Zethos", "Zethos (PRIMARY tab, $650) is a regular tower with FOUR upgrades: piercing quantum shots that gain splash, then bounce between enemies, plus the Reality Collapse ability.", false, 0),
-        DONE("You're ready", "The original towers are passive specialists; heroes and Zethos bring the abilities. Look anything up in the CATALOG on the main menu. Press H in game for controls. Good luck!", false, 0);
+        DONE("You're ready", "Towers and heroes are passive specialists that grow through upgrades; Zethos brings the one active ability. Look anything up in the CATALOG on the main menu. Press H in game for controls. Good luck!", false, 0);
 
         public final String title, text;
         /** True when the step completes by doing something in the game (false = info card with NEXT). */
@@ -36,7 +36,7 @@ public final class TutorialScript {
     private int index;
     private boolean granted;
     private boolean finished;
-    private boolean abilityArmed;
+    private int heroTierAtStart;
 
     public TutorialScript(Game game) { this.game = game; enter(); }
 
@@ -60,10 +60,9 @@ public final class TutorialScript {
         granted = false;
         Step s = current();
         if (s.grant > 0) { game.addCash(s.grant, null); granted = true; }
-        if (s == Step.ABILITY) {
+        if (s == Step.HERO_UPGRADE) {
             Tower h = hero();
-            if (h != null) h.resetAbilityCooldown();   // ready to fire right away
-            abilityArmed = true;
+            heroTierAtStart = h == null ? 0 : h.getTier();
         }
     }
 
@@ -93,11 +92,9 @@ public final class TutorialScript {
                 for (TowerType h : TowerType.heroes()) if (game.isHeroUnlocked(h)) return true;
                 return false;
             case DEPLOY: return hero() != null;
-            case ABILITY: {
+            case HERO_UPGRADE: {
                 Tower h = hero();
-                if (h == null) return false;
-                if (abilityArmed && h.getAbility() != null && !h.isAbilityReady() && h.getAbilityCooldownRemaining() > h.getAbility().cooldown * 0.9) { abilityArmed = false; return true; }
-                return false;
+                return h != null && h.getTier() > heroTierAtStart;
             }
             default: return false;
         }

@@ -93,7 +93,7 @@ public final class SidePanel extends GCompound {
         double x = Ui.PANEL_X + 8;
         double tabW = 60;
         for (Faction f : ShopLayout.shopFactions()) {
-            UIButton b = new UIButton(x, 40, tabW, 30, f.label.toUpperCase(), Cyber.display(Font.BOLD, 12), () -> setTab(f));
+            UIButton b = new UIButton(x, 40, tabW, 30, f.label.toUpperCase(), Cyber.displayCompact(Font.BOLD, 12), () -> setTab(f));
             b.setAccent(Ui.c(f.rgb));
             tabButtons.add(b);
             add(b);
@@ -425,6 +425,9 @@ public final class SidePanel extends GCompound {
         GLabel nm = put(game.getMap().getName().toUpperCase(), x0 + 62, y + 18, Cyber.display(Font.BOLD, 18), Cyber.YELLOW);
         GLabel hint = put("[H] HELP", 0, y + 16, F_MICRO, Cyber.DIM);
         hint.setLocation(x0 + textW - hint.getWidth(), y + 16);
+        // long map names (Valorax is wide): step the title down until it clears the hint
+        double room = hint.getX() - 8 - (x0 + 62);
+        for (int sz = 18; nm.getWidth() > room && sz > 8; sz -= 2) nm.setFont(Cyber.displayCompact(Font.BOLD, sz));
         y += 22;
         List<String> lines = Ui.wrap(game.getMap().getMechanicSummary(), F_TXT, textW);
         for (int i = 0; i < Math.min(2, lines.size()); i++) {
@@ -582,7 +585,7 @@ public final class SidePanel extends GCompound {
             statCell(x0, yy + 34, "range", () -> HeroStatText.range(t.getType(), t.effectiveRange(game)), Cyber.TEXT);
             statCell(x0 + 180, yy + 34, modeLabel(base), () -> modeText(t.getStats()), Cyber.TEXT);
             statCell(x0, yy + 68, "kills", () -> Cyber.commas(t.getKills()), Cyber.GREEN);
-            if (hero) statCell(x0 + 180, yy + 68, "ability", () -> t.isAbilityReady() ? "READY" : (int) Math.ceil(t.getAbilityCooldownRemaining()) + "s", Cyber.MAGENTA);
+            if (t.getAbility() != null) statCell(x0 + 180, yy + 68, "ability", () -> t.isAbilityReady() ? "READY" : (int) Math.ceil(t.getAbilityCooldownRemaining()) + "s", Cyber.MAGENTA);
             else statCell(x0 + 180, yy + 68, "invested", () -> Ui.money(t.getInvestedCost()), Cyber.YELLOW);
             y += 102;
         } else {
@@ -652,15 +655,11 @@ public final class SidePanel extends GCompound {
         if (!base.isSupportOnly()) {
             y += 12;
             put(Cyber.spaced("target [t]"), x0, y + 20, F_MICRO, Cyber.alpha(Cyber.CYAN, 230));
-            if (ty == TowerType.OWEN) {
-                put("AUTO  (each drone picks its own)", x0 + 86, y + 20, Cyber.body(Font.BOLD, 12), Cyber.CYAN);
-            } else {
-                button(x0 + 86, y, 34, 28, "<", () -> screen.cycleTargeting(-1)).setAccent(Cyber.CYAN);
-                String tl = t.getTargeting() == lindefense.tower.Targeting.DENSEST_CLUSTER ? "DENSEST CLUSTER" : t.getTargeting().label.toUpperCase();
-                UIButton cur = button(x0 + 124, y, 130, 28, tl, null);
-                cur.setSelected(true);
-                button(x0 + 258, y, 34, 28, ">", () -> screen.cycleTargeting(1)).setAccent(Cyber.CYAN);
-            }
+            button(x0 + 86, y, 34, 28, "<", () -> screen.cycleTargeting(-1)).setAccent(Cyber.CYAN);
+            String tl = t.getTargeting() == lindefense.tower.Targeting.DENSEST_CLUSTER ? "DENSEST CLUSTER" : t.getTargeting().label.toUpperCase();
+            UIButton cur = button(x0 + 124, y, 130, 28, tl, null);
+            cur.setSelected(true);
+            button(x0 + 258, y, 34, 28, ">", () -> screen.cycleTargeting(1)).setAccent(Cyber.CYAN);
             y += 28;
         }
 

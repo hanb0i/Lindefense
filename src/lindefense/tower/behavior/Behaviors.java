@@ -18,13 +18,24 @@ public final class Behaviors {
     private static final TowerBehavior GENERIC = new GenericBehavior();
 
     static {
-        // Hero Store heroes
-        MAP.put(TowerType.BRAD_LINDEMANN, new BradLindemannBehavior());
-        MAP.put(TowerType.BRANDON, new BrandonBehavior());
-        MAP.put(TowerType.ROHAN, new RohanBehavior());
-        MAP.put(TowerType.RONIL, new RonilBehavior());
-        MAP.put(TowerType.SHASHANK, new ShashankBehavior());
-        MAP.put(TowerType.OWEN, new OwenBehavior());
+        // Hero Store heroes (base + 3 upgrades each)
+        MAP.put(TowerType.LOBBER_LUIS, new LobberLuisBehavior());
+        MAP.put(TowerType.SAGE_AARAV, new SageAaravBehavior());
+        MAP.put(TowerType.IRON_IMRAAN, new IronImraanBehavior());
+        MAP.put(TowerType.BOOM_SAM, new BoomSamBehavior());
+        MAP.put(TowerType.CHILLSTIN, new ChillstinBehavior());
+        MAP.put(TowerType.KAIJU_KAI, new KaijuKaiBehavior());
+        MAP.put(TowerType.ABHI_ACE, new AbhiAceBehavior());
+        MAP.put(TowerType.ZIPPY_MATT, new ZippyMattBehavior());
+        MAP.put(TowerType.SUNNY_JOE, new SunnyJoeBehavior());
+        MAP.put(TowerType.NIK_SCOPE, new NikScopeBehavior());
+        MAP.put(TowerType.CAMI_MINE, new CamiMineBehavior());
+        MAP.put(TowerType.JUSTIN_TIME, new JustinTimeBehavior());
+        MAP.put(TowerType.SPEAR_HANBO, new SpearHanboBehavior());
+        MAP.put(TowerType.THORN_TUHIN, new ThornTuhinBehavior());
+        MAP.put(TowerType.TRAPPER_CHE, new TrapperCheBehavior());
+        MAP.put(TowerType.BLITZ_ARNAV, new BlitzArnavBehavior());
+        MAP.put(TowerType.TANIMBUS, new TanimbusBehavior());
         // Primary (B1)
         MAP.put(TowerType.GEMINI, new GeminiBehavior());
         MAP.put(TowerType.CLAUDE, new ClaudeBehavior());

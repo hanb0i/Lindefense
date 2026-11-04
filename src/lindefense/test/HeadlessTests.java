@@ -117,13 +117,13 @@ public final class HeadlessTests {
     // ------------------------------------------------------------------ tests
     private static void catalogIntegrity() {
         TowerType[] p = TowerType.purchasable();
-        check(p.length == 24, "24 placeable units (6 heroes + 18 shop towers), got " + p.length);
-        check(TowerType.heroes().length == 6 && TowerType.shopTowers().length == 18, "6 Hero Store heroes, 18 shop towers");
+        check(p.length == 35, "35 placeable units (17 heroes + 18 shop towers), got " + p.length);
+        check(TowerType.heroes().length == 17 && TowerType.shopTowers().length == 18, "17 Hero Store heroes, 18 shop towers");
         int heroes = 0;
         for (TowerType t : p) {
             TowerDef d = TowerCatalog.get(t);
             check(d != null, "def for " + t);
-            int ups = t.isHero() ? 0 : t == TowerType.ZETHOS ? TowerCatalog.ZETHOS_UPGRADES : TowerCatalog.STANDARD_UPGRADES;
+            int ups = t == TowerType.ZETHOS ? TowerCatalog.ZETHOS_UPGRADES : TowerCatalog.STANDARD_UPGRADES;
             check(d.upgrades.length == ups, t + " has exactly " + ups + " upgrades");
             if (TowerCatalog.hasActiveAbility(t)) check(d.ability != null && d.ability.cooldown > 0, t + " has ability with cooldown");
             else check(d.ability == null, t + " (original shop tower) has no special ability");
@@ -134,7 +134,7 @@ public final class HeadlessTests {
             check(d.tierLabels.length == ups + 1, t + " " + (ups + 1) + " tier labels");
             check(d.subtitle != null && !d.subtitle.isEmpty(), t + " has a nickname subtitle");
         }
-        check(heroes == 6, "6 heroes");
+        check(heroes == 17, "17 heroes");
         int species = 0;
         for (EnemyType e : EnemyType.values()) if (e.isSpawnableSpecies() && !e.isBoss()) species++;
         check(species == 16, "16 standard enemy species, got " + species);
@@ -169,8 +169,8 @@ public final class HeadlessTests {
         check(g.getTowerManager().getTowers().isEmpty(), "tower removed");
         // Not enough cash
         Game g2 = newGame(0);
-        check(g2.placeTower(TowerType.BRAD_LINDEMANN, p) == null, "a locked hero cannot be placed");
-        check(!g2.purchaseHero(TowerType.BRAD_LINDEMANN), "cannot afford Brad's $1,800 unlock at start");
+        check(g2.placeTower(TowerType.KAIJU_KAI, p) == null, "a locked hero cannot be placed");
+        check(!g2.purchaseHero(TowerType.KAIJU_KAI), "cannot afford Kaiju Kai's $1,500 unlock at start");
         check(g2.getCash() == Game.START_CASH, "cash unchanged after failed purchase");
         // Every tower can be placed and upgraded through its whole path (and never past it); heroes after unlocking
         Game g3 = newGame(0);
@@ -542,7 +542,7 @@ public final class HeadlessTests {
         // Splash hits several
         Game g2 = newGame(0);
         g2.setGlobalEnemySpeedMultiplier(0);
-        Tower brad = forcePlace(g2, TowerType.BRAD_LINDEMANN, p, 0);
+        Tower brad = forcePlace(g2, TowerType.KAIJU_KAI, p, 0);
         List<Enemy> group = new ArrayList<>();
         for (int i = 0; i < 4; i++) group.add(spawnAt(g2, EnemyType.HEAP_SORT, null, 0, 400 + i * 15));
         g2.run(120);
@@ -740,26 +740,26 @@ public final class HeadlessTests {
     private static void abilityCooldowns() {
         Game g = newGame(0);
         Vec p = buildableNear(g, new Vec(400, 250), 200);
-        Tower st = forcePlace(g, TowerType.BRANDON, p, 0);
+        Tower st = forcePlace(g, TowerType.ZETHOS, p, 0);
         check(!st.isAbilityReady(), "ability starts at 50% cooldown, not ready");
-        check(Math.abs(st.getAbilityCooldownRemaining() - 17.5) < 1e-9, "starting cooldown is 17.5 s (50% of 35)");
+        check(Math.abs(st.getAbilityCooldownRemaining() - 27.5) < 1e-9, "starting cooldown is 27.5 s (50% of 55)");
         check(!g.activateAbility(st), "cannot activate while cooling down");
-        runSeconds(g, 17.6);
+        runSeconds(g, 27.6);
         check(st.isAbilityReady(), "ready after the remaining 50%");
         check(g.activateAbility(st), "ability activates");
         check(!st.isAbilityReady(), "not ready after use");
-        check(Math.abs(st.getAbilityCooldownRemaining() - 35) < 1e-9, "cooldown 35 s");
+        check(Math.abs(st.getAbilityCooldownRemaining() - 55) < 1e-9, "cooldown 55 s");
         check(!g.activateAbility(st), "cannot activate during cooldown");
         check(Math.abs(st.selfRateMult() - 2.0) < 1e-9, "self buff applied (x2 rate)");
-        runSeconds(g, 10.1);
-        check(st.selfRateMult() == 1.0, "buff expired after 10 s");
-        runSeconds(g, 25);
+        runSeconds(g, 6.1);
+        check(st.selfRateMult() == 1.0, "buff expired after 6 s");
+        runSeconds(g, 49);
         check(st.isAbilityReady(), "ready again after cooldown");
         // cooldowns count in game time: 3x speed finishes three times sooner in real seconds
         Game fast = newGame(0);
-        Tower ft = forcePlace(fast, TowerType.BRANDON, p, 0);
+        Tower ft = forcePlace(fast, TowerType.ZETHOS, p, 0);
         fast.setSpeed(3);
-        for (int i = 0; i < 60 * 8; i++) fast.advance(1.0 / 60);   // 8 real seconds = 24 game seconds
+        for (int i = 0; i < 60 * 12; i++) fast.advance(1.0 / 60);   // 12 real seconds = 36 game seconds
         check(ft.isAbilityReady(), "ability cooldown speeds up with fast-forward");
         // every tower's ability can activate (with an enemy present where required)
         int i = 0;
@@ -780,7 +780,7 @@ public final class HeadlessTests {
             gg.run(60);
             i++;
         }
-        check(i == 7, "7 abilities tested (6 heroes + Zethos), got " + i);
+        check(i == 1, "1 ability tested (Zethos; towers and heroes are passive), got " + i);
     }
 
     private static void mapsTraversable() {
@@ -874,30 +874,65 @@ public final class HeadlessTests {
         check(repeats == 0, "the same hazard never fires twice in a row");
     }
 
-    /** SETTINGS > ADMIN CODE: the code check, and a match in admin mode (unlimited credits, every hero unlocked). */
+    /** SETTINGS > ADMIN CODE: the code check and each cheat on the checklist, applied independently. */
     private static void adminMode() {
         check(lindefense.sim.AdminMode.matches("lindeveloper"), "admin code accepted");
         check(lindefense.sim.AdminMode.matches("  LinDeveloper "), "admin code ignores case and spaces");
         check(!lindefense.sim.AdminMode.matches("lindeveloper1") && !lindefense.sim.AdminMode.matches("austin") && !lindefense.sim.AdminMode.matches("") && !lindefense.sim.AdminMode.matches(null), "wrong codes rejected");
+        check(lindefense.sim.AdminMode.Option.values().length == 3, "the checklist offers three cheats");
         Game normal = newGame(0);
-        check(!normal.isAdmin() && !normal.isHeroUnlocked(TowerType.ROHAN), "games start without admin mode");
-        Game g = newGame(0);
-        g.setAdmin(true);
-        double before = g.getCash();
-        check(before >= Game.ADMIN_CASH, "admin mode tops credits up");
-        for (TowerType h : TowerType.heroes()) check(g.isHeroUnlocked(h), "admin unlocks " + h.displayName);
-        check(g.getHeroCollection().unlocked().isEmpty(), "admin mode does not touch the saved hero collection");
+        check(!normal.isAdmin() && !normal.isHeroUnlocked(TowerType.CHILLSTIN), "games start with no cheats");
+        check(!normal.hasAdminHeroes() && !normal.hasAdminMoney() && !normal.hasAdminHealth(), "no cheat is on by default");
+
+        // 1. unlock all heroes, on its own
+        Game heroesOnly = newGame(0);
+        heroesOnly.setAdmin(true, false, false);
+        for (TowerType h : TowerType.heroes()) check(heroesOnly.isHeroUnlocked(h), "unlock-all opens " + h.displayName);
+        check(heroesOnly.getHeroCollection().unlocked().isEmpty(), "unlock-all never touches the saved collection");
+        check(heroesOnly.getCash() == Game.START_CASH, "unlock-all does not hand out money");
+
+        // 2. infinite money, on its own
+        Game moneyOnly = newGame(0);
+        moneyOnly.setAdmin(false, true, false);
+        double before = moneyOnly.getCash();
+        check(before >= Game.ADMIN_CASH, "infinite money tops credits up");
+        check(!moneyOnly.isHeroUnlocked(TowerType.CHILLSTIN), "infinite money alone does not unlock heroes");
         int placed = 0, maxed = 0;
-        for (TowerType type : TowerType.purchasable()) {
-            Tower t = g.placeTower(type, buildableNear(g, new Vec(150 + (placed % 8) * 120, 300 + (placed / 8) * 180), 260));
+        for (TowerType type : TowerType.shopTowers()) {
+            Tower t = moneyOnly.placeTower(type, buildableNear(moneyOnly, new Vec(150 + (placed % 8) * 120, 300 + (placed / 8) * 180), 260));
             if (t == null) continue;
             placed++;
-            while (g.upgradeTower(t)) { /* every upgrade */ }
+            while (moneyOnly.upgradeTower(t)) { /* every upgrade */ }
             if (!t.canUpgrade()) maxed++;
         }
-        check(placed >= 10 && maxed == placed, "admin mode buys and fully upgrades every tower (" + maxed + "/" + placed + ")");
-        check(g.getCash() == before, "spending never lowers admin credits");
-        check(Game.freshCopy(g).isAdmin(), "RESTART keeps admin mode");
+        check(placed >= 10 && maxed == placed, "infinite money buys and fully upgrades every tower (" + maxed + "/" + placed + ")");
+        check(moneyOnly.getCash() == before, "spending never lowers the credits");
+
+        // 3. infinite health, on its own
+        Game healthOnly = newGame(0);
+        healthOnly.setAdmin(false, false, true);
+        for (int i = 0; i < Game.START_LIVES + 50; i++) {
+            Enemy e = healthOnly.getEnemyManager().spawnScaled(EnemyType.PRIMITIVE_VARIABLE, null, 0, 0, 1, 1.0);
+            healthOnly.getEnemyManager().update(0);
+            healthOnly.loseLives(1, e);
+            e.markDead();
+        }
+        check(healthOnly.getLives() >= 1 && healthOnly.getState() == Game.State.PLAYING, "infinite health never loses the run");
+        Game mortal = newGame(0);
+        for (int i = 0; i < Game.START_LIVES + 5; i++) {
+            Enemy e = mortal.getEnemyManager().spawnScaled(EnemyType.PRIMITIVE_VARIABLE, null, 0, 0, 1, 1.0);
+            mortal.getEnemyManager().update(0);
+            mortal.loseLives(1, e);
+            e.markDead();
+        }
+        check(mortal.getLives() == 0, "without the cheat the same leaks empty the integrity bar");
+
+        // all three together, and RESTART keeps them
+        Game all = newGame(0);
+        all.setAdmin(true, true, true);
+        check(all.isAdmin() && all.hasAdminHeroes() && all.hasAdminMoney() && all.hasAdminHealth(), "all three can be on at once");
+        Game restarted = Game.freshCopy(all);
+        check(restarted.hasAdminHeroes() && restarted.hasAdminMoney() && restarted.hasAdminHealth(), "RESTART keeps the checklist");
     }
 
     private static void mapMechanics() {
@@ -908,7 +943,7 @@ public final class HeadlessTests {
         Enemy near = spawnAt(g, EnemyType.PRIMITIVE_VARIABLE, null, 1, g.getMap().getRoutes().get(1).getTotalLength() - 100);
         check(sc.enemySpeedMultiplier(near) > sc.enemySpeedMultiplier(far), "gravity speeds up enemies near core");
         g.setGlobalEnemySpeedMultiplier(0);
-        Tower t = forcePlace(g, TowerType.BRANDON, buildableNear(g, new Vec(600, 200), 200), 0);
+        Tower t = forcePlace(g, TowerType.ZETHOS, buildableNear(g, new Vec(600, 200), 200), 0);
         t.resetAbilityCooldown();
         g.activateAbility(t);
         check(!t.isAbilityReady(), "cooldown started");
@@ -1038,9 +1073,13 @@ public final class HeadlessTests {
             g.setGlobalEnemySpeedMultiplier(0.35); // slow enemies so a genuine rush accumulates
             g.addCash(500_000, null);
             // Build a dense late-game defence near the routes
-            TowerType[] types = { TowerType.BRAD_LINDEMANN, TowerType.DEEPSEEK, TowerType.COHERE, TowerType.GEMINI, TowerType.SORA,
+            TowerType[] types = { TowerType.KAIJU_KAI, TowerType.DEEPSEEK, TowerType.COHERE, TowerType.GEMINI, TowerType.SORA,
                 TowerType.SUNO, TowerType.GLM, TowerType.PERPLEXITY, TowerType.MINIMAX, TowerType.MISTRAL, TowerType.QWEN, TowerType.KIMI,
-                TowerType.GPT, TowerType.CLAUDE, TowerType.LLAMA, TowerType.DALLE, TowerType.GROK, TowerType.COPILOT, TowerType.ZETHOS, TowerType.BRANDON, TowerType.ROHAN, TowerType.RONIL, TowerType.SHASHANK, TowerType.OWEN };
+                TowerType.GPT, TowerType.CLAUDE, TowerType.LLAMA, TowerType.DALLE, TowerType.GROK, TowerType.COPILOT, TowerType.ZETHOS,
+                TowerType.BLITZ_ARNAV, TowerType.CHILLSTIN, TowerType.BOOM_SAM, TowerType.SUNNY_JOE, TowerType.NIK_SCOPE,
+                TowerType.LOBBER_LUIS, TowerType.SAGE_AARAV, TowerType.IRON_IMRAAN, TowerType.ABHI_ACE, TowerType.ZIPPY_MATT,
+                TowerType.CAMI_MINE, TowerType.JUSTIN_TIME, TowerType.SPEAR_HANBO, TowerType.THORN_TUHIN, TowerType.TRAPPER_CHE,
+                TowerType.TANIMBUS };
             for (TowerType h : TowerType.heroes()) g.getHeroCollection().unlock(h);
             int placed = 0;
             for (Path r : g.getMap().getRoutes()) {

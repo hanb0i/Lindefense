@@ -2,3 +2,7 @@ build/
 *.class
 .DS_Store
 .claude/
+
+# Valorax (Makna Studio) is a personal-use demo font: bundled locally, never redistributed in the repo.
+# The game falls back to Rajdhani when it is missing.
+assets/fonts/Valorax.otf

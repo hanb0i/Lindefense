@@ -61,12 +61,23 @@ in map units: 1 unit = 4 px (tables below are in px). Source of truth for every 
 
 | Tower | Faction | Nickname | Tiers (base -> max) | Price | Upgrades | Total | Sell (max) | Ability (cooldown) |
 |---|---|---|---|---|---|---|---|---|
-| Brad Lindemann | Heroes | Legendary Area-Damage Commander | Battlefield Commander | Hero Store $1800 (deploy free) | none | - | no refund | Supreme Command (45s) |
-| Brandon | Heroes | Rapid-Fire Single-Target Specialist | Precision Gunner | Hero Store $1100 (deploy free) | none | - | no refund | Overdrive (35s) |
-| Rohan | Heroes | Defensive Crowd-Control Specialist | Cryo Warden | Hero Store $1300 (deploy free) | none | - | no refund | Absolute Zero (50s) |
-| Ronil | Heroes | Explosive Artillery Specialist | Meteor Caller | Hero Store $1500 (deploy free) | none | - | no refund | Meteor Shower (55s) |
-| Shashank | Heroes | Economic Support and Tactical Debuffer | Data Strategist | Hero Store $1000 (deploy free) | none | - | no refund | Resource Optimization (60s) |
-| Owen | Heroes | Summoner and Multi-Target Specialist | Drone Operator | Hero Store $1400 (deploy free) | none | - | no refund | Drone Swarm (50s) |
+| Lobber Luis | Heroes | Explosive Artillery | Lob Shot -> Heavy Payload -> Cluster Bombs -> Orbital Artillery | Hero Store $900 (deploy free) | $400 / $850 / $1500 | - | no refund | none (passive) |
+| Sage Aarav | Heroes | Healing and Defensive Support | Healing Aura -> Restorative Energy -> Protective Blessing -> Divine Restoration | Hero Store $1000 (deploy free) | $450 / $900 / $1600 | - | no refund | none (passive) |
+| Iron Imraan | Heroes | Heavy Defensive Tank | Iron Fist -> Reinforced Armor -> Hydraulic Smash -> Iron Colossus | Hero Store $1200 (deploy free) | $500 / $950 / $1700 | - | no refund | none (passive) |
+| Boom Sam | Heroes | Demolition Specialist | Dynamite Toss -> Extra Explosives -> Double Detonation -> Nuclear Boom | Hero Store $1100 (deploy free) | $450 / $900 / $1700 | - | no refund | none (passive) |
+| Chillstin | Heroes | Ice and Crowd Control | Frost Shards -> Deep Freeze -> Frozen Prison -> Absolute Frost | Hero Store $1000 (deploy free) | $400 / $850 / $1500 | - | no refund | none (passive) |
+| Kaiju Kai | Heroes | Giant Monster and Area Damage | Monster Roar -> Atomic Breath -> Titan Awakening -> Cataclysmic Kaiju | Hero Store $1500 (deploy free) | $600 / $1100 / $2000 | - | no refund | none (passive) |
+| Abhi-Ace | Heroes | Flying Aerial Striker | Aerial Strike -> Jet Boost -> Missile Barrage -> Ace of the Skies | Hero Store $1350 (deploy free) | $500 / $1000 / $1800 | - | no refund | none (passive) |
+| Zippy Matt | Heroes | Speed and Chain Lightning | Lightning Dash -> Speed Surge -> Electric Overload -> Hyperdrive | Hero Store $1250 (deploy free) | $450 / $900 / $1600 | - | no refund | none (passive) |
+| Sunny Joe | Heroes | Passive Economy Generator | Side Hustle -> Smart Investments -> Business Expansion -> Financial Empire | Hero Store $850 (deploy free) | $400 / $800 / $1500 | - | no refund | none (passive) |
+| Nik-Scope | Heroes | Long-Range Precision Sniper | Precision Shot -> Enhanced Scope -> Armor Piercing -> Deadeye | Hero Store $1300 (deploy free) | $500 / $1000 / $1800 | - | no refund | none (passive) |
+| Cami-Mine | Heroes | Mine and Trap Specialist | Proximity Mines -> Extra Charges -> Electrified Mines -> Minefield | Hero Store $1100 (deploy free) | $450 / $900 / $1600 | - | no refund | none (passive) |
+| Justin Time | Heroes | Time Manipulation | Time Bolt -> Time Dilation -> Temporal Field -> Time Freeze | Hero Store $1400 (deploy free) | $500 / $950 / $1800 | - | no refund | none (passive) |
+| Spear Hanbo | Heroes | Piercing Projectile Specialist | Spear Throw -> Sharpened Spear -> Returning Spear -> Spear Master | Hero Store $1100 (deploy free) | $400 / $850 / $1500 | - | no refund | none (passive) |
+| Thorn Tuhin | Heroes | Poison and Damage Over Time | Thorn Volley -> Poisoned Thorns -> Overgrowth -> Nature's Wrath | Hero Store $1200 (deploy free) | $450 / $900 / $1700 | - | no refund | none (passive) |
+| Trapper Che | Heroes | Mechanical Crowd Control | Capture Trap -> Reinforced Traps -> Electric Cage -> Master Trapper | Hero Store $1150 (deploy free) | $450 / $900 / $1600 | - | no refund | none (passive) |
+| Blitz Arnav | Heroes | Rapid-Fire Military Specialist | Tactical Burst -> Extended Magazine -> Suppressive Fire -> Full Auto | Hero Store $1350 (deploy free) | $500 / $950 / $1750 | - | no refund | none (passive) |
+| Tanimbus | Heroes | Flying Tower Support | Command Drone -> Enhanced Drone -> Tactical Network -> Battlefield Command | Hero Store $1300 (deploy free) | $500 / $950 / $1700 | - | no refund | none (passive) |
 | Gemini | Primary | Prism Blaster | Gemini 3.7 Flash -> Gemini 3.8 Flash -> Gemini 3.1 Pro -> Gemini 4 Argon | $400 | $650 / $700 / $1200 | $2950 | $2065 | none (passive) |
 | Claude | Primary | Ink Weaver | Claude Haiku 5.5 -> Claude Sonnet 5.5 -> Claude Opus 5.5 -> Claude Fable 5.1 | $450 | $550 / $650 / $1100 | $2750 | $1924 | none (passive) |
 | GPT | Primary | Cosmic Strategist | GPT-5.6 Terra -> GPT-6 Luna -> GPT-6 Astra -> GPT-6.1 Sol | $500 | $750 / $800 / $1300 | $3350 | $2345 | none (passive) |
@@ -92,65 +103,277 @@ GLM = Gravity. Unspecified projectile speeds of the original towers default to 4
 
 ### 2.2 Per-tower detail
 
-#### Brad Lindemann - Legendary Area-Damage Commander (Heroes, Hero Store $1800)
+#### Lobber Luis - Explosive Artillery (Heroes, Hero Store $900)
 
-Hero. Massive explosions and chaining energy: a command-energy shell at the strongest enemy explodes for full damage in 18 units, then lightning chains through up to 5 more enemies. Slow attack interval. No camo detection.
-
-| Tier | Name | Cost | Damage | Type | Interval | Range | Pierce | Behaviour |
-|---|---|---|---|---|---|---|---|---|
-| 0 | Battlefield Commander (base) | $0 | 35 | Explosive | 2s | 220 | 1 | projectile 180 px/s, splash 72 |
-
-- **Ability: Supreme Command** (cooldown 45 s): For 12 s: double primary damage, splash radius 18 -> 27 units, up to 10 chain targets at 35 damage each.
-
-#### Brandon - Rapid-Fire Single-Target Specialist (Heroes, Hero Store $1100)
-
-Hero. Extremely fast precision bolts that fly in a straight line through up to 3 enemies. Great against fast enemies and medium groups; low damage per bolt. No camo detection.
+Hero. Lobs an arcing explosive that deals full damage to everything in the blast. Slow, long-ranged and built for dense groups; later splits into cluster bombs and finally calls orbital strikes.
 
 | Tier | Name | Cost | Damage | Type | Interval | Range | Pierce | Behaviour |
 |---|---|---|---|---|---|---|---|---|
-| 0 | Precision Gunner (base) | $0 | 12 | Energy | 0.3s | 168 | 3 | projectile 260 px/s |
+| 0 | Lob Shot (base) | $0 | 30 | Explosive | 2.5s | 220 | 1 | projectile 160 px/s, splash 48 |
+| 1 | Heavy Payload | $400 | 45 | Explosive | 2.5s | 220 | 1 | projectile 160 px/s, splash 60 |
+| 2 | Cluster Bombs | $850 | 45 | Explosive | 2.5s | 220 | 1 | projectile 160 px/s, splash 60 |
+| 3 | Orbital Artillery | $1500 | 100 | Explosive | 2.5s | 220 | 1 | projectile 160 px/s, splash 88 |
 
-- **Ability: Overdrive** (cooldown 35 s): For 10 s: fires twice as fast (interval halved), +50% damage, pierce 5.
+- **U1 Heavy Payload** ($400): Damage 30 -> 45 and blast radius 12 -> 15 units; a visibly heavier shell.
+- **U2 Cluster Bombs** ($850): The shell splits on impact into 3 bomblets, each dealing 25 damage in 7 units.
+- **U3 Orbital Artillery** ($1500): Damage 45 -> 100, blast radius 15 -> 22 units, and every 5th shot lands as a double-damage orbital strike with a shockwave.
+- No active ability (passive tower).
 
-#### Rohan - Defensive Crowd-Control Specialist (Heroes, Hero Store $1300)
+#### Sage Aarav - Healing and Defensive Support (Heroes, Hero Store $1000)
 
-Hero. Icy blasts damage everything within 12 units, slow by 40% for 3 s and may freeze each enemy for 1 s (20%). Bosses cannot be frozen and take a 15% slow instead. Low direct damage. No camo detection.
-
-| Tier | Name | Cost | Damage | Type | Interval | Range | Pierce | Behaviour |
-|---|---|---|---|---|---|---|---|---|
-| 0 | Cryo Warden (base) | $0 | 18 | Energy | 1.5s | 160 | 1 | projectile 200 px/s, splash 48 |
-
-- **Ability: Absolute Zero** (cooldown 50 s): Deals 50 damage to every enemy on the map and freezes all non-boss enemies for 4 s. Bosses are slowed 50% for 4 s instead.
-
-#### Ronil - Explosive Artillery Specialist (Heroes, Hero Store $1500)
-
-Hero. Long-range meteor strikes deal full damage to every enemy within 16 units. Slow firing speed; excels against armoured groups and large enemies. No camo detection.
+Hero. Never attacks. A healing aura restores the integrity leaks take away, up to your starting maximum, and later shields nearby towers and performs one emergency restoration per match.
 
 | Tier | Name | Cost | Damage | Type | Interval | Range | Pierce | Behaviour |
 |---|---|---|---|---|---|---|---|---|
-| 0 | Meteor Caller (base) | $0 | 75 | Explosive | 3s | 300 | 1 | projectile 140 px/s, splash 64 |
+| 0 | Healing Aura (base) | $0 | 0 | Energy | 5s | 160 | 1 | support only |
+| 1 | Restorative Energy | $450 | 0 | Energy | 5s | 160 | 1 | support only |
+| 2 | Protective Blessing | $900 | 0 | Energy | 5s | 160 | 1 | support only; aura 200: Surveillance immunity |
+| 3 | Divine Restoration | $1600 | 0 | Energy | 5s | 160 | 1 | support only; aura 200: Surveillance immunity |
 
-- **Ability: Meteor Shower** (cooldown 55 s): Calls 8 meteors over 6 s, each at a different spot with enemies anywhere on the map: 100 damage within 14 units.
+- **U1 Restorative Energy** ($450): Restores 10 integrity every 5 s (was 5) and the aura grows 40 -> 50 units.
+- **U2 Protective Blessing** ($900): Restores 15 integrity every 4 s, and towers in the aura are shielded from Palantir's Predictive Surveillance.
+- **U3 Divine Restoration** ($1600): Restores 25 integrity every 4 s, and once per match, when integrity falls below 25%, instantly restores 20% of your maximum.
+- No active ability (passive tower).
 
-#### Shashank - Economic Support and Tactical Debuffer (Heroes, Hero Store $1000)
+#### Iron Imraan - Heavy Defensive Tank (Heroes, Hero Store $1200)
 
-Hero. Data-draining shots hit up to 2 enemies and make them take +10% damage from every tower and hero for 4 s (refreshes, never stacks). Low direct damage. No camo detection.
-
-| Tier | Name | Cost | Damage | Type | Interval | Range | Pierce | Behaviour |
-|---|---|---|---|---|---|---|---|---|
-| 0 | Data Strategist (base) | $0 | 15 | Energy | 1.2s | 192 | 2 | projectile 220 px/s; mark +10% 4s |
-
-- **Ability: Resource Optimization** (cooldown 60 s): Immediately generates $500 and gives every tower and hero within 35 units +20% attack speed for 12 s (does not stack).
-
-#### Owen - Summoner and Multi-Target Specialist (Heroes, Hero Store $1400)
-
-Hero. Deploys 3 autonomous drones that each pick, shoot and switch targets on their own (20 damage every 1.5 s). Relies on drone uptime. No camo detection.
+Hero. A very short-range bruiser: every punch knocks normal enemies back down the track (bosses are immune to knockback). Later punches shake the ground with stunning shockwaves.
 
 | Tier | Name | Cost | Damage | Type | Interval | Range | Pierce | Behaviour |
 |---|---|---|---|---|---|---|---|---|
-| 0 | Drone Operator (base) | $0 | 20 | Energy | 1.5s | 200 | 1 | custom attack |
+| 0 | Iron Fist (base) | $0 | 40 | Blunt | 2s | 80 | 1 | projectile 360 px/s; knockback 18 |
+| 1 | Reinforced Armor | $500 | 55 | Blunt | 2s | 80 | 1 | projectile 360 px/s; knockback 30 |
+| 2 | Hydraulic Smash | $950 | 55 | Blunt | 2s | 80 | 1 | projectile 360 px/s; knockback 30 |
+| 3 | Iron Colossus | $1700 | 100 | Blunt | 1.5s | 80 | 1 | projectile 360 px/s; knockback 30 |
 
-- **Ability: Drone Swarm** (cooldown 50 s): Summons 5 extra drones for 15 s, each dealing 25 damage once per second. The original 3 drones stay.
+- **U1 Reinforced Armor** ($500): Damage 40 -> 55 and a stronger shove (18 -> 30 px).
+- **U2 Hydraulic Smash** ($950): Every 3rd punch slams the ground for 45 damage in 14 units.
+- **U3 Iron Colossus** ($1700): Damage 55 -> 100, interval 2 -> 1.5 s, shockwave radius 14 -> 22 units, and the shockwave briefly stuns normal enemies.
+- No active ability (passive tower).
+
+#### Boom Sam - Demolition Specialist (Heroes, Hero Store $1100)
+
+Hero. Hurls dynamite into enemy groups for heavy burst damage. Learns to throw two charges at once and finally detonates a nuclear blast every fifth attack.
+
+| Tier | Name | Cost | Damage | Type | Interval | Range | Pierce | Behaviour |
+|---|---|---|---|---|---|---|---|---|
+| 0 | Dynamite Toss (base) | $0 | 50 | Explosive | 2.2s | 180 | 1 | projectile 220 px/s, splash 40 |
+| 1 | Extra Explosives | $450 | 70 | Explosive | 2.2s | 180 | 1 | projectile 220 px/s, splash 52 |
+| 2 | Double Detonation | $900 | 50 | Explosive | 2.2s | 180 | 1 | projectile 220 px/s, splash 36; 2 targets |
+| 3 | Nuclear Boom | $1700 | 110 | Explosive | 2.2s | 180 | 1 | projectile 220 px/s, splash 80; 2 targets |
+
+- **U1 Extra Explosives** ($450): Damage 50 -> 70 and blast radius 10 -> 13 units.
+- **U2 Double Detonation** ($900): Throws two charges per attack at separate targets, each 50 damage in 9 units.
+- **U3 Nuclear Boom** ($1700): Damage 50 -> 110 per charge, blast radius 9 -> 20 units, and every 5th attack adds a 250-damage detonation.
+- No active ability (passive tower).
+
+#### Chillstin - Ice and Crowd Control (Heroes, Hero Store $1000)
+
+Hero. Fast frost shards that slow everything they touch. Upgrades deepen the chill into outright freezes and a shattering ice explosion; bosses resist freezing and are only slowed.
+
+| Tier | Name | Cost | Damage | Type | Interval | Range | Pierce | Behaviour |
+|---|---|---|---|---|---|---|---|---|
+| 0 | Frost Shards (base) | $0 | 15 | Energy | 1.2s | 180 | 1 | projectile 280 px/s; slow 25% 2s |
+| 1 | Deep Freeze | $400 | 22 | Energy | 1.2s | 180 | 1 | projectile 280 px/s; slow 40% 3s |
+| 2 | Frozen Prison | $850 | 22 | Energy | 1.2s | 180 | 1 | projectile 280 px/s; slow 40% 3s |
+| 3 | Absolute Frost | $1500 | 40 | Energy | 0.9s | 180 | 1 | projectile 280 px/s; slow 40% 3s |
+
+- **U1 Deep Freeze** ($400): Damage 15 -> 22 and the slow deepens 25% -> 40% and lasts 2 -> 3 s.
+- **U2 Frozen Prison** ($850): Every 4th shard has a 25% chance to freeze a normal enemy for 2 s; bosses cannot be frozen and take a 15% slow instead.
+- **U3 Absolute Frost** ($1500): Damage 22 -> 40, interval 1.2 -> 0.9 s, and every 6th shard bursts for 15 units, slowing everything hit by 60% for 4 s.
+- No active ability (passive tower).
+
+#### Kaiju Kai - Giant Monster and Area Damage (Heroes, Hero Store $1500)
+
+Hero. A towering monster whose roar blasts and shoves whole groups. From Atomic Breath on it replaces the roar with a sustained energy beam that burns everything along its path, and finally detonates periodic atomic blasts.
+
+| Tier | Name | Cost | Damage | Type | Interval | Range | Pierce | Behaviour |
+|---|---|---|---|---|---|---|---|---|
+| 0 | Monster Roar (base) | $0 | 45 | Sonic | 2.5s | 200 | 1 | projectile 240 px/s, splash 60; knockback 22 |
+| 1 | Atomic Breath | $600 | 45 | Energy | 2.5s | 240 | 1 | custom attack |
+| 2 | Titan Awakening | $1100 | 45 | Energy | 2.5s | 240 | 1 | custom attack |
+| 3 | Cataclysmic Kaiju | $2000 | 45 | Energy | 2.5s | 240 | 1 | custom attack |
+
+- **U1 Atomic Breath** ($600): Replaces the roar with an energy beam: 20 damage per tick for 1.5 s along its whole path, range 50 -> 60 units.
+- **U2 Titan Awakening** ($1100): Beam damage 20 -> 35 per tick and duration 1.5 -> 2 s.
+- **U3 Cataclysmic Kaiju** ($2000): Every 8 s releases an atomic blast dealing 250 damage in 25 units.
+- No active ability (passive tower).
+
+#### Abhi-Ace - Flying Aerial Striker (Heroes, Hero Store $1350)
+
+Hero. Flies above the battlefield, so its missiles ignore every line-of-sight blocker on the ground. Upgrades turn single missiles into a barrage and finally add a periodic bombing run.
+
+| Tier | Name | Cost | Damage | Type | Interval | Range | Pierce | Behaviour |
+|---|---|---|---|---|---|---|---|---|
+| 0 | Aerial Strike (base) | $0 | 25 | Explosive | 1.2s | 240 | 1 | projectile 260 px/s, splash 20; ignores line of sight |
+| 1 | Jet Boost | $500 | 35 | Explosive | 1s | 240 | 1 | projectile 260 px/s, splash 20; ignores line of sight |
+| 2 | Missile Barrage | $1000 | 25 | Explosive | 1s | 240 | 1 | projectile 260 px/s, splash 20; ignores line of sight; 3 targets |
+| 3 | Ace of the Skies | $1800 | 45 | Explosive | 1s | 240 | 1 | projectile 260 px/s, splash 20; ignores line of sight; 4 targets |
+
+- **U1 Jet Boost** ($500): Damage 25 -> 35 and interval 1.2 -> 1 s; the jet flies visibly faster.
+- **U2 Missile Barrage** ($1000): Fires 3 missiles per attack, each 25 damage, and they may split across separate targets.
+- **U3 Ace of the Skies** ($1800): 4 missiles per attack at 45 damage each, plus an aerial bombardment every 10 s dealing 200 damage in 20 units.
+- No active ability (passive tower).
+
+#### Zippy Matt - Speed and Chain Lightning (Heroes, Hero Store $1250)
+
+Hero. Lightning that leaps from enemy to enemy, never striking the same target twice in one arc. Upgrades add hops and speed until the chain detonates in a lightning burst.
+
+| Tier | Name | Cost | Damage | Type | Interval | Range | Pierce | Behaviour |
+|---|---|---|---|---|---|---|---|---|
+| 0 | Lightning Dash (base) | $0 | 18 | Energy | 1.5s | 180 | 1 | chain +2 hops within 48 |
+| 1 | Speed Surge | $450 | 25 | Energy | 1.5s | 180 | 1 | chain +3 hops within 64 |
+| 2 | Electric Overload | $900 | 25 | Energy | 1.2s | 180 | 1 | chain +5 hops within 64 |
+| 3 | Hyperdrive | $1600 | 40 | Energy | 0.8s | 180 | 1 | chain +8 hops within 64 |
+
+- **U1 Speed Surge** ($450): Damage 18 -> 25, chains to 4 enemies (was 3) and reaches 12 -> 16 units between hops.
+- **U2 Electric Overload** ($900): Chains to 6 enemies and interval 1.5 -> 1.2 s, but each hop deals 90% of the previous hit.
+- **U3 Hyperdrive** ($1600): Damage 25 -> 40, chains to 9 enemies, interval 1.2 -> 0.8 s, and every 8th attack ends in a 100-damage lightning explosion.
+- No active ability (passive tower).
+
+#### Sunny Joe - Passive Economy Generator (Heroes, Hero Store $850)
+
+Hero. Never attacks: he runs a side hustle that quietly pays cash straight into your balance on a timer, and later adds a much larger periodic payout.
+
+| Tier | Name | Cost | Damage | Type | Interval | Range | Pierce | Behaviour |
+|---|---|---|---|---|---|---|---|---|
+| 0 | Side Hustle (base) | $0 | 0 | Energy | 10s | 120 | 1 | support only |
+| 1 | Smart Investments | $400 | 0 | Energy | 10s | 120 | 1 | support only |
+| 2 | Business Expansion | $800 | 0 | Energy | 10s | 120 | 1 | support only |
+| 3 | Financial Empire | $1500 | 0 | Energy | 10s | 120 | 1 | support only |
+
+- **U1 Smart Investments** ($400): Income 40 -> 65 every 10 s.
+- **U2 Business Expansion** ($800): Income 65 -> 100 every 10 s, plus a 100 bonus payout every 60 s.
+- **U3 Financial Empire** ($1500): Income 100 -> 150 every 10 s and the bonus payout grows 100 -> 300.
+- No active ability (passive tower).
+
+#### Nik-Scope - Long-Range Precision Sniper (Heroes, Hero Store $1300)
+
+Hero. Picks off the strongest enemy from across the map and sees through camo from the start. Upgrades punch through more enemies per shot and finally land critical hits. Devastating against ordinary enemies; a boss's sheer bulk blunts a single precision round, so she still needs a line behind her.
+
+| Tier | Name | Cost | Damage | Type | Interval | Range | Pierce | Behaviour |
+|---|---|---|---|---|---|---|---|---|
+| 0 | Precision Shot (base) | $0 | 100 | Sharp | 3s | 400 | 1 | instant beam; camo detection |
+| 1 | Enhanced Scope | $500 | 150 | Sharp | 2.7s | 480 | 1 | instant beam; camo detection |
+| 2 | Armor Piercing | $1000 | 225 | Sharp | 3.2s | 480 | 3 | beam through line; x1.5 vs Fortified; camo detection |
+| 3 | Deadeye | $1800 | 400 | Sharp | 4.2s | 600 | 5 | beam through line; x0.55 vs MOAB-class; x1.5 vs Fortified; camo detection |
+
+- **U1 Enhanced Scope** ($500): Damage 100 -> 150, range 100 -> 120 units and interval 3 -> 2.7 s.
+- **U2 Armor Piercing** ($1000): Damage 150 -> 225, the shot passes through 3 enemies, ignores most armour and deals +50% to Fortified enemies.
+- **U3 Deadeye** ($1800): Damage 225 -> 400, range 120 -> 150 units, pierce 5, full armour piercing and 20% of shots critically hit for 2.5x damage. Lining up the shot takes longer: interval 3.2 -> 4.2 s.
+- No active ability (passive tower).
+
+#### Cami-Mine - Mine and Trap Specialist (Heroes, Hero Store $1100)
+
+Hero. Plants proximity mines on the track that sit armed until an enemy walks onto them. Each mine fires once, so a field never blocks a lane; upgrades add charges, electrify them and double the blast.
+
+| Tier | Name | Cost | Damage | Type | Interval | Range | Pierce | Behaviour |
+|---|---|---|---|---|---|---|---|---|
+| 0 | Proximity Mines (base) | $0 | 65 | Explosive | 4s | 180 | 1 | custom attack |
+| 1 | Extra Charges | $450 | 85 | Explosive | 4s | 180 | 1 | custom attack |
+| 2 | Electrified Mines | $900 | 120 | Explosive | 4s | 180 | 1 | custom attack; slow 30% 2s |
+| 3 | Minefield | $1600 | 200 | Explosive | 4s | 180 | 1 | custom attack; slow 30% 2s |
+
+- **U1 Extra Charges** ($450): Carries 5 mines at once (was 3) and each deals 65 -> 85 damage.
+- **U2 Electrified Mines** ($900): Damage 85 -> 120, blast radius 8 -> 12 units, and survivors are slowed 30% for 2 s.
+- **U3 Minefield** ($1600): Carries 8 mines, damage 120 -> 200, and each blast has a 20% chance of a 100-damage secondary detonation.
+- No active ability (passive tower).
+
+#### Justin Time - Time Manipulation (Heroes, Hero Store $1400)
+
+Hero. Time bolts drag enemies to a crawl. Later he stalls whole stretches of track with a temporal field and finally stops normal enemies outright; bosses resist, taking only a slow.
+
+| Tier | Name | Cost | Damage | Type | Interval | Range | Pierce | Behaviour |
+|---|---|---|---|---|---|---|---|---|
+| 0 | Time Bolt (base) | $0 | 20 | Magic | 1.5s | 180 | 1 | projectile 240 px/s; slow 20% 2s |
+| 1 | Time Dilation | $500 | 30 | Magic | 1.5s | 180 | 1 | projectile 240 px/s; slow 35% 3s |
+| 2 | Temporal Field | $950 | 30 | Magic | 1.5s | 180 | 1 | projectile 240 px/s; slow 35% 3s |
+| 3 | Time Freeze | $1800 | 50 | Magic | 1.5s | 180 | 1 | projectile 240 px/s; slow 35% 3s |
+
+- **U1 Time Dilation** ($500): Damage 20 -> 30 and the slow deepens 20% -> 35% and lasts 2 -> 3 s.
+- **U2 Temporal Field** ($950): Every 12 s a temporal field slows every normal enemy on the map by 40% for 3 s; bosses are slowed 15%.
+- **U3 Time Freeze** ($1800): Damage 30 -> 50, the field fires every 10 s, and every 60 s time stops: normal enemies freeze for 3 s and bosses are slowed 50%.
+- No active ability (passive tower).
+
+#### Spear Hanbo - Piercing Projectile Specialist (Heroes, Hero Store $1100)
+
+Hero. Throws spears that fly straight through a whole line of enemies. Upgrades sharpen them, make them fly back through the line on the return trip, and finally throw three at once.
+
+| Tier | Name | Cost | Damage | Type | Interval | Range | Pierce | Behaviour |
+|---|---|---|---|---|---|---|---|---|
+| 0 | Spear Throw (base) | $0 | 35 | Sharp | 1.8s | 200 | 4 | projectile 300 px/s |
+| 1 | Sharpened Spear | $400 | 50 | Sharp | 1.8s | 200 | 5 | projectile 300 px/s |
+| 2 | Returning Spear | $850 | 60 | Sharp | 1.8s | 200 | 5 | projectile 300 px/s |
+| 3 | Spear Master | $1500 | 75 | Sharp | 1.5s | 200 | 6 | projectile 300 px/s; 3 shots |
+
+- **U1 Sharpened Spear** ($400): Damage 35 -> 50 and pierces 5 enemies (was 4).
+- **U2 Returning Spear** ($850): Damage 50 -> 60, and the spear flies back to Hanbo, hitting each enemy once more on the way.
+- **U3 Spear Master** ($1500): Throws 3 spears in a spread at 75 damage each, pierce 6, interval 1.8 -> 1.5 s.
+- No active ability (passive tower).
+
+#### Thorn Tuhin - Poison and Damage Over Time (Heroes, Hero Store $1200)
+
+Hero. Thorn volleys that leave enemies bleeding poison long after the hit. From Overgrowth on he also grows thorny vines across the track that keep damaging whatever walks through them.
+
+| Tier | Name | Cost | Damage | Type | Interval | Range | Pierce | Behaviour |
+|---|---|---|---|---|---|---|---|---|
+| 0 | Thorn Volley (base) | $0 | 20 | Sharp | 1.3s | 180 | 2 | projectile 280 px/s; burn 5/s for 3s |
+| 1 | Poisoned Thorns | $450 | 30 | Sharp | 1.3s | 180 | 2 | projectile 280 px/s; burn 8/s for 4s |
+| 2 | Overgrowth | $900 | 30 | Sharp | 1.3s | 180 | 2 | projectile 280 px/s; burn 8/s for 4s |
+| 3 | Nature's Wrath | $1700 | 50 | Sharp | 1.3s | 180 | 5 | projectile 280 px/s; burn 15/s for 4s |
+
+- **U1 Poisoned Thorns** ($450): Damage 20 -> 30 and the poison worsens 5 -> 8 per second for 3 -> 4 s.
+- **U2 Overgrowth** ($900): Every 8 s grows thorny vines across a stretch of track dealing 20 damage per second for 4 s; two stretches can be alive at once.
+- **U3 Nature's Wrath** ($1700): Damage 30 -> 50, poison 8 -> 15 per second, pierce 2 -> 5, and vines deal 40 damage per second and slow by 30%.
+- No active ability (passive tower).
+
+#### Trapper Che - Mechanical Crowd Control (Heroes, Hero Store $1150)
+
+Hero. Sets mechanical traps along the track that snap shut and hold normal enemies in place. Bosses are too heavy to be held but still take the damage; upgrades electrify the cage and add a parting shock.
+
+| Tier | Name | Cost | Damage | Type | Interval | Range | Pierce | Behaviour |
+|---|---|---|---|---|---|---|---|---|
+| 0 | Capture Trap (base) | $0 | 25 | Kinetic | 4s | 180 | 1 | custom attack |
+| 1 | Reinforced Traps | $450 | 40 | Kinetic | 4s | 180 | 1 | custom attack |
+| 2 | Electric Cage | $900 | 60 | Kinetic | 4s | 180 | 1 | custom attack |
+| 3 | Master Trapper | $1600 | 100 | Kinetic | 4s | 180 | 1 | custom attack |
+
+- **U1 Reinforced Traps** ($450): Damage 25 -> 40, the hold lasts 1.5 -> 2 s and a 4th trap can be set.
+- **U2 Electric Cage** ($900): Damage 40 -> 60, the hold lasts 2.5 s and held enemies take 15 extra damage per second.
+- **U3 Master Trapper** ($1600): Up to 6 traps, damage 60 -> 100, the hold lasts 3 s and every trap adds a 50-damage electrical burst.
+- No active ability (passive tower).
+
+#### Blitz Arnav - Rapid-Fire Military Specialist (Heroes, Hero Store $1350)
+
+Hero. Fires tight bursts that spread across whatever is in range, so a burst can tag several enemies at once. Upgrades lengthen the magazine until he is firing full auto with rocket support.
+
+| Tier | Name | Cost | Damage | Type | Interval | Range | Pierce | Behaviour |
+|---|---|---|---|---|---|---|---|---|
+| 0 | Tactical Burst (base) | $0 | 15 | Kinetic | 1.5s | 220 | 1 | projectile 380 px/s; 3 targets |
+| 1 | Extended Magazine | $500 | 18 | Kinetic | 1.5s | 220 | 1 | projectile 380 px/s; 5 targets |
+| 2 | Suppressive Fire | $950 | 22 | Kinetic | 1.5s | 220 | 1 | projectile 380 px/s; 7 targets |
+| 3 | Full Auto | $1750 | 30 | Kinetic | 1s | 220 | 1 | projectile 380 px/s; 10 targets |
+
+- **U1 Extended Magazine** ($500): 5 bullets per burst (was 3) at 15 -> 18 damage each.
+- **U2 Suppressive Fire** ($950): 7 bullets per burst at 22 damage, and every 3rd burst slows everything it hits by 20% for 2 s.
+- **U3 Full Auto** ($1750): 10 bullets per burst at 30 damage, interval 1.5 -> 1 s, and every 5th burst launches a 150-damage rocket.
+- No active ability (passive tower).
+
+#### Tanimbus - Flying Tower Support (Heroes, Hero Store $1300)
+
+Hero. A command drone that hovers over the battlefield and never attacks. It locks onto the strongest tower nearby and speeds it up, later buffing every tower in range and finally rallying the whole map.
+
+| Tier | Name | Cost | Damage | Type | Interval | Range | Pierce | Behaviour |
+|---|---|---|---|---|---|---|---|---|
+| 0 | Command Drone (base) | $0 | 0 | Energy | 1s | 140 | 1 | support only; aura 140:  |
+| 1 | Enhanced Drone | $500 | 0 | Energy | 1s | 140 | 1 | support only; aura 180:  |
+| 2 | Tactical Network | $950 | 0 | Energy | 1s | 140 | 1 | support only; aura 180: +15% speed, +10% range |
+| 3 | Battlefield Command | $1700 | 0 | Energy | 1s | 140 | 1 | support only; aura 180: +25% speed, +15% range |
+
+- **U1 Enhanced Drone** ($500): Attack-speed bonus 10% -> 15% and support radius 35 -> 45 units.
+- **U2 Tactical Network** ($950): Buffs every tower in range instead of just the strongest: +15% attack speed and +10% range, with link lines to each one.
+- **U3 Battlefield Command** ($1700): +25% attack speed and +15% range to the network, and every 45 s every tower on the map gets +30% attack speed for 8 s.
+- No active ability (passive tower).
 
 #### Gemini - Prism Blaster (Primary, $400)
 
@@ -514,6 +737,9 @@ Palantir's body ends the campaign immediately (no children), freezing remaining 
 | The Legacy Monolith | Intermediate | Rack Spiral (4980) | Server chassis block line of sight. Every 10 waves a random floor vents heat, hurting enemies and slowing towers there. |
 | The Hallucination Canyon | Advanced | Dendrite Descent (1540), Axon Crossing (1720) | Attention Drift: 25% of enemies crossing the hub teleport to another bridge node. Noise Storms halve tower range unless a Logic Specialist is nearby. |
 | The Singularity Core | Expert | North Portal (1689), East Portal (1689), South Portal (1689), West Portal (1689) | Gravitational Pull speeds enemies up near the core. Event Horizon Collapse at Wave 50 resets ability cooldowns and scatters enemies across all portals. |
+| Silicon Valley | Intermediate | Innovation Drive (3226) | No special mechanics. One long winding road through the tech campus; buildings block placement, and the rounded bends reward towers that cover two stretches at once. |
+| The Neural Network | Advanced | Synapse A-1 (1315), Synapse A-2 (1392), Synapse A-3 (1399), Synapse B-1 (1399), Synapse B-2 (1392), Synapse B-3 (1315) | No special mechanics. Two inputs branch through the hidden layers into six routes that merge at the output neuron: defend several branches or hold the output. |
+| Abandoned Data Center | Beginner | Maintenance Route (4900) | Malfunctioning Infrastructure: every 16 s one of four marked track sections sparks, leaks coolant or blasts air, slowing enemies there by 45% for 7 s. |
 
 Exact rules: Capacitor Pads charge for 20 s; a Support/Hero tower standing on a charged pad discharges it for $25 and +40% attack
 speed (6 s) to towers within 110 px. Trace Short-Circuit: every 25 s one lane shorts for 2 s - 2 true damage to non-boss enemies on

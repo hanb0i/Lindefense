@@ -72,7 +72,7 @@ final class DemoDriver {
                 placeViaClick(TowerType.GPT, new Vec(380, 300));
                 placeViaClick(TowerType.CLAUDE, new Vec(700, 250));
                 placeViaClick(TowerType.PERPLEXITY, new Vec(460, 520));
-                placeViaClick(TowerType.BRAD_LINDEMANN, new Vec(560, 480));
+                placeViaClick(TowerType.LOBBER_LUIS, new Vec(560, 480));
                 placeViaClick(TowerType.SUNO, new Vec(820, 660));
                 app.getGameScreen().keyPressed(new java.awt.event.KeyEvent(canvas, 0, 0, 0, java.awt.event.KeyEvent.VK_SPACE, ' '));
                 app.getGameScreen().setSpeed(3);
@@ -80,7 +80,7 @@ final class DemoDriver {
                 break;
             }
             case 4: {
-                for (Tower tw : app.getGame().getTowerManager().getTowers()) if (tw.getType() == TowerType.BRAD_LINDEMANN) app.getGameScreen().selectTower(tw);
+                for (Tower tw : app.getGame().getTowerManager().getTowers()) if (tw.getType() == TowerType.LOBBER_LUIS) app.getGameScreen().selectTower(tw);
                 app.getGameScreen().frame(0.01);
                 snap("03_game_default"); app.getGameScreen().setSpeed(1); break; }
             case 5: { resize(900, 600); break; }

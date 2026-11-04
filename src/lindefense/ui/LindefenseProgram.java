@@ -148,7 +148,9 @@ public class LindefenseProgram extends GraphicsProgram {
         lindefense.audio.AudioManager.sfx(lindefense.audio.Sfx.UI_SELECT);   // AUDIO HOOK
         Game g = new Game(MapCatalog.create(mapIndex), System.nanoTime(), lindefense.sim.Difficulty.getSelected());   // DIFFICULTY HOOK
         g.setHeroCollection(lindefense.sim.HeroCollection.persistent());   // Hero Store unlocks persist across sessions
-        g.setAdmin(lindefense.sim.AdminMode.isEnabled());   // SETTINGS > ADMIN CODE: unlimited credits, all heroes
+        g.setAdmin(lindefense.sim.AdminMode.isOn(lindefense.sim.AdminMode.Option.UNLOCK_HEROES),   // SETTINGS > ADMIN CODE checklist
+            lindefense.sim.AdminMode.isOn(lindefense.sim.AdminMode.Option.INFINITE_MONEY),
+            lindefense.sim.AdminMode.isOn(lindefense.sim.AdminMode.Option.INFINITE_HEALTH));
         startGame(g);
     }
 

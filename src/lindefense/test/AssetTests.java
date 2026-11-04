@@ -48,7 +48,11 @@ public final class AssetTests {
 
         Set<String> fonts = names("assets/fonts");
         check(!fonts.isEmpty(), "assets/fonts lists files");
-        for (String f : Cyber.FONT_FILES) check(fonts.contains(f), "font file with exact case: assets/fonts/" + f);
+        for (String f : Cyber.FONT_FILES) {
+            if (f.equals(Cyber.VALORAX_FILE)) continue;   // personal-use font: bundled locally, git-ignored, optional (falls back to Rajdhani)
+            check(fonts.contains(f), "font file with exact case: assets/fonts/" + f);
+        }
+        if (fonts.stream().anyMatch(f -> f.equalsIgnoreCase(Cyber.VALORAX_FILE))) check(fonts.contains(Cyber.VALORAX_FILE), "Valorax font file has the exact case: assets/fonts/" + Cyber.VALORAX_FILE);
 
         // music is optional, but any file that is present under a track's name must match its case exactly
         Set<String> music = names("assets/music");

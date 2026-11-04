@@ -2,8 +2,9 @@ package lindefense.tower;
 
 /**
  * Immutable definition of one tower: identity, base cost, base stats, its upgrade path and an ability. Standard towers
- * have {@link TowerCatalog#STANDARD_UPGRADES} upgrades, Zethos has four and heroes have none. Heroes are unlocked in the
- * Hero Store for {@link #unlockCost}; deploying an unlocked hero is free ({@link #baseCost} 0).
+ * and Hero Store heroes have {@link TowerCatalog#STANDARD_UPGRADES} upgrades; Zethos has four. Heroes are unlocked in
+ * the Hero Store for {@link #unlockCost}; deploying an unlocked hero is free ({@link #baseCost} 0), but its three
+ * upgrades are bought with match cash like any tower's.
  */
 public class TowerDef {
     public final TowerType type;
@@ -32,7 +33,6 @@ public class TowerDef {
                     TowerStats baseStats, UpgradeDef[] upgrades, AbilityDef ability, String[] tierLabels,
                     int unlockCost, Targeting defaultTargeting) {
         if (tierLabels.length != upgrades.length + 1) throw new IllegalArgumentException(type + " must have " + (upgrades.length + 1) + " tier labels");
-        if (type.isHero() && upgrades.length != 0) throw new IllegalArgumentException(type + ": heroes have no upgrade path");
         if (type.isHero() && unlockCost <= 0) throw new IllegalArgumentException(type + ": heroes need a Hero Store price");
         this.type = type; this.subtitle = subtitle; this.description = description; this.baseCost = baseCost;
         this.radius = radius; this.baseStats = baseStats; this.upgrades = upgrades; this.ability = ability;

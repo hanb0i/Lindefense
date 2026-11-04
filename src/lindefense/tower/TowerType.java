@@ -1,18 +1,30 @@
 package lindefense.tower;
 
 /**
- * Identifiers for every playable unit: 6 Hero Store heroes and 18 standard towers (including Zethos, a Primary
- * tower), plus the internal DALL-E Sprite summon. Heroes are unlocked in the Hero Store and are never sold in the
- * regular tower shop. Display names are shown in the UI; descriptive nicknames are subtitles in the catalog.
+ * Identifiers for every playable unit: 17 Hero Store heroes and 18 standard towers (including Zethos, a Primary
+ * tower), plus the internal DALL-E Sprite summon. Heroes are unlocked in the Hero Store, are never sold in the
+ * regular tower shop, deploy free once per match and carry base + 3 purchasable upgrades like any other tower.
+ * Display names are shown in the UI; descriptive nicknames are subtitles in the catalog.
  */
 public enum TowerType {
-    // Heroes (Hero Store only)
-    BRAD_LINDEMANN("Brad Lindemann", Faction.HERO, 0xffd700, 0x111111),
-    BRANDON("Brandon", Faction.HERO, 0x9dff3a, 0x16301a),
-    ROHAN("Rohan", Faction.HERO, 0xbff6ff, 0x2563a8),
-    RONIL("Ronil", Faction.HERO, 0xff5a1f, 0x3a1206),
-    SHASHANK("Shashank", Faction.HERO, 0x46e08a, 0x0e2b1d),
-    OWEN("Owen", Faction.HERO, 0xffa13d, 0x2b2f3a),
+    // Heroes (Hero Store only) -- base + 3 purchasable upgrades each
+    LOBBER_LUIS("Lobber Luis", Faction.HERO, 0xffb02e, 0x3a2410),
+    SAGE_AARAV("Sage Aarav", Faction.HERO, 0xffe9a8, 0xf3f6ff),
+    IRON_IMRAAN("Iron Imraan", Faction.HERO, 0x9fb4cc, 0x2a3850),
+    BOOM_SAM("Boom Sam", Faction.HERO, 0xff5a1f, 0x3a1206),
+    CHILLSTIN("Chillstin", Faction.HERO, 0x8fe6ff, 0x1f5a7a),
+    KAIJU_KAI("Kaiju Kai", Faction.HERO, 0x4ade80, 0x123a24),
+    ABHI_ACE("Abhi-Ace", Faction.HERO, 0x5fd6ff, 0x1b3a66),
+    ZIPPY_MATT("Zippy Matt", Faction.HERO, 0xffe94a, 0x3a3410),
+    SUNNY_JOE("Sunny Joe", Faction.HERO, 0x46e08a, 0x0e2b1d),
+    NIK_SCOPE("Nik-Scope", Faction.HERO, 0xff3b6e, 0x3a0f1e),
+    CAMI_MINE("Cami-Mine", Faction.HERO, 0xff8a3b, 0x3a2010),
+    JUSTIN_TIME("Justin Time", Faction.HERO, 0xb48cff, 0x2a1a50),
+    SPEAR_HANBO("Spear Hanbo", Faction.HERO, 0xd8dee6, 0x33405a),
+    THORN_TUHIN("Thorn Tuhin", Faction.HERO, 0x7dff8a, 0x14301a),
+    TRAPPER_CHE("Trapper Che", Faction.HERO, 0x5fe0d0, 0x113a36),
+    BLITZ_ARNAV("Blitz Arnav", Faction.HERO, 0x9dff3a, 0x16301a),
+    TANIMBUS("Tanimbus", Faction.HERO, 0xff9ad5, 0x4a1f3a),
     // Primary
     GEMINI("Gemini", Faction.PRIMARY, 0x4f7cff, 0x9b5cff),
     CLAUDE("Claude", Faction.PRIMARY, 0xe88a4a, 0xf3d9c4),
@@ -52,7 +64,7 @@ public enum TowerType {
     public boolean isHero() { return faction == Faction.HERO; }
     public boolean isPurchasable() { return this != DALLE_SPRITE; }
 
-    /** The six Hero Store heroes in store order. */
+    /** The Hero Store heroes in store order. */
     public static TowerType[] heroes() {
         java.util.List<TowerType> l = new java.util.ArrayList<>();
         for (TowerType t : values()) if (t.isHero()) l.add(t);

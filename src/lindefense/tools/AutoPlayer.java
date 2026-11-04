@@ -65,8 +65,8 @@ public final class AutoPlayer {
 
     static {
         TowerType GEM = TowerType.GEMINI, CLA = TowerType.CLAUDE, GPT = TowerType.GPT, DS = TowerType.DEEPSEEK, COP = TowerType.COPILOT,
-            PER = TowerType.PERPLEXITY, COH = TowerType.COHERE, BRAD = TowerType.BRAD_LINDEMANN, ZET = TowerType.ZETHOS,
-            BRN = TowerType.BRANDON, ROH = TowerType.ROHAN, RON = TowerType.RONIL, SHA = TowerType.SHASHANK, OWN = TowerType.OWEN,
+            PER = TowerType.PERPLEXITY, COH = TowerType.COHERE, BRAD = TowerType.LOBBER_LUIS, ZET = TowerType.ZETHOS,
+            BRN = TowerType.BLITZ_ARNAV, ROH = TowerType.CHILLSTIN, RON = TowerType.BOOM_SAM, SHA = TowerType.SUNNY_JOE, OWN = TowerType.NIK_SCOPE,
             QWEN = TowerType.QWEN, KIMI = TowerType.KIMI, MM = TowerType.MINIMAX, SUNO = TowerType.SUNO, GLM = TowerType.GLM,
             GROK = TowerType.GROK, SORA = TowerType.SORA, MIS = TowerType.MISTRAL, LLA = TowerType.LLAMA, DAL = TowerType.DALLE;
         // efficient: cheap early defence, Perplexity (camo vision + income), then the DeepSeek / Brad / Qwen core
@@ -362,7 +362,7 @@ public final class AutoPlayer {
         for (Tower t : mine(g)) {
             Targeting want = Targeting.FIRST;
             switch (t.getType()) {
-                case DEEPSEEK: case COHERE: case BRAD_LINDEMANN: want = Targeting.STRONGEST; break;
+                case DEEPSEEK: case COHERE: case NIK_SCOPE: want = Targeting.STRONGEST; break;
                 case GROK: if (t.canUseDensestCluster()) want = Targeting.DENSEST_CLUSTER; break;
                 default: if (boss) want = Targeting.STRONGEST; break;       // focus bosses while one is on the track
             }
@@ -402,9 +402,6 @@ public final class AutoPlayer {
                     if (g.getRoundPopValue() * 0.2 >= 800) g.activateAbility(t);
                     continue;
                 case DEEPSEEK:
-                    if (alive >= 6) g.activateAbility(t);
-                    continue;
-                case BRAD_LINDEMANN: case SHASHANK:
                     if (alive >= 6) g.activateAbility(t);
                     continue;
                 case SORA:

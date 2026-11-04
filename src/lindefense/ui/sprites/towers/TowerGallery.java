@@ -101,7 +101,7 @@ public class TowerGallery extends GraphicsProgram {
     private void buildFx() {
         // aim / recoil demo
         label("Aim + recoil demo (TowerArt.aim / setFiring)", 20, 22, F);
-        TowerType[] demo = { TowerType.CLAUDE, TowerType.BRAD_LINDEMANN, TowerType.DEEPSEEK, TowerType.KIMI, TowerType.COHERE, TowerType.GEMINI, TowerType.LLAMA, TowerType.ZETHOS };
+        TowerType[] demo = { TowerType.CLAUDE, TowerType.KAIJU_KAI, TowerType.DEEPSEEK, TowerType.KIMI, TowerType.COHERE, TowerType.GEMINI, TowerType.LLAMA, TowerType.ZETHOS };
         int[] demoTier = { 2, 4, 3, 1, 4, 2, 3, 4 };
         for (int i = 0; i < demo.length; i++) {
             TowerArt a = TowerArtFactory.create(demo[i], demoTier[i], 20);

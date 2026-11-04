@@ -97,27 +97,40 @@ public final class Game {
         if (idx < 0) throw new IllegalArgumentException("map is not in the catalog: " + old.getMap().getName());
         Game g = new Game(lindefense.map.MapCatalog.create(idx), System.nanoTime(), old.getDifficulty());
         g.setHeroCollection(old.getHeroCollection());   // unlocks are permanent; deployments reset per match
-        g.setAdmin(old.isAdmin());
+        g.copyAdminFrom(old);
         return g;
     }
 
     // ---------------- Hero Store ----------------
     public HeroCollection getHeroCollection() { return heroes; }
     public void setHeroCollection(HeroCollection c) { heroes = c == null ? HeroCollection.inMemory() : c; }
-    public boolean isHeroUnlocked(TowerType type) { return (admin && type != null && type.isHero()) || heroes.isUnlocked(type); }
+    public boolean isHeroUnlocked(TowerType type) { return (adminHeroes && type != null && type.isHero()) || heroes.isUnlocked(type); }
 
     // ---------------- admin mode ----------------
-    /** Credits shown while admin mode is on (spending never lowers them). */
+    /** Credits shown while infinite money is on (spending never lowers them). */
     public static final double ADMIN_CASH = 999_999_999;
-    private boolean admin;
+    private boolean adminHeroes, adminMoney, adminHealth;
 
-    /** Admin mode (see {@link AdminMode}): unlimited credits and every hero unlocked for this match. */
-    public void setAdmin(boolean on) {
-        admin = on;
-        if (on) cash = Math.max(cash, ADMIN_CASH);
+    /**
+     * Applies the SETTINGS admin checklist to this match (see {@link AdminMode}). Each cheat is independent:
+     * unlocking every hero, unlimited credits and unloseable integrity.
+     */
+    public void setAdmin(boolean heroes, boolean money, boolean health) {
+        adminHeroes = heroes;
+        adminMoney = money;
+        adminHealth = health;
+        if (money) cash = Math.max(cash, ADMIN_CASH);
+        if (health) invincible = true;
     }
 
-    public boolean isAdmin() { return admin; }
+    /** Copies the admin cheats of another game (RESTART keeps them). */
+    public void copyAdminFrom(Game other) { setAdmin(other.adminHeroes, other.adminMoney, other.adminHealth); }
+
+    /** True if any admin cheat is active in this match. */
+    public boolean isAdmin() { return adminHeroes || adminMoney || adminHealth; }
+    public boolean hasAdminHeroes() { return adminHeroes; }
+    public boolean hasAdminMoney() { return adminMoney; }
+    public boolean hasAdminHealth() { return adminHealth; }
     /** True once this hero has been deployed in the current match (it stays true after the hero is removed). */
     public boolean isHeroDeployed(TowerType type) { return deployedHeroes.contains(type); }
     /** Called by the tower manager when a hero is placed. */
@@ -218,11 +231,27 @@ public final class Game {
     }
 
     public boolean spendCash(double amount) {
-        if (admin) return true;   // unlimited credits
+        if (adminMoney) return true;   // unlimited credits
         if (cash < amount) return false;
         cash -= amount;
         return true;
     }
+
+    /**
+     * Restores integrity (lives), never above the difficulty's starting maximum, and returns how many were actually
+     * restored. The game has no per-tower health, so healing heroes (Sage Aarav) top the player's lives back up:
+     * this is the survival resource leaks take away.
+     */
+    public int restoreLives(int n) {
+        if (state != State.PLAYING || n <= 0) return 0;
+        int max = difficulty.startLives(START_LIVES);
+        int before = lives;
+        lives = Math.min(max, lives + n);
+        return lives - before;
+    }
+
+    /** The difficulty's starting (maximum) lives, the cap for {@link #restoreLives}. */
+    public int getMaxLives() { return difficulty.startLives(START_LIVES); }
 
     public void loseLives(int n, Enemy leaker) {
         if (state != State.PLAYING || n <= 0) return;

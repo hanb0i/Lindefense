@@ -20,6 +20,7 @@ public final class Effects {
     private final List<TrackWalker> walkers = new ArrayList<>();
     private final List<Drone> drones = new ArrayList<>();
     private final List<NodeHazard> hazards = new ArrayList<>();
+    private final List<Mine> mines = new ArrayList<>();
     private final List<Task> tasks = new ArrayList<>();
 
     private static final class Task {
@@ -34,6 +35,7 @@ public final class Effects {
     public TrackWalker addWalker(TrackWalker w) { walkers.add(w); return w; }
     public Drone addDrone(Drone d) { drones.add(d); return d; }
     public NodeHazard addHazard(NodeHazard h) { hazards.add(h); return h; }
+    public Mine addMine(Mine m) { mines.add(m); return m; }
 
     /** Runs {@code action} after {@code delay} game seconds (0 = on the next tick). */
     public void schedule(double delay, Runnable action) { tasks.add(new Task(delay, action)); }
@@ -55,6 +57,14 @@ public final class Effects {
     public List<TrackWalker> getWalkers() { return Collections.unmodifiableList(walkers); }
     public List<Drone> getDrones() { return Collections.unmodifiableList(drones); }
     public List<NodeHazard> getHazards() { return Collections.unmodifiableList(hazards); }
+    public List<Mine> getMines() { return Collections.unmodifiableList(mines); }
+
+    /** Live mines / traps belonging to a tower (Cami-Mine, Trapper Che cap their field size with this). */
+    public List<Mine> minesOf(Tower owner, String kind) {
+        List<Mine> l = new ArrayList<>();
+        for (Mine m : mines) if (m.owner == owner && m.isAlive() && (kind == null || kind.equals(m.kind))) l.add(m);
+        return l;
+    }
 
     /** Live drones belonging to a tower. */
     public List<Drone> dronesOf(Tower owner, String kind) {
@@ -74,9 +84,10 @@ public final class Effects {
         for (TrackWalker w : walkers) if (w.owner == owner) w.kill();
         for (Drone d : drones) if (d.owner == owner) d.kill();
         for (NodeHazard h : hazards) if (h.owner == owner) h.kill();
+        for (Mine m : mines) if (m.owner == owner) m.kill();
     }
 
-    public void clear() { zones.clear(); walkers.clear(); drones.clear(); hazards.clear(); tasks.clear(); }
+    public void clear() { zones.clear(); walkers.clear(); drones.clear(); hazards.clear(); mines.clear(); tasks.clear(); }
 
     // ---------------- track helpers ----------------
     /** A point on a route: the route, its index in the map's route list, the distance along it and the position. */
@@ -129,10 +140,12 @@ public final class Effects {
         }
         for (int i = 0; i < zones.size(); i++) zones.get(i).update(game, dt);
         for (int i = 0; i < hazards.size(); i++) hazards.get(i).update(game, dt);
+        for (int i = 0; i < mines.size(); i++) mines.get(i).update(game, dt);
         for (int i = 0; i < walkers.size(); i++) walkers.get(i).update(game, dt);
         for (int i = 0; i < drones.size(); i++) drones.get(i).update(game, dt);
         zones.removeIf(z -> !z.isAlive());
         hazards.removeIf(h -> !h.isAlive());
+        mines.removeIf(m -> !m.isAlive());
         walkers.removeIf(w -> !w.isAlive());
         drones.removeIf(d -> !d.isAlive());
     }

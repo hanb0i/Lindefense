@@ -38,7 +38,7 @@ public final class UiSnapshots {
         s.toggleHeroStore();
         s.frame(0.02);
         snap(s, dir, "02_hero_store_locked");
-        s.buyHero(TowerType.SHASHANK);
+        s.buyHero(TowerType.SUNNY_JOE);
         s.frame(0.02);
         snap(s, dir, "03_hero_store_after_buy");
         s.toggleHeroStore();
@@ -46,7 +46,7 @@ public final class UiSnapshots {
         for (TowerType h : TowerType.heroes()) g.getHeroCollection().unlock(h);
         g.addCash(50_000, null);
         Vec[] spots = { new Vec(380, 300), new Vec(700, 250), new Vec(460, 520), new Vec(560, 480), new Vec(820, 660), new Vec(300, 700), new Vec(950, 420) };
-        TowerType[] types = { TowerType.BRAD_LINDEMANN, TowerType.ROHAN, TowerType.RONIL, TowerType.OWEN, TowerType.ZETHOS, TowerType.BRANDON, TowerType.SHASHANK };
+        TowerType[] types = { TowerType.LOBBER_LUIS, TowerType.CHILLSTIN, TowerType.KAIJU_KAI, TowerType.NIK_SCOPE, TowerType.ZETHOS, TowerType.BLITZ_ARNAV, TowerType.SAGE_AARAV };
         Tower zethos = null, owen = null;
         for (int i = 0; i < types.length; i++) {
             Vec p = lindefense.test.TestKit.buildableNear(g, spots[i], 200);
@@ -54,7 +54,7 @@ public final class UiSnapshots {
             if (t == null) { System.out.println("could not place " + types[i] + ": " + g.placementProblem(types[i], p)); continue; }
             while (g.upgradeTower(t)) { /* max */ }
             if (types[i] == TowerType.ZETHOS) zethos = t;
-            if (types[i] == TowerType.OWEN) owen = t;
+            if (types[i] == TowerType.NIK_SCOPE) owen = t;
         }
         for (int k = 0; k < 12; k++) { g.getWaveManager().startNextWave(); }
         for (int i = 0; i < 60 * 6; i++) { g.step(Game.DT); s.frame(Game.DT); }

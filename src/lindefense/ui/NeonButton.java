@@ -33,6 +33,17 @@ public final class NeonButton extends GCompound {
         setLocation(x, y);
     }
 
+    /** Replaces the label (checklist toggles relabel themselves as they are ticked). */
+    public void setText(String label) {
+        text.setLabel(label);
+        text.setLocation((w - text.getWidth()) / 2, (h + text.getAscent()) / 2 - 3);
+    }
+
+    /** Marks the button as currently "on": it is filled with its own neon instead of the dark base. */
+    public void setSelected(boolean on) {
+        frame.fill(on ? Cyber.alpha(neon, 46) : BASE);
+    }
+
     public boolean hit(double lx, double ly) {
         return isVisible() && lx >= getX() && lx <= getX() + w && ly >= getY() && ly <= getY() + h;
     }

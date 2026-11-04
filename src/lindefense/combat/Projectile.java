@@ -127,6 +127,18 @@ public class Projectile {
     /** Restarts the travel budget (custom bounce handlers: each bounce gets a full flight). */
     public void resetTravel() { travelled = 0; }
 
+    /** Refills the direct-hit budget (Spear Hanbo's returning spear gets a fresh pierce for the trip home). */
+    public void restorePierce(int n) { pierceLeft = Math.max(1, n); }
+
+    /** Drops the homing target and flies straight towards a fixed point (the returning spear's owner). */
+    public void aimTowards(Vec at) {
+        target = null;
+        Vec d = at.sub(pos).normalized();
+        if (d.length() < 0.5) d = new Vec(1, 0);
+        vel = d.scale(speed);
+        travelled = 0;
+    }
+
     /** Number of bounces this projectile has already made. */
     public int getBounced() { return bounced; }
     /** Remaining pierce (direct hits left before the projectile is spent or starts bouncing). */

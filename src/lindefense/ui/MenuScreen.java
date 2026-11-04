@@ -48,6 +48,8 @@ public final class MenuScreen extends GCompound {
     private final StringBuilder codeInput = new StringBuilder();
     private GLabel codeLabel, adminStatus, codeFeedback;
     private NeonButton disableAdmin;
+    private NeonButton[] optionButtons;
+    private GLabel[] optionLabels;
     private double feedbackTime;
     private double t;
     private double introT;
@@ -153,7 +155,7 @@ public final class MenuScreen extends GCompound {
         sysLabel = Ui.label("SYS.ONLINE  •", 44, 52, mono, new Color(0x3bff8a));
         threatLabel = Ui.label("THREAT LVL: PALANTIR", 44, Ui.H - 40, mono, MAGENTA);
         verLabel = Ui.label(lindefense.Version.LABEL, Ui.W - 150, 52, mono, YELLOW);
-        tickerLabel = Ui.label("LINDEFENSE // 100 WAVES // 18 TOWERS // 6 HEROES // 7 MAPS", 0, Ui.H - 40, mono, Ui.withAlpha(CYAN, 200));
+        tickerLabel = Ui.label("LINDEFENSE // 100 WAVES // 18 TOWERS // 17 HEROES // 7 MAPS", 0, Ui.H - 40, mono, Ui.withAlpha(CYAN, 200));
         tickerLabel.setLocation(Ui.W - 44 - tickerLabel.getWidth(), Ui.H - 40);
         add(sysLabel); add(threatLabel); add(verLabel); add(tickerLabel);
         GLabel foot = Ui.label("JAVA + STANFORD ACM GRAPHICS  •  RESIZE THE WINDOW FREELY", 0, 0, menuFont(Font.PLAIN, 12), Ui.withAlpha(CYAN, 120));
@@ -326,7 +328,7 @@ public final class MenuScreen extends GCompound {
 
     // ------------------------------------------------------------------ settings / admin code
     private void buildSettings() {
-        double w = 680, h = 400, x = (Ui.W - w) / 2, y = 300;
+        double w = 720, h = 560, x = (Ui.W - w) / 2, y = 220;
         settings.add(Ui.rect(0, 0, Ui.W, Ui.H, Ui.withAlpha(new Color(0x02030a), 170), Ui.withAlpha(new Color(0x02030a), 0)));
         settings.add(new Cyber.Chamfer(x, y, w, h, 18).fill(new Color(7, 10, 22, 248)).border(CYAN).glow(1).ticks(true));
         GLabel title = Ui.label("SETTINGS", 0, 0, menuFont(Font.BOLD, 32), CYAN);
@@ -335,7 +337,7 @@ public final class MenuScreen extends GCompound {
         double lx = x + 40, ty = y + 100;
         settings.add(Ui.label("ADMIN CODE", lx, ty, menuFont(Font.BOLD, 20), new Color(0x9b7bff)));
         Font body = Cyber.body(Font.PLAIN, 14);
-        for (String l : Ui.wrap("Enter the admin code to turn on admin mode: every hero is unlocked and credits are unlimited, so you can buy and fully upgrade every tower. Applies to matches started from PLAY.", body, w - 80)) {
+        for (String l : Ui.wrap("Enter the admin code to unlock the cheat checklist. Each option can be switched on and off on its own and applies to matches started from PLAY.", body, w - 80)) {
             ty += 20;
             settings.add(Ui.label(l, lx, ty, body, Ui.TEXT));
         }
@@ -346,14 +348,30 @@ public final class MenuScreen extends GCompound {
         NeonButton submit = new NeonButton(lx + 400, by, 200, 48, "ENTER", menuFont(Font.BOLD, 20), new Color(0x3bff8a), this::submitCode);
         settings.add(submit);
         buttons.add(submit);
-        adminStatus = Ui.label("", lx, by + 84, Cyber.mono(Font.BOLD, 15), Cyber.DIM);
+        adminStatus = Ui.label("", lx, by + 76, Cyber.mono(Font.BOLD, 15), Cyber.DIM);
         settings.add(adminStatus);
-        codeFeedback = Ui.label("", lx, by + 108, Cyber.mono(Font.PLAIN, 13), Cyber.RED);
+        codeFeedback = Ui.label("", lx, by + 96, Cyber.mono(Font.PLAIN, 13), Cyber.RED);
         settings.add(codeFeedback);
-        disableAdmin = new NeonButton(lx + 400, by + 64, 200, 42, "DISABLE ADMIN", menuFont(Font.BOLD, 16), Cyber.RED, this::disableAdmin);
+        // the checklist: one toggle per cheat, revealed once the code is accepted
+        lindefense.sim.AdminMode.Option[] opts = lindefense.sim.AdminMode.Option.values();
+        optionButtons = new NeonButton[opts.length];
+        optionLabels = new GLabel[opts.length];
+        double oy = by + 112;
+        for (int i = 0; i < opts.length; i++) {
+            final lindefense.sim.AdminMode.Option o = opts[i];
+            NeonButton t = new NeonButton(lx, oy, 360, 40, o.label, menuFont(Font.BOLD, 17), new Color(0x3bff8a), () -> toggleOption(o));
+            settings.add(t);
+            buttons.add(t);
+            optionButtons[i] = t;
+            GLabel desc = Ui.label(o.description, lx + 374, oy + 25, Cyber.body(Font.PLAIN, 12), Cyber.MUTED);
+            settings.add(desc);
+            optionLabels[i] = desc;
+            oy += 46;
+        }
+        disableAdmin = new NeonButton(lx, oy + 6, 360, 40, "LOCK ADMIN (CODE AGAIN)", menuFont(Font.BOLD, 15), Cyber.RED, this::disableAdmin);
         settings.add(disableAdmin);
         buttons.add(disableAdmin);
-        NeonButton close = new NeonButton((Ui.W - 200) / 2.0, y + h - 66, 200, 46, "CLOSE", menuFont(Font.BOLD, 20), MAGENTA, this::toggleSettings);
+        NeonButton close = new NeonButton((Ui.W - 200) / 2.0, y + h - 62, 200, 46, "CLOSE", menuFont(Font.BOLD, 20), MAGENTA, this::toggleSettings);
         settings.add(close);
         buttons.add(close);
         refreshSettings();
@@ -369,7 +387,7 @@ public final class MenuScreen extends GCompound {
     private void submitCode() {
         if (lindefense.sim.AdminMode.tryCode(codeInput.toString())) {
             lindefense.audio.AudioManager.sfx(lindefense.audio.Sfx.UI_SELECT);   // AUDIO HOOK
-            codeFeedback.setLabel("Code accepted. Admin mode is on.");
+            codeFeedback.setLabel("Code accepted. Pick the cheats you want below.");
             codeFeedback.setColor(Cyber.GREEN);
         } else {
             lindefense.audio.AudioManager.sfx(lindefense.audio.Sfx.INVALID);   // AUDIO HOOK
@@ -381,19 +399,38 @@ public final class MenuScreen extends GCompound {
         refreshSettings();
     }
 
+    private void toggleOption(lindefense.sim.AdminMode.Option o) {
+        boolean on = lindefense.sim.AdminMode.toggle(o);
+        lindefense.audio.AudioManager.sfx(on ? lindefense.audio.Sfx.UI_SELECT : lindefense.audio.Sfx.UI_CLICK);   // AUDIO HOOK
+        codeFeedback.setLabel(o.label + (on ? ": ON" : ": OFF"));
+        codeFeedback.setColor(on ? Cyber.GREEN : Cyber.MUTED);
+        feedbackTime = 3;
+        refreshSettings();
+    }
+
     private void disableAdmin() {
-        lindefense.sim.AdminMode.disable();
-        codeFeedback.setLabel("Admin mode is off.");
+        lindefense.sim.AdminMode.disableAll();
+        codeFeedback.setLabel("Admin cheats off. Enter the code again to re-open the checklist.");
         codeFeedback.setColor(Cyber.MUTED);
         feedbackTime = 4;
         refreshSettings();
     }
 
     private void refreshSettings() {
-        boolean on = lindefense.sim.AdminMode.isEnabled();
-        adminStatus.setLabel(on ? "ADMIN MODE: ON  //  UNLIMITED CREDITS  //  ALL HEROES" : "ADMIN MODE: OFF");
-        adminStatus.setColor(on ? Cyber.GREEN : Cyber.DIM);
-        disableAdmin.setVisible(on);
+        boolean unlocked = lindefense.sim.AdminMode.isUnlocked();
+        adminStatus.setLabel(unlocked
+            ? (lindefense.sim.AdminMode.anyOn() ? "ADMIN: UNLOCKED  //  CHEATS ACTIVE" : "ADMIN: UNLOCKED  //  NO CHEATS ON")
+            : "ADMIN: LOCKED");
+        adminStatus.setColor(unlocked ? (lindefense.sim.AdminMode.anyOn() ? Cyber.GREEN : Cyber.YELLOW) : Cyber.DIM);
+        lindefense.sim.AdminMode.Option[] opts = lindefense.sim.AdminMode.Option.values();
+        for (int i = 0; i < opts.length; i++) {
+            boolean on = lindefense.sim.AdminMode.isOn(opts[i]);
+            optionButtons[i].setVisible(unlocked);
+            optionLabels[i].setVisible(unlocked);
+            optionButtons[i].setText((on ? "[X]  " : "[  ]  ") + opts[i].label);
+            optionButtons[i].setSelected(on);
+        }
+        disableAdmin.setVisible(unlocked);
         updateCodeLabel();
     }
 

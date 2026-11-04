@@ -326,7 +326,7 @@ public final class DifficultyTests {
             g.setInvincible(true);
             g.setGlobalEnemySpeedMultiplier(0.5);
             g.addCash(400_000, null);
-            TowerType[] types = { TowerType.BRAD_LINDEMANN, TowerType.DEEPSEEK, TowerType.COHERE, TowerType.GEMINI, TowerType.SORA, TowerType.SUNO };
+            TowerType[] types = { TowerType.KAIJU_KAI, TowerType.DEEPSEEK, TowerType.COHERE, TowerType.GEMINI, TowerType.SORA, TowerType.SUNO };
             int placed = 0;
             for (Path r : g.getMap().getRoutes()) {
                 for (double dd = 100; dd < r.getTotalLength() && placed < 12; dd += 220) {

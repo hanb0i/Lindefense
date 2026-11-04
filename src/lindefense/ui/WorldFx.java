@@ -30,10 +30,8 @@ import lindefense.tower.AbilityDef;
 import lindefense.tower.Tower;
 import lindefense.tower.TowerStats;
 import lindefense.tower.TowerType;
-import lindefense.tower.behavior.BradLindemannBehavior;
-import lindefense.tower.behavior.BrandonBehavior;
 import lindefense.tower.behavior.GptBehavior;
-import lindefense.tower.behavior.RonilBehavior;
+import lindefense.tower.behavior.TanimbusBehavior;
 import lindefense.tower.behavior.ZethosBehavior;
 
 /**
@@ -158,10 +156,49 @@ final class WorldFx {
             if (z.isAlive()) drawZone(g, z);
         }
         for (int i = 0; i < sings.size(); i++) drawSingularity(g, sings.get(i));
+        List<lindefense.effects.Mine> ms = game.getEffects().getMines();
+        for (int i = 0, n = Math.min(ms.size(), cap()); i < n; i++) {
+            lindefense.effects.Mine m = ms.get(i);
+            if (m.isAlive()) drawMine(g, m);
+        }
         List<Tower> towers = game.getTowerManager().getTowers();
         for (int i = 0; i < towers.size(); i++) {
             Tower t = towers.get(i);
             if (t.isAlive() && !t.isTemporary()) drawHeroGround(g, t);
+        }
+    }
+
+    /**
+     * A planted mine or trap: a dark disc with a blinking trigger light while it arms, then a live ring the size of
+     * its blast. Traps also show their jaws, so the two devices never look alike on the board.
+     */
+    private void drawMine(Graphics2D g, lindefense.effects.Mine m) {
+        boolean trap = "trap".equals(m.kind);
+        double x = m.position.x, y = m.position.y;
+        double arm = m.getArmFraction();
+        int rgb = m.rgb;
+        oval(g, x, y, 9, 9, col(0x0a0d14, 220), col(rgb, 200), 2);
+        if (arm < 1) {   // still arming: a growing sweep instead of a live light
+            ring(g, x, y, 5 + 5 * arm, col(rgb, 120), 2);
+        } else {
+            double blink = 0.5 + 0.5 * Math.sin(time * 7 + x * 0.1);
+            oval(g, x, y, 3.2, 3.2, col(rgb, (int) (120 + 135 * blink)), null, 0);
+            ring(g, x, y, m.blastRadius, col(rgb, (int) (28 + 26 * blink)), 1.5);
+        }
+        if (trap) {
+            for (int s = -1; s <= 1; s += 2) {
+                path.reset();
+                path.moveTo(x + s * 5, y - 7);
+                path.lineTo(x + s * 13, y - 3);
+                path.lineTo(x + s * 13, y + 3);
+                path.lineTo(x + s * 5, y + 7);
+                g.setStroke(st(2)); g.setColor(col(0xd8dee6, 210)); g.draw(path);
+            }
+        } else {
+            for (int i = 0; i < 3; i++) {   // trigger prongs
+                double a = i * Math.PI * 2 / 3 - Math.PI / 2;
+                seg(g, x + Math.cos(a) * 7, y + Math.sin(a) * 7, x + Math.cos(a) * 12, y + Math.sin(a) * 12, col(0xb8c2d6, 200), 1.6);
+            }
         }
     }
 
@@ -185,10 +222,8 @@ final class WorldFx {
             TowerType ty = t.getType();
             if (ty == TowerType.GPT) { drawMoons(g, t); if (GptBehavior.beamActive(t)) drawAstraBeam(g, t); }
             else if (ty == TowerType.COPILOT && t.getStats().has("droneInterval")) drawCopilotDrone(g, t);
-            else if (ty == TowerType.RONIL) drawMeteors(g, t);
         }
         drawFrozen(g);
-        drawAbsoluteZero(g, towers);
     }
 
     // ------------------------------------------------------------------ Hero Store heroes / Zethos
@@ -198,24 +233,11 @@ final class WorldFx {
         return t.getAbility().cooldown - t.getAbilityCooldownRemaining();
     }
 
-    /** Ability auras and buff rings drawn under the enemies. */
+    /** Ability auras, support links and buff rings drawn under the enemies. */
     private void drawHeroGround(Graphics2D g, Tower t) {
         Vec c = t.getPosition();
         TowerType ty = t.getType();
-        if (ty == TowerType.BRAD_LINDEMANN && BradLindemannBehavior.isSupreme(t)) {
-            // large command-energy aura: gold disc, rotating chevron ring, crackle spokes
-            double R = 70 + 6 * Math.sin(time * 4);
-            oval(g, c.x, c.y, R, R, col(0xffd700, 40), col(0xfff3a0, 200), 3);
-            ring(g, c.x, c.y, R * 0.7, col(0xfff3a0, 120), 2);
-            if (lod < 2) {
-                for (int i = 0; i < 8; i++) {
-                    double a = time * 1.5 + i * Math.PI / 4;
-                    double x1 = c.x + Math.cos(a) * R * 0.75, y1 = c.y + Math.sin(a) * R * 0.75;
-                    double x2 = c.x + Math.cos(a + 0.12) * R, y2 = c.y + Math.sin(a + 0.12) * R;
-                    seg(g, x1, y1, x2, y2, col(0xffffff, 200), 2.5);
-                }
-            }
-        } else if (ty == TowerType.ZETHOS && ZethosBehavior.isCollapsing(t)) {
+        if (ty == TowerType.ZETHOS && ZethosBehavior.isCollapsing(t)) {
             // reality distortion: warped concentric rings rippling out to the boosted range
             double R = t.effectiveRange(game);
             for (int k = 0; k < (lod >= 2 ? 2 : 4); k++) {
@@ -232,40 +254,36 @@ final class WorldFx {
                 g.setStroke(st(2.5)); g.setColor(col(k % 2 == 0 ? 0x9a6bff : 0x22e6ff, 200 * (1 - ph))); g.draw(path);
             }
             oval(g, c.x, c.y, 44, 44, col(0x9a6bff, 50), null, 0);
-        } else if (ty == TowerType.BRANDON && t.hasSelfBuff(BrandonBehavior.OVERDRIVE)) {
-            double R = 30 + 3 * Math.sin(time * 18);
-            ring(g, c.x, c.y, R, col(0x9dff3a, 220), 3);
-            ring(g, c.x, c.y, R + 6, col(0x9dff3a, 90), 2);
-        } else if (ty == TowerType.SHASHANK && sinceAbility(t) < 1.2) {
-            // Resource Optimization burst out to the support radius
-            double f = sinceAbility(t) / 1.2, R = t.getAbility().p("radius") * easeOut(f);
-            oval(g, c.x, c.y, R, R, col(0x46e08a, 60 * (1 - f)), col(0x46e08a, 230 * (1 - f)), 3);
-        }
-        if (t.timedBuffRemaining(TowerType.SHASHANK) > 0) {
-            // data-link buff: green dashed ring under every boosted tower
-            g.setStroke(dashed(2, 5, 4, time * 20)); g.setColor(col(0x46e08a, 200));
-            ell.setFrame(c.x - 26, c.y - 26, 52, 52); g.draw(ell);
+        } else if (ty == TowerType.TANIMBUS) {
+            drawCommandLinks(g, t, c);
+        } else if (ty == TowerType.SAGE_AARAV) {
+            // healing aura: a soft golden ring that breathes
+            double R = t.getStats().fieldRadius * (1 + 0.02 * Math.sin(time * 2));
+            oval(g, c.x, c.y, R, R, col(0xffe9a8, 22), col(0xffe9a8, 120), 2);
         }
     }
 
-    /** Ronil's incoming meteors: a growing target reticle and the meteor dropping onto it. */
-    private void drawMeteors(Graphics2D g, Tower t) {
-        List<RonilBehavior.Meteor> ms = RonilBehavior.meteors(t);
-        for (int i = 0; i < ms.size(); i++) {
-            RonilBehavior.Meteor m = ms.get(i);
-            double f = Math.max(0, Math.min(1, (game.getTime() - m.launched) / m.fall));
-            double R = m.radius;
-            oval(g, m.at.x, m.at.y, R * f, R * f * 0.8, col(0xff5a1f, 50 + 60 * f), col(0xffd166, 200), 2);
-            double h = 260 * (1 - f);
-            double mx = m.at.x - h * 0.5, my = m.at.y - h;
-            seg(g, mx - 30, my - 50, mx, my, col(0xff5a1f, 150), 9);
-            seg(g, mx - 18, my - 32, mx, my, col(0xffd166, 200), 5);
-            oval(g, mx, my, 11, 11, new Color(0x4a3530), INK, 2.5);
-            oval(g, mx + 2, my + 1, 5, 5, new Color(0xffb02e), null, 0);
+    /** Tanimbus: dashed command links from the drone to every tower it is currently buffing. */
+    private void drawCommandLinks(Graphics2D g, Tower t, Vec c) {
+        double R = t.getStats().auraRange;
+        oval(g, c.x, c.y, R, R, col(0xff9ad5, 14), col(0xff9ad5, 110), 2);
+        g.setStroke(dashed(2, 6, 5, -time * 26));
+        g.setColor(col(0xff9ad5, 190));
+        if (t.getStats().p("singleTarget", 0) > 0) {
+            Tower sup = TanimbusBehavior.supported(game, t);
+            if (sup != null) seg(g, c.x, c.y, sup.getPosition().x, sup.getPosition().y, col(0xff9ad5, 210), 2.4);
+            return;
+        }
+        List<Tower> all = game.getTowerManager().getTowers();
+        for (int i = 0; i < all.size(); i++) {
+            Tower o = all.get(i);
+            if (o == t || !o.isAlive() || o.isTemporary()) continue;
+            if (o.getPosition().dist(c) > R) continue;
+            seg(g, c.x, c.y, o.getPosition().x, o.getPosition().y, col(0xff9ad5, 150), 1.8);
         }
     }
 
-    /** Ice crystals over every frozen enemy (Rohan's freezes, Claude's Time-Lock). */
+    /** Ice crystals over every frozen enemy (Chillstin's and Justin Time's freezes, Claude's Time-Lock). */
     private void drawFrozen(Graphics2D g) {
         List<Enemy> es = game.getEnemyManager().getEnemies();
         int drawn = 0, max = cap() * 3;
@@ -286,22 +304,6 @@ final class WorldFx {
                     g.setStroke(st(1.2)); g.setColor(new Color(60, 140, 200)); g.draw(path);
                 }
             }
-        }
-    }
-
-    /** Absolute Zero: a map-wide frost flash for the first second after Rohan casts it. */
-    private void drawAbsoluteZero(Graphics2D g, List<Tower> towers) {
-        for (int i = 0; i < towers.size(); i++) {
-            Tower t = towers.get(i);
-            if (t.getType() != TowerType.ROHAN || !t.isAlive()) continue;
-            double s = sinceAbility(t);
-            if (s >= 1.0) continue;
-            double f = s / 1.0;
-            g.setColor(new Color(191, 246, 255, (int) (90 * (1 - f))));
-            g.fillRect(0, 0, GameMap.WIDTH, GameMap.HEIGHT);
-            Vec c = t.getPosition();
-            double R = 1600 * easeOut(f);
-            ring(g, c.x, c.y, R, new Color(255, 255, 255, (int) (220 * (1 - f))), 6);
         }
     }
 

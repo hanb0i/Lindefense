@@ -14,11 +14,10 @@ public final class TowerArtFactory {
 
     /**
      * Art stage for a tower type: standard towers use {@link #artStage(int)}; Zethos's five tiers (0-4) are five
-     * stages; heroes have a single look (Brad his General platform, the others stage 0).
+     * stages; a hero's four tiers map straight through, so every upgrade visibly changes its gear.
      */
     public static int artStage(TowerType type, int gameTier) {
-        if (type == TowerType.BRAD_LINDEMANN) return 3;   // Brad's command platform (triple cannons, banner, radar)
-        if (type != null && type.isHero()) return 0;
+        if (type != null && type.isHero()) return Math.max(0, Math.min(3, gameTier));   // heroes: one look per upgrade level
         if (type == TowerType.ZETHOS) return Math.max(0, Math.min(4, gameTier));
         return artStage(gameTier);
     }
@@ -32,6 +31,7 @@ public final class TowerArtFactory {
      */
     public static TowerArt create(TowerType type, int tier, double r) {
         if (type == null) return new GenericArt(TowerType.GPT, tier, r);
+        if (type.isHero()) return new HeroArt(type, tier, r);
         switch (type) {
             case CLAUDE: return new ClaudeArt(type, tier, r);
             case GPT: return new GptArt(type, tier, r);
@@ -51,12 +51,6 @@ public final class TowerArtFactory {
             case KIMI: return new KimiArt(type, tier, r);
             case MINIMAX: return new MiniMaxArt(type, tier, r);
             case ZETHOS: return new ZethosArt(type, tier, r);
-            case BRAD_LINDEMANN: return new BradArt(type, tier, r);
-            case BRANDON: return new BrandonArt(type, tier, r);
-            case ROHAN: return new RohanArt(type, tier, r);
-            case RONIL: return new RonilArt(type, tier, r);
-            case SHASHANK: return new ShashankArt(type, tier, r);
-            case OWEN: return new OwenArt(type, tier, r);
             case DALLE_SPRITE: return new SpriteArt(type, tier, r);
             default: return new GenericArt(type, tier, r);
         }

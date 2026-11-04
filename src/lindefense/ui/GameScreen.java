@@ -40,6 +40,8 @@ public final class GameScreen extends GCompound {
     private boolean heroStoreShown;
     private String heroStoreKey = "";
     private String heroStoreNotice;
+    /** Hero Store: which hero's detail panel is open (the grid has 17 tiles). */
+    private TowerType heroStoreSelection = TowerType.heroes()[0];
 
     private TowerType placing;
     private Tower selectedTower;
@@ -201,7 +203,7 @@ public final class GameScreen extends GCompound {
             sb.append(game.isHeroUnlocked(t) ? 'U' : game.getCash() >= lindefense.tower.Shop.unlockPriceOf(t) ? 'A' : 'L');
             sb.append(game.isHeroDeployed(t) ? 'D' : '-');
         }
-        return sb.append((int) game.getCash()).toString();
+        return sb.append(heroStoreSelection).append((int) game.getCash()).toString();
     }
 
     public void upgradeSelected() {
@@ -573,92 +575,130 @@ public final class GameScreen extends GCompound {
     }
 
     /**
-     * The Hero Store: one card per hero with its sprite, unlock price, role, primary attack stats, ability and
-     * cooldown, locked / unlocked / deployed status and a BUY or DEPLOY button. Separate from the tower shop.
+     * The Hero Store: a grid of all 17 heroes (sprite, name, price, lock status) beside a detail panel for the
+     * selected one showing its role, base ability, current statistics and all three purchasable upgrades with their
+     * names, prices and exactly what each changes. Buying only unlocks a hero; deploying is a separate action.
      */
     private void buildHeroStoreOverlay() {
         heroStoreKey = heroStoreStateKey();
         overlay.add(Ui.rect(Ui.WORLD_X, Ui.WORLD_Y, Ui.WORLD_W, Ui.WORLD_H, Ui.c(0x02040a, 200), Ui.c(0x000000, 0)));
-        double pw = 1150, ph = 860, px = Ui.WORLD_X + (Ui.WORLD_W - pw) / 2, py = Ui.WORLD_Y + (Ui.WORLD_H - ph) / 2;
+        double pw = 1180, ph = 870, px = Ui.WORLD_X + (Ui.WORLD_W - pw) / 2, py = Ui.WORLD_Y + (Ui.WORLD_H - ph) / 2;
         overlay.add(new Cyber.Chamfer(px, py, pw, ph, 24).fill(new Color(6, 10, 24, 245)).border(Cyber.YELLOW).glow(1).lineWidth(2).ticks(true));
-        overlay.add(Ui.label(Cyber.spaced("// permanent unlocks"), px + 30, py + 34, Cyber.mono(Font.BOLD, 12), Cyber.alpha(Cyber.MAGENTA, 230)));
-        overlay.add(Ui.label("HERO STORE", px + 30, py + 72, Cyber.display(Font.BOLD, 38), Cyber.TEXT));
-        GLabel cash = Ui.label("CREDITS  " + Ui.money(game.getCash()), 0, py + 66, Cyber.mono(Font.BOLD, 18), Cyber.YELLOW);
-        cash.setLocation(px + pw - 30 - 130 - 20 - cash.getWidth(), py + 66);
+        overlay.add(Ui.label(Cyber.spaced("// permanent unlocks"), px + 30, py + 32, Cyber.mono(Font.BOLD, 12), Cyber.alpha(Cyber.MAGENTA, 230)));
+        overlay.add(Ui.label("HERO STORE", px + 30, py + 68, Cyber.display(Font.BOLD, 34), Cyber.TEXT));
+        GLabel cash = Ui.label("CREDITS  " + (game.isAdmin() ? "ADMIN \u221e" : Ui.money(game.getCash())), 0, py + 62, Cyber.mono(Font.BOLD, 18), Cyber.YELLOW);
+        cash.setLocation(px + pw - 30 - 130 - 20 - cash.getWidth(), py + 62);
         overlay.add(cash);
-        UIButton close = new UIButton(px + pw - 30 - 130, py + 40, 130, 38, "CLOSE  [K]", Cyber.display(Font.BOLD, 16), this::toggleHeroStore);
+        UIButton close = new UIButton(px + pw - 30 - 130, py + 38, 130, 36, "CLOSE  [K]", Cyber.display(Font.BOLD, 16), this::toggleHeroStore);
         close.setAccent(Cyber.MAGENTA);
         overlay.add(close); overlayButtons.add(close);
         String sub = heroStoreNotice != null ? heroStoreNotice
-            : "Buy a hero once to unlock it forever. Unlocked heroes deploy for free, once per match. Distances in map units (1u = " + Ui.fmt(lindefense.tower.TowerStats.MAP_UNIT) + " px).";
-        overlay.add(Ui.label(sub, px + 30, py + 98, Cyber.body(Font.BOLD, 14), heroStoreNotice != null ? Cyber.GREEN : Cyber.MUTED));
+            : "Buy a hero once to unlock it forever. Unlocked heroes deploy free, once per match, then level up with three upgrades bought in game.";
+        overlay.add(Ui.label(sub, px + 30, py + 92, Cyber.body(Font.BOLD, 14), heroStoreNotice != null ? Cyber.GREEN : Cyber.MUTED));
+
+        // ---- left: the roster grid
         TowerType[] heroes = TowerType.heroes();
-        int cols = 3;
-        double gap = 14, cx0 = px + 24, cy0 = py + 116;
-        double cw = (pw - 48 - gap * (cols - 1)) / cols, chh = (ph - 116 - 24 - gap) / 2;
+        int cols = 5;
+        double gx = px + 22, gy = py + 108, gap = 8;
+        double tw = 118, th = 104;
         for (int i = 0; i < heroes.length; i++) {
-            double x = cx0 + (i % cols) * (cw + gap), y = cy0 + (i / cols) * (chh + gap);
-            heroCard(heroes[i], x, y, cw, chh);
+            heroTile(heroes[i], gx + (i % cols) * (tw + gap), gy + (i / cols) * (th + gap), tw, th);
         }
+        double gridW = cols * tw + (cols - 1) * gap;
+        // ---- right: the detail panel
+        heroDetail(heroStoreSelection, gx + gridW + 18, gy, pw - gridW - 58, ph - 108 - 22);
         refreshHover();
     }
 
-    private void heroCard(TowerType t, double x, double y, double w, double h) {
+    /** One tile in the roster grid: sprite, name, price and lock state; clicking it opens that hero's details. */
+    private void heroTile(TowerType t, double x, double y, double w, double h) {
+        boolean unlocked = game.isHeroUnlocked(t), deployed = game.isHeroDeployed(t);
+        boolean selected = t == heroStoreSelection;
+        int price = lindefense.tower.TowerCatalog.get(t).unlockCost;
+        Color accent = Ui.c(t.primaryRgb);
+        Color border = selected ? Cyber.CYAN : Cyber.alpha(unlocked ? accent : Cyber.DIM, unlocked ? 190 : 120);
+        // the click target goes in first; the tile's own art is drawn over it
+        UIButton pick = new UIButton(x, y, w, h, "", Cyber.mono(Font.BOLD, 1), () -> { heroStoreSelection = t; heroStoreKey = ""; });
+        pick.setFlat(true);
+        pick.setAccent(border);
+        overlay.add(pick); overlayButtons.add(pick);
+        overlay.add(new Cyber.Chamfer(x, y, w, h, 10).scan(false)
+            .fill(new Color(selected ? 16 : 9, selected ? 26 : 15, selected ? 48 : 34, 240)).border(border).lineWidth(selected ? 2 : 1.3));
+        acm.graphics.GCompound icon = lindefense.ui.sprites.towers.TowerIcons.create(t, 0, 54);
+        icon.setLocation(x + w / 2, y + 34);
+        overlay.add(icon);
+        if (!unlocked) overlay.add(new Cyber.Ring(x + w / 2 - 28, y + 34 - 28, 56, 56, new Color(5, 9, 22, 130), null));
+        GLabel nm = Ui.label(t.displayName, 0, 0, Cyber.display(Font.BOLD, 13), selected ? Cyber.TEXT : Cyber.lerp(accent, Color.WHITE, 0.4));
+        for (int sz = 13; nm.getWidth() > w - 10 && sz > 8; sz--) nm.setFont(Cyber.displayCompact(Font.BOLD, sz));
+        nm.setLocation(x + (w - nm.getWidth()) / 2, y + h - 26);
+        overlay.add(nm);
+        String tag = deployed ? "DEPLOYED" : unlocked ? "READY" : Ui.money(price);
+        Color tc = deployed ? Cyber.DIM : unlocked ? Cyber.GREEN : game.getCash() >= price ? Cyber.YELLOW : Cyber.RED;
+        GLabel pl = Ui.label(tag, 0, 0, Cyber.mono(Font.BOLD, 10), tc);
+        pl.setLocation(x + (w - pl.getWidth()) / 2, y + h - 9);
+        overlay.add(pl);
+    }
+
+    /** The selected hero's full card: role, base ability, live statistics, the three upgrades and the action button. */
+    private void heroDetail(TowerType t, double x, double y, double w, double h) {
         lindefense.tower.TowerDef d = lindefense.tower.TowerCatalog.get(t);
         boolean unlocked = game.isHeroUnlocked(t), deployed = game.isHeroDeployed(t);
         int price = d.unlockCost;
         boolean afford = game.getCash() >= price;
         Color accent = Ui.c(t.primaryRgb);
-        overlay.add(new Cyber.Chamfer(x, y, w, h, 12).scan(false).fill(new Color(9, 15, 34, 240)).border(Cyber.alpha(unlocked ? accent : Cyber.DIM, unlocked ? 220 : 160)).lineWidth(1.6));
-        // sprite
-        acm.graphics.GCompound icon = lindefense.ui.sprites.towers.TowerIcons.create(t, 0, 92);
-        icon.setLocation(x + 58, y + 62);
+        overlay.add(new Cyber.Chamfer(x, y, w, h, 14).scan(false).fill(new Color(8, 13, 30, 245)).border(Cyber.alpha(accent, 220)).lineWidth(1.8));
+        acm.graphics.GCompound icon = lindefense.ui.sprites.towers.TowerIcons.create(t, 0, 86);
+        icon.setLocation(x + 60, y + 60);
         overlay.add(icon);
-        if (!unlocked) overlay.add(new Cyber.Ring(x + 58 - 50, y + 62 - 50, 100, 100, new Color(5, 9, 22, 120), null));
-        // name, role, status
-        double tx = x + 118, tw = w - 118 - 12;
-        overlay.add(Ui.label(t.displayName, tx, y + 32, Cyber.display(Font.BOLD, 24), Cyber.lerp(accent, Color.WHITE, 0.35)));
-        double ly = y + 32;
-        for (String l : Ui.wrap(HeroStatText.role(t), Cyber.body(Font.PLAIN, 12), tw)) { ly += 15; overlay.add(Ui.label(l, tx, ly, Cyber.body(Font.PLAIN, 12), Cyber.MUTED)); }
-        String status = deployed ? "DEPLOYED" : unlocked ? "UNLOCKED" : "LOCKED";
+        double tx = x + 116, tw = w - 130;
+        overlay.add(Ui.label(t.displayName, tx, y + 36, Cyber.display(Font.BOLD, 26), Cyber.lerp(accent, Color.WHITE, 0.35)));
+        overlay.add(Ui.label(HeroStatText.role(t), tx, y + 56, Cyber.body(Font.PLAIN, 13), Cyber.MUTED));
+        String status = deployed ? "DEPLOYED THIS MATCH" : unlocked ? "UNLOCKED" : "LOCKED";
         Color sc = deployed ? Cyber.DIM : unlocked ? Cyber.GREEN : Cyber.RED;
         GLabel sl = Ui.label(status, 0, 0, Cyber.mono(Font.BOLD, 11), sc);
-        double bw = sl.getWidth() + 16;
-        overlay.add(new Cyber.Chamfer(tx, ly + 8, bw, 18, 5).scan(false).fill(Cyber.alpha(sc, 40)).border(sc));
-        sl.setLocation(tx + 8, ly + 21);
+        overlay.add(new Cyber.Chamfer(tx, y + 66, sl.getWidth() + 16, 18, 5).scan(false).fill(Cyber.alpha(sc, 40)).border(sc));
+        sl.setLocation(tx + 8, y + 79);
         overlay.add(sl);
-        GLabel pr = Ui.label(Ui.money(price), 0, ly + 22, Cyber.mono(Font.BOLD, 16), unlocked ? Cyber.DIM : afford ? Cyber.YELLOW : Cyber.RED);
-        pr.setLocation(x + w - 14 - pr.getWidth(), ly + 22);
+        GLabel pr = Ui.label(unlocked ? "owned" : Ui.money(price), 0, 0, Cyber.mono(Font.BOLD, 18), unlocked ? Cyber.DIM : afford ? Cyber.YELLOW : Cyber.RED);
+        pr.setLocation(x + w - 16 - pr.getWidth(), y + 40);
         overlay.add(pr);
-        // primary attack
-        double yy = Math.max(y + 124, ly + 44);
-        overlay.add(Ui.label(Cyber.spaced("// " + HeroStatText.attackName(t)), x + 14, yy, Cyber.mono(Font.BOLD, 10), Cyber.CYAN));
-        for (String l : HeroStatText.attackLines(t)) { yy += 16; overlay.add(Ui.label(l, x + 14, yy, Cyber.mono(Font.BOLD, 11), Cyber.TEXT)); }
-        // ability
-        lindefense.tower.AbilityDef a = d.ability;
-        yy += 24;
-        overlay.add(Ui.label(Cyber.spaced("// ability: " + a.name), x + 14, yy, Cyber.mono(Font.BOLD, 10), Cyber.MAGENTA));
-        GLabel cd = Ui.label((int) a.cooldown + "s cooldown", 0, yy, Cyber.mono(Font.BOLD, 10), Cyber.MUTED);
-        cd.setLocation(x + w - 14 - cd.getWidth(), yy);
-        overlay.add(cd);
-        int lines = 0;
-        for (String l : Ui.wrap(a.description, Cyber.body(Font.PLAIN, 12), w - 28)) {
-            if (++lines > 3) break;
-            yy += 15; overlay.add(Ui.label(l, x + 14, yy, Cyber.body(Font.PLAIN, 12), Cyber.MUTED));
+        double yy = y + 104;
+        for (String l : Ui.wrap(d.description, Cyber.body(Font.PLAIN, 12), w - 32)) { overlay.add(Ui.label(l, x + 16, yy, Cyber.body(Font.PLAIN, 12), Cyber.MUTED)); yy += 15; }
+        // base level
+        yy += 10;
+        overlay.add(Ui.label(Cyber.spaced("// level 1: " + d.tierLabels[0]), x + 16, yy, Cyber.mono(Font.BOLD, 10), Cyber.CYAN));
+        for (String l : HeroStatText.attackLines(t, 0)) { yy += 16; overlay.add(Ui.label(l, x + 16, yy, Cyber.mono(Font.BOLD, 11), Cyber.TEXT)); }
+        // the three upgrades, with what each one changes
+        for (int i = 0; i < d.upgrades.length; i++) {
+            lindefense.tower.UpgradeDef up = d.upgrades[i];
+            yy += 20;
+            overlay.add(Ui.label(Cyber.spaced("// level " + (i + 2) + ": " + up.name), x + 16, yy, Cyber.mono(Font.BOLD, 10), Cyber.alpha(accent, 240)));
+            GLabel uc = Ui.label(Ui.money(up.cost), 0, yy, Cyber.mono(Font.BOLD, 11), Cyber.YELLOW);
+            uc.setLocation(x + w - 16 - uc.getWidth(), yy);
+            overlay.add(uc);
+            int lines = 0;
+            for (String l : Ui.wrap(up.description, Cyber.body(Font.PLAIN, 12), w - 32)) {
+                if (++lines > 3) break;
+                yy += 15; overlay.add(Ui.label(l, x + 16, yy, Cyber.body(Font.PLAIN, 12), Cyber.MUTED));
+            }
         }
-        // action button
-        double by = y + h - 50;
+        yy += 20;
+        overlay.add(Ui.label("Fully upgraded: " + Ui.money(d.totalCost()) + " of in-match credits on top of the unlock",
+            x + 16, yy, Cyber.mono(Font.BOLD, 10), Cyber.DIM));
+        // action
+        double by = y + h - 54;
         UIButton b;
         if (!unlocked) {
-            b = new UIButton(x + 14, by, w - 28, 38, afford ? "BUY  " + Ui.money(price) : "NEED " + Ui.money(price - game.getCash()) + " MORE", Cyber.display(Font.BOLD, 17), () -> buyHero(t));
+            b = new UIButton(x + 16, by, w - 32, 40, afford ? "BUY  " + Ui.money(price) : "NEED " + Ui.money(price - game.getCash()) + " MORE", Cyber.display(Font.BOLD, 17), () -> buyHero(t));
             b.setEnabled(afford);
             b.setAccent(Cyber.YELLOW);
             if (afford) b.setPrimary(true);
         } else if (!deployed) {
-            b = new UIButton(x + 14, by, w - 28, 38, "DEPLOY (FREE)", Cyber.display(Font.BOLD, 17), () -> deployHero(t));
+            b = new UIButton(x + 16, by, w - 32, 40, "DEPLOY (FREE)", Cyber.display(Font.BOLD, 17), () -> deployHero(t));
             b.setAccent(Cyber.GREEN);
+            b.setPrimary(true);
         } else {
-            b = new UIButton(x + 14, by, w - 28, 38, "DEPLOYED THIS MATCH", Cyber.display(Font.BOLD, 17), null);
+            b = new UIButton(x + 16, by, w - 32, 40, "ALREADY DEPLOYED THIS MATCH", Cyber.display(Font.BOLD, 16), null);
             b.setEnabled(false);
         }
         overlay.add(b); overlayButtons.add(b);

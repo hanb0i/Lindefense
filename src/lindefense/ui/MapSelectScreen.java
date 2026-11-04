@@ -112,8 +112,9 @@ public final class MapSelectScreen extends GCompound {
         GPolygon inner = cut(x + 4, y + 4, w - 8, h - 8, 13);
         inner.setColor(Ui.withAlpha(dc, 70));
         add(inner);
-        // preview thumbnail (uniform scale, centred)
-        double ph = Math.min(300, h * 0.46);
+        // preview thumbnail (uniform scale, centred): takes all the height the name, badge and DEPLOY button leave
+        boolean compact = h < 520;
+        double ph = h - (compact ? 123 : 139);
         double s = Math.min((w - 24) / GameMap.WIDTH, ph / GameMap.HEIGHT);
         double pw = GameMap.WIDTH * s;
         ph = GameMap.HEIGHT * s;
@@ -124,46 +125,21 @@ public final class MapSelectScreen extends GCompound {
             add(Ui.oval(px + r.getStart().x * s - 3, py + r.getStart().y * s - 3, 6, 6, Ui.GREEN, Ui.GREEN));
             add(Ui.oval(px + r.getEnd().x * s - 3, py + r.getEnd().y * s - 3, 6, 6, Ui.RED, Ui.RED));
         }
-        // text block
-        double tx = x + 16, ty = py + ph + 24, tw = w - 32;
-        boolean compact = h < 520;
+        // text block: just the name and the difficulty / lane count badge
+        double tx = x + 16, ty = py + ph + 24;
         Font nameF = MenuScreen.menuFont(Font.BOLD, compact ? 19 : 24);
-        Font bodyF = Cyber.body(Font.PLAIN, compact ? 12 : 14);
-        Font tinyF = Cyber.body(Font.PLAIN, compact ? 11 : 12);
         add(Ui.label(m.getName().toUpperCase(), tx, ty, nameF, Ui.TEXT));
         ty += compact ? 18 : 24;
         // difficulty badge
-        String badge = m.getDifficulty().toUpperCase() + "  •  " + m.getRoutes().size() + (m.getRoutes().size() == 1 ? " LANE" : " LANES");
-        GLabel bl = Ui.label(badge, tx + 8, ty, Cyber.mono(Font.BOLD, compact ? 11 : 13), dc);
-        add(Ui.rect(tx, ty - (compact ? 12 : 14), bl.getWidth() + 16, compact ? 17 : 20, Ui.withAlpha(dc, 35), Ui.withAlpha(dc, 160)));
+        String badge = m.getDifficulty().toUpperCase() + "  /  " + m.getRoutes().size() + (m.getRoutes().size() == 1 ? " LANE" : " LANES");
+        GLabel bl = Ui.label(badge, tx + 8, ty, Cyber.display(Font.BOLD, compact ? 14 : 16), dc);
+        add(Ui.rect(tx, ty - (compact ? 13 : 15), bl.getWidth() + 16, compact ? 19 : 22, Ui.withAlpha(dc, 35), Ui.withAlpha(dc, 160)));
         add(bl);
-        ty += compact ? 10 : 14;
         double buttonY = y + h - (compact ? 54 : 70);
         double buttonH = compact ? 40 : 50;
-        double textBottom = buttonY - 10;
-        // description then mechanics, trimmed to fit
-        List<String> desc = Ui.wrap(m.getDescription(), bodyF, tw);
-        List<String> mech = Ui.wrap(m.getMechanicSummary(), tinyF, tw);
-        double lineB = bodyF.getSize() + 4, lineT = tinyF.getSize() + 3;
-        double need = desc.size() * lineB + 16 + mech.size() * lineT;
-        double avail = textBottom - ty;
-        while (need > avail && mech.size() > 1) { mech.remove(mech.size() - 1); mech.set(mech.size() - 1, ellipsis(mech.get(mech.size() - 1), tinyF, tw)); need -= lineT; }
-        while (need > avail && desc.size() > 1) { desc.remove(desc.size() - 1); desc.set(desc.size() - 1, ellipsis(desc.get(desc.size() - 1), bodyF, tw)); need -= lineB; }
-        for (String l : desc) { ty += lineB; add(Ui.label(l, tx, ty, bodyF, Ui.TEXT)); }
-        ty += 16;
-        add(Ui.label("MECHANICS", tx, ty, Cyber.mono(Font.BOLD, compact ? 10 : 12), MenuScreen.CYAN));
-        for (String l : mech) { ty += lineT; add(Ui.label(l, tx, ty, tinyF, Ui.MUTED)); }
         NeonButton play = new NeonButton(x + 16, buttonY, w - 32, buttonH, "DEPLOY", MenuScreen.menuFont(Font.BOLD, compact ? 17 : 20), dc, () -> app.startGame(idx));
         buttons.add(play);
         add(play);
-    }
-
-    private static String ellipsis(String line, Font f, double maxW) {
-        GLabel probe = new Cyber.Text(line + "…");
-        probe.setFont(f);
-        String s = line;
-        while (probe.getWidth() > maxW && s.length() > 1) { s = s.substring(0, s.length() - 1).trim(); probe.setLabel(s + "…"); }
-        return s + "…";
     }
 
     private static GPolygon cut(double x, double y, double w, double h, double c) {

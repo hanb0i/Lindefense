@@ -15,9 +15,8 @@ import lindefense.tower.data.TowerBuilder;
 /**
  * Central tower registry. The numbers live in the per-faction data files in {@code tower/data}
  * ({@link HeroTowers}, {@link PrimaryTowers}, {@link MilitaryTowers}, {@link MagicTowers}, {@link SupportTowers},
- * {@link TitanTowers}), transcribed from the tower specification. Standard shop towers are base +
- * {@value #STANDARD_UPGRADES} upgrades; Zethos has {@value #ZETHOS_UPGRADES}; Hero Store heroes have none. Every
- * purchasable unit has one ability.
+ * {@link TitanTowers}), transcribed from the tower specification. Standard shop towers and Hero Store heroes are
+ * base + {@value #STANDARD_UPGRADES} upgrades; Zethos has {@value #ZETHOS_UPGRADES}. Only Zethos has an ability.
  */
 public final class TowerCatalog {
     /** Upgrades of every standard shop tower. */
@@ -32,10 +31,10 @@ public final class TowerCatalog {
     public static Map<TowerType, TowerDef> all() { return Collections.unmodifiableMap(DEFS); }
 
     /**
-     * Whether a tower type keeps an active ability. Only the Hero Store heroes and Zethos (whose Reality Collapse is
-     * part of its specification) have one; the original shop towers are passive (no special abilities).
+     * Whether a tower type keeps an active ability. Only Zethos (whose Reality Collapse is part of its
+     * specification) has one; every other tower and hero is passive and progresses through purchasable upgrades.
      */
-    public static boolean hasActiveAbility(TowerType type) { return type.isHero() || type == TowerType.ZETHOS; }
+    public static boolean hasActiveAbility(TowerType type) { return type == TowerType.ZETHOS; }
 
     private static void register(Iterable<TowerDef> defs) {
         for (TowerDef d : defs) DEFS.put(d.type, hasActiveAbility(d.type) ? d : withoutAbility(d));

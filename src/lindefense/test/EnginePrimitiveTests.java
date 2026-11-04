@@ -183,7 +183,7 @@ public final class EnginePrimitiveTests {
 
     private static void barrage() {
         Game g = frozen();
-        Tower src = farTower(g, TowerType.BRAD_LINDEMANN);
+        Tower src = farTower(g, TowerType.KAIJU_KAI);
         List<Enemy> cluster = new ArrayList<>();
         for (int i = 0; i < 4; i++) cluster.add(at(g, EnemyType.TIMSORT, 500 + i * 12));
         Enemy lone = at(g, EnemyType.TIMSORT, 800);
@@ -200,7 +200,7 @@ public final class EnginePrimitiveTests {
         check(lone.getHp() == lone.getMaxHp(), "the lone enemy is not hit");
         // boss preferred
         Game g2 = frozen();
-        Tower s2 = farTower(g2, TowerType.BRAD_LINDEMANN);
+        Tower s2 = farTower(g2, TowerType.KAIJU_KAI);
         for (int i = 0; i < 4; i++) at(g2, EnemyType.TIMSORT, 500 + i * 12);
         Enemy boss = at(g2, EnemyType.BELLARMINE_COLLEGE_PREP, 900);
         HitSpec bh = new HitSpec(25, DamageType.EXPLOSIVE); bh.multVsBoss = 3;

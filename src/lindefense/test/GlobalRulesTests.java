@@ -232,17 +232,17 @@ public final class GlobalRulesTests {
         gpt.addAuraBuff(BuffStat.RATE, TowerType.COPILOT, 0.30);
         check(Math.abs(gpt.buffTotal(BuffStat.RATE) - 0.30) < 1e-9, "same-type buffs do not stack (highest applies)");
         // different types add
-        gpt.addAuraBuff(BuffStat.RATE, TowerType.BRAD_LINDEMANN, 0.25);
+        gpt.addAuraBuff(BuffStat.RATE, TowerType.KAIJU_KAI, 0.25);
         check(Math.abs(gpt.buffTotal(BuffStat.RATE) - 0.55) < 1e-9, "different-type buffs add");
         check(Math.abs(gpt.effectiveRate(g) - base * 1.55) < 1e-9, "effective attack speed uses the summed buff");
         // caps
-        gpt.addAuraBuff(BuffStat.RATE, TowerType.SHASHANK, 0.9);
+        gpt.addAuraBuff(BuffStat.RATE, TowerType.SUNNY_JOE, 0.9);
         check(gpt.buffTotal(BuffStat.RATE) == 1.0 && Math.abs(gpt.effectiveRate(g) - base * 2) < 1e-9, "attack speed buff capped at +100%");
         gpt.addTimedBuff(BuffStat.PIERCE_FLAT, TowerType.COPILOT, 8, 5);
-        gpt.addTimedBuff(BuffStat.PIERCE_FLAT, TowerType.BRAD_LINDEMANN, 6, 5);
+        gpt.addTimedBuff(BuffStat.PIERCE_FLAT, TowerType.KAIJU_KAI, 6, 5);
         check(gpt.effectivePierce() == gpt.getStats().pierce + 10, "pierce buff capped at +10, got " + gpt.effectivePierce());
         gpt.addAuraBuff(BuffStat.DAMAGE_FLAT, TowerType.COPILOT, 4);
-        gpt.addAuraBuff(BuffStat.DAMAGE_FLAT, TowerType.BRAD_LINDEMANN, 3);
+        gpt.addAuraBuff(BuffStat.DAMAGE_FLAT, TowerType.KAIJU_KAI, 3);
         check(gpt.flatDamageBuff() == 5, "flat damage buff capped at +5");
         // timed buffs expire
         Tower t2 = towerNearTrack(g, TowerType.CLAUDE, 0, 500);
@@ -257,14 +257,14 @@ public final class GlobalRulesTests {
         forcePlace(g2, TowerType.COPILOT, buildableNear(g2, target.getPosition().add(new Vec(-50, 0)), 80), 0);
         g2.getTowerManager().recomputeAuras();
         check(Math.abs(target.getAuraRateBonus() - 0.10) < 1e-9, "two Copilots give +10%, not +20%: " + target.getAuraRateBonus());
-        Tower sha = forcePlace(g2, TowerType.SHASHANK, buildableNear(g2, target.getPosition().add(new Vec(0, 70)), 100), 0);
-        sha.resetAbilityCooldown();
-        check(g2.activateAbility(sha), "Resource Optimization fires");
+        // a different source stacks with Copilot: Tanimbus's Tactical Network adds its own +15%
+        Tower drone = forcePlace(g2, TowerType.TANIMBUS, buildableNear(g2, target.getPosition().add(new Vec(0, 70)), 100), 2);
         g2.getTowerManager().recomputeAuras();
-        check(Math.abs(target.getAuraRateBonus() - 0.30) < 1e-9, "Copilot + Shashank add: " + target.getAuraRateBonus());
+        check(Math.abs(target.getAuraRateBonus() - 0.25) < 1e-9, "Copilot + Tanimbus add: " + target.getAuraRateBonus());
         g2.sellTower(c1);
         g2.getTowerManager().recomputeAuras();
-        check(Math.abs(target.getAuraRateBonus() - 0.30) < 1e-9, "remaining Copilot + Shashank still add: " + target.getAuraRateBonus());
+        check(Math.abs(target.getAuraRateBonus() - 0.25) < 1e-9, "remaining Copilot + Tanimbus still add: " + target.getAuraRateBonus());
+        check(drone.isAlive(), "the support drone is still on the field");
     }
 
     private static void targeting() {
@@ -300,7 +300,7 @@ public final class GlobalRulesTests {
 
     private static void camoDetection() {
         // built-in at base
-        EnumSet<TowerType> builtIn = EnumSet.of(TowerType.GROK, TowerType.PERPLEXITY);
+        EnumSet<TowerType> builtIn = EnumSet.of(TowerType.GROK, TowerType.PERPLEXITY, TowerType.NIK_SCOPE);
         for (TowerType t : TowerType.purchasable()) {
             check(TowerCatalog.get(t).statsForTier(0).seesCamo == builtIn.contains(t), t + " base camo detection");
         }
@@ -309,7 +309,7 @@ public final class GlobalRulesTests {
             TowerDef d = TowerCatalog.get(t);
             check(!d.statsForTier(1).seesCamo && d.statsForTier(2).seesCamo && d.statsForTier(3).seesCamo, t + " gains camo detection at U2");
         }
-        // nobody else ever gets it (Brad lost it)
+        // nobody else ever gets it
         for (TowerType t : TowerType.purchasable()) {
             if (builtIn.contains(t) || t == TowerType.GEMINI || t == TowerType.LLAMA) continue;
             TowerDef dd = TowerCatalog.get(t);
@@ -332,8 +332,8 @@ public final class GlobalRulesTests {
 
     private static void factions() {
         Object[][] f = {
-            { TowerType.BRAD_LINDEMANN, Faction.HERO }, { TowerType.BRANDON, Faction.HERO }, { TowerType.ROHAN, Faction.HERO },
-            { TowerType.RONIL, Faction.HERO }, { TowerType.SHASHANK, Faction.HERO }, { TowerType.OWEN, Faction.HERO },
+            { TowerType.KAIJU_KAI, Faction.HERO }, { TowerType.BLITZ_ARNAV, Faction.HERO }, { TowerType.CHILLSTIN, Faction.HERO },
+            { TowerType.BOOM_SAM, Faction.HERO }, { TowerType.SUNNY_JOE, Faction.HERO }, { TowerType.NIK_SCOPE, Faction.HERO },
             { TowerType.GEMINI, Faction.PRIMARY }, { TowerType.CLAUDE, Faction.PRIMARY }, { TowerType.GPT, Faction.PRIMARY }, { TowerType.ZETHOS, Faction.PRIMARY },
             { TowerType.DEEPSEEK, Faction.MILITARY }, { TowerType.COPILOT, Faction.MILITARY },
             { TowerType.DALLE, Faction.MAGIC }, { TowerType.SORA, Faction.MAGIC }, { TowerType.SUNO, Faction.MAGIC },
@@ -348,21 +348,21 @@ public final class GlobalRulesTests {
         g.addCash(100000, null);
         Vec p1 = buildableNear(g, new Vec(300, 300), 100);
         Vec p2 = buildableNear(g, new Vec(600, 300), 100);
-        String locked = g.placementProblem(TowerType.BRAD_LINDEMANN, p1);
-        check(g.placeTower(TowerType.BRAD_LINDEMANN, p1) == null && locked != null && locked.contains("Hero Store"), "a locked hero cannot be placed: " + locked);
-        check(g.purchaseHero(TowerType.BRAD_LINDEMANN), "Brad bought in the Hero Store");
-        Tower brad = g.placeTower(TowerType.BRAD_LINDEMANN, p1);
-        check(brad != null, "first Brad placed");
-        check(g.placeTower(TowerType.BRAD_LINDEMANN, p2) == null, "second Brad refused");
-        String why = g.placementProblem(TowerType.BRAD_LINDEMANN, p2);
+        String locked = g.placementProblem(TowerType.KAIJU_KAI, p1);
+        check(g.placeTower(TowerType.KAIJU_KAI, p1) == null && locked != null && locked.contains("Hero Store"), "a locked hero cannot be placed: " + locked);
+        check(g.purchaseHero(TowerType.KAIJU_KAI), "Kaiju Kai bought in the Hero Store");
+        Tower kaiju = g.placeTower(TowerType.KAIJU_KAI, p1);
+        check(kaiju != null, "first copy placed");
+        check(g.placeTower(TowerType.KAIJU_KAI, p2) == null, "a second copy of the same hero is refused");
+        String why = g.placementProblem(TowerType.KAIJU_KAI, p2);
         check(why != null && why.contains("already deployed"), "clear failure reason: " + why);
-        check(Shop.unavailableReason(g, TowerType.BRAD_LINDEMANN) != null, "shop reason for the UI");
+        check(Shop.unavailableReason(g, TowerType.KAIJU_KAI) != null, "shop reason for the UI");
         check(Shop.unavailableReason(g, TowerType.GPT) == null, "non-heroes are not limited");
-        g.purchaseHero(TowerType.BRANDON);
-        check(g.placeTower(TowerType.BRANDON, p2) != null, "a different unlocked hero can be placed");
+        g.purchaseHero(TowerType.BLITZ_ARNAV);
+        check(g.placeTower(TowerType.BLITZ_ARNAV, p2) != null, "a different unlocked hero can be placed");
         check(g.placeTower(TowerType.GPT, buildableNear(g, new Vec(300, 600), 100)) != null && g.placeTower(TowerType.GPT, buildableNear(g, new Vec(500, 600), 100)) != null, "multiple copies of a normal tower are allowed");
-        g.sellTower(brad);
-        check(!brad.isAlive() && g.placeTower(TowerType.BRAD_LINDEMANN, p1) == null, "a dismissed hero cannot be redeployed in the same match");
+        g.sellTower(kaiju);
+        check(!kaiju.isAlive() && g.placeTower(TowerType.KAIJU_KAI, p1) == null, "a dismissed hero cannot be redeployed in the same match");
     }
 
     private static void costTable() {

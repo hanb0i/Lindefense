@@ -202,7 +202,7 @@ public final class HudPanel extends GCompound {
         int alive = game.getEnemyManager().getAliveCount();
         int toSpawn = game.getWaveManager().getRemainingToSpawn();
 
-        cashChip.set(game.isAdmin() ? "ADMIN \u221e" : compactMoney(game.getCash()), Cyber.YELLOW);
+        cashChip.set(game.hasAdminMoney() ? "ADMIN \u221e" : compactMoney(game.getCash()), Cyber.YELLOW);
         // lives: red pulse when low, flash on loss
         int lv = game.getLives();
         if (lastLives >= 0 && lv < lastLives) lifeFlash = 0.6;
