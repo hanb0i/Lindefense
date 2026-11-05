@@ -81,6 +81,7 @@ public final class ProjectileSprites {
             case JUSTIN_TIME: return new ProjectileSprite(Style.DATA, 0, sz, pri, sec);
             case CAMI_MINE: case TRAPPER_CHE: return new ProjectileSprite(Style.METEOR, 0, sz, pri, sec);
             case ZETHOS: return new ProjectileSprite(Style.QUANTUM, tier, sz, pri, sec);
+            case MR_LINDEMANN: return new ProjectileSprite(Style.SINGULARITY, tier, sz, pri, sec);
             default: return new ProjectileSprite(Style.DOT, tier, sz, Art.rgb(rgb), Color.WHITE);
         }
     }

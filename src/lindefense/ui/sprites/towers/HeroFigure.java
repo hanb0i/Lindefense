@@ -46,7 +46,9 @@ public final class HeroFigure {
         /** Long hair falling past the shoulders. */
         LONG,
         /** Short hair mostly hidden under headgear. */
-        UNDER_HAT
+        UNDER_HAT,
+        /** Bald: a bare, shiny scalp with only a thin trim above the ears. */
+        BALD
     }
 
     /** Mouth shapes. */
@@ -270,6 +272,13 @@ public final class HeroFigure {
         }
 
         private void paintHair(Graphics2D g, Area front, double R, double hy) {
+            if (l.style == Hair.BALD) {
+                fill(g, front, l.hair);   // thin side trim
+                // scalp shine: a soft highlight and a small glint on the dome
+                fill(g, new Ellipse2D.Double(-R * 0.55, hy - R * 0.98, R * 0.7, R * 0.36), Art.alpha(Color.WHITE, 70));
+                fill(g, new Ellipse2D.Double(-R * 0.36, hy - R * 0.9, R * 0.22, R * 0.12), Art.alpha(Color.WHITE, 150));
+                return;
+            }
             if (l.style == Hair.CURLY_TOP) {
                 for (int s = -1; s <= 1; s += 2) {
                     Path2D.Double fade = new Path2D.Double();
@@ -366,6 +375,8 @@ public final class HeroFigure {
                 }
                 case STRAIGHT_FRINGE:
                     return new Area(new Ellipse2D.Double(-R * 1.08, hy - R * 1.1, R * 2.16, R * 1.9));
+                case BALD:
+                    return new Area();   // nothing behind the head: the scalp is the face's own dome
                 case UNDER_HAT:
                 default:
                     return new Area(new Ellipse2D.Double(-R * 1.03, hy - R * 0.9, R * 2.06, R * 1.6));
@@ -404,6 +415,19 @@ public final class HeroFigure {
                     for (int i = 0; i < fringe.length; i += 2) p.lineTo(fringe[i], fringe[i + 1]);
                     p.closePath();
                     return new Area(p);
+                }
+                case BALD: {
+                    Area a = new Area();
+                    for (int s = -1; s <= 1; s += 2) {
+                        Path2D.Double p = new Path2D.Double();
+                        p.moveTo(s * R * 1.0, hy + R * 0.06);
+                        p.lineTo(s * R * 0.98, hy - R * 0.3);
+                        p.lineTo(s * R * 0.84, hy - R * 0.34);
+                        p.lineTo(s * R * 0.9, hy + R * 0.02);
+                        p.closePath();
+                        a.add(new Area(p));
+                    }
+                    return a;
                 }
                 case UNDER_HAT:
                 default: {

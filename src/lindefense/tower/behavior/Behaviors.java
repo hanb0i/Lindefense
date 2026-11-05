@@ -36,6 +36,7 @@ public final class Behaviors {
         MAP.put(TowerType.TRAPPER_CHE, new TrapperCheBehavior());
         MAP.put(TowerType.BLITZ_ARNAV, new BlitzArnavBehavior());
         MAP.put(TowerType.TANIMBUS, new TanimbusBehavior());
+        MAP.put(TowerType.MR_LINDEMANN, new MrLindemannBehavior());
         // Primary (B1)
         MAP.put(TowerType.GEMINI, new GeminiBehavior());
         MAP.put(TowerType.CLAUDE, new ClaudeBehavior());

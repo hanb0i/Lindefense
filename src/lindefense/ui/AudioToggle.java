@@ -4,11 +4,16 @@ import java.awt.Color;
 import java.awt.Font;
 import java.util.List;
 import lindefense.audio.AudioManager;
+import lindefense.audio.AudioSettings;
 
 /**
  * A Sound (speaker icon) or Music (note icon) on/off toggle built on {@link UIButton}. The owner calls
  * {@link #sync()} once per frame so the button always mirrors the persisted setting, including changes made
  * with the M / N hotkeys or on another screen. "Off" is shown dimmed with the icon struck through.
+ *
+ * <p>{@link #soundVolume} / {@link #musicVolume} build the matching volume {@link Slider} for a channel. Toggle and
+ * slider are independent: the toggle mutes or unmutes without changing the level, and the slider sets the level without
+ * switching the channel on or off (it is greyed out, keeping its value, while the channel is off).</p>
  */
 public final class AudioToggle {
     private final UIButton button;
@@ -40,6 +45,41 @@ public final class AudioToggle {
         AudioToggle s = sound(x, y, w, h, soundLabel), m = music(x + w + gap, y, w, h, musicLabel);
         into.add(s.button); into.add(m.button);
         return new AudioToggle[] { s, m };
+    }
+
+    /**
+     * Creates a sound-effects volume slider bound to the audio settings: dragging sets the level live, releasing saves
+     * it and plays a click at the new level, and the slider greys out while Sound is off. Null-safe without audio.
+     */
+    public static Slider soundVolume(double x, double y, double w, double h, String caption) { return volumeSlider(false, x, y, w, h, caption); }
+
+    /**
+     * Creates a music volume slider bound to the audio settings: dragging sets the level live (the music follows at
+     * once), releasing saves it, and the slider greys out while Music is off. Null-safe without audio.
+     */
+    public static Slider musicVolume(double x, double y, double w, double h, String caption) { return volumeSlider(true, x, y, w, h, caption); }
+
+    private static Slider volumeSlider(boolean music, double x, double y, double w, double h, String caption) {
+        Slider s = new Slider(x, y, w, h, caption, music ? Cyber.MAGENTA : Cyber.CYAN);
+        s.setOnChange(v -> {
+            AudioManager m = AudioManager.get();
+            if (m == null) return;
+            if (music) m.setMusicVolume(v); else m.setSoundVolume(v);
+        });
+        s.setOnRelease(v -> {
+            AudioManager m = AudioManager.get();
+            if (m == null) return;
+            m.saveSettings();
+            if (!music) m.play(lindefense.audio.Sfx.UI_CLICK);   // AUDIO HOOK: preview the new effects level
+        });
+        return s.bind(() -> {
+            AudioManager m = AudioManager.get();
+            if (m == null) return music ? AudioSettings.DEFAULT_MUSIC_VOLUME : AudioSettings.DEFAULT_SOUND_VOLUME;
+            return music ? m.getMusicVolume() : m.getSoundVolume();
+        }, () -> {
+            AudioManager m = AudioManager.get();
+            return m != null && !(music ? m.isMusicEnabled() : m.isSoundEnabled());
+        });
     }
 
     public UIButton getButton() { return button; }

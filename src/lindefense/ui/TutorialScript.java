@@ -22,7 +22,7 @@ public final class TutorialScript {
         DEPLOY("Deploy your hero", "Press DEPLOY on the hero's card and click a spot on the map. Deploying is free, but each hero can be deployed only once per match.", true, 0),
         HERO_UPGRADE("Upgrade your hero", "Heroes level up like towers: select the hero and press UPGRADE (or U) to buy the first of its three upgrades. Each one changes what it does and how it looks. Tutorial bonus: +$600.", true, 600),
         ZETHOS("Meet Zethos", "Zethos (PRIMARY tab, $650) is a regular tower with FOUR upgrades: piercing quantum shots that gain splash, then bounce between enemies, plus the Reality Collapse ability.", false, 0),
-        DONE("You're ready", "Towers and heroes are passive specialists that grow through upgrades; Zethos brings the one active ability. Look anything up in the CATALOG on the main menu. Press H in game for controls. Good luck!", false, 0);
+        DONE("You're ready", "Towers and heroes grow through upgrades. Once a shop tower has every upgrade, you can buy its overpowered ability for $15,000 (Zethos gets Reality Collapse from the start). Look anything up in the CATALOG on the main menu. Press H in game for controls. Good luck!", false, 0);
 
         public final String title, text;
         /** True when the step completes by doing something in the game (false = info card with NEXT). */

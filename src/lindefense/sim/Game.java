@@ -131,6 +131,11 @@ public final class Game {
     public boolean hasAdminHeroes() { return adminHeroes; }
     public boolean hasAdminMoney() { return adminMoney; }
     public boolean hasAdminHealth() { return adminHealth; }
+    private int heroLimit = lindefense.tower.TowerManager.MAX_HEROES_PER_GAME;
+    /** Most different heroes this match allows (default {@code TowerManager.MAX_HEROES_PER_GAME}, 3). */
+    public int getHeroLimit() { return heroLimit; }
+    /** Changes the hero cap for this match; tests and tools that field the whole roster lift it. */
+    public void setHeroLimit(int limit) { heroLimit = Math.max(0, limit); }
     /** True once this hero has been deployed in the current match (it stays true after the hero is removed). */
     public boolean isHeroDeployed(TowerType type) { return deployedHeroes.contains(type); }
     /** Called by the tower manager when a hero is placed. */
@@ -295,6 +300,15 @@ public final class Game {
         int refund = state == State.PLAYING ? towerManager.sell(t) : 0;
         if (refund > 0) AudioManager.sfx(Sfx.TOWER_SELL);   // AUDIO HOOK
         return refund;
+    }
+    /**
+     * Buys a fully upgraded shop tower's ability ({@code TowerCatalog.ABILITY_UNLOCK_COST}); it is ready at once.
+     * Returns false if the tower is not maxed, has nothing to unlock, or the player cannot pay.
+     */
+    public boolean unlockAbility(Tower t) {
+        boolean ok = state == State.PLAYING && towerManager.unlockAbility(t);
+        AudioManager.sfx(ok ? Sfx.TOWER_UPGRADE : Sfx.INVALID);   // AUDIO HOOK
+        return ok;
     }
     /** Activates an ability that needs no location (see {@link #activateAbility(Tower, Vec)} for targeted ones). */
     public boolean activateAbility(Tower t) {

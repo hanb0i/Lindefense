@@ -157,7 +157,7 @@ public final class TitanTests {
         check(s.clones == 2, "MiniMax U2: packets split into 2");
         s = TowerCatalog.get(TowerType.MINIMAX).statsForTier(3);
         check(s.p("cloneCount") == 3 && s.p("barrageInterval") == 6 && s.p("barrageCount") == 20, "MiniMax U3: 3 clones, barrage of 20 every 6 s");
-        for (Object[] r : BASE) check(TowerCatalog.get((TowerType) r[0]).ability == null, r[0] + " has no active ability");
+        for (Object[] r : BASE) check(TowerCatalog.get((TowerType) r[0]).ability != null && TowerCatalog.abilityNeedsUnlock((TowerType) r[0]), r[0] + " has an ability locked behind the max-tier unlock");
     }
 
     private static void baseAttacksDamageEnemies() {

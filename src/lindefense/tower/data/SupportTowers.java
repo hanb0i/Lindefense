@@ -31,8 +31,8 @@ public final class SupportTowers {
                 s -> { s.set("allowDensest", 1).set("volleyInterval", 5).set("volleyMissiles", 6).set("volleyDamage", 3); })
             .upgrade(1600, "Chaos Mode", "Interval 0.6; missiles cycle between incendiary (burn), cluster (splits into 4) and heavy (x3 vs MOAB-class).",
                 s -> { s.interval(0.6); s.set("chaosCycle", 3).set("chaosSplit", 4).set("chaosHeavyMoabMult", 3).set("chaosSplitRange", 80); })
-            .ability(AbilityBuilder.of("Real-Time Override", 60, "Towers within 200 px deal +100% damage to MOAB-class enemies for 10 s.")
-                .p("radius", 200).p("duration", 10).p("bossDamagePct", 1.0))
+            .ability(AbilityBuilder.of("Real-Time Override", 40, "EVERY tower on the map deals +400% damage to MOAB-class enemies for 20 s.")
+                .p("radius", 5000).p("duration", 20).p("bossDamagePct", 4.0))
             .build();
     }
 
@@ -48,8 +48,8 @@ public final class SupportTowers {
                 s -> { s.fieldMarkPct = 0.20; s.auraRangeBonus = 0.15; s.auraSurveillanceImmunity = true; })
             .upgrade(1250, null, "End-of-round bonus becomes +$250.",
                 s -> { s.incomePerWave = 250; })
-            .ability(AbilityBuilder.of("Deep Research Scrape", 90, "Instantly gain cash equal to 20% of the current round's pop value so far (max $3,000).")
-                .p("popValuePct", 0.20).p("maxCash", 3000))
+            .ability(AbilityBuilder.of("Deep Research Scrape", 60, "Instantly gain cash equal to 100% of the current round's pop value so far (max $15,000).")
+                .p("popValuePct", 1.0).p("maxCash", 15000))
             .build();
     }
 }

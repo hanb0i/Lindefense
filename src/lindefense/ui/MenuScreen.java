@@ -50,6 +50,10 @@ public final class MenuScreen extends GCompound {
     private NeonButton disableAdmin;
     private NeonButton[] optionButtons;
     private GLabel[] optionLabels;
+    // SETTINGS > AUDIO: on/off chips and volume sliders (hit-tested only while the panel is open)
+    private final List<UIButton> settingsChips = new ArrayList<>();
+    private AudioToggle[] settingsToggles;
+    private Slider[] settingsSliders;
     private double feedbackTime;
     private double t;
     private double introT;
@@ -282,7 +286,7 @@ public final class MenuScreen extends GCompound {
         double y = 146, x = Ui.W / 2.0 - 410;
         String[][] sections = {
             { "GOAL", "Survive all 100 waves and destroy Palantir, the BAD-class final boss, on Wave 100. You start with $650 and 100 lives." },
-            { "BUILDING", "Pick a faction tab (or press B for all towers), click a tower, then click a free spot beside the track. Each tower has three upgrades named after its model lineup (Zethos has four) and several targeting priorities. The original towers are passive; Zethos has the Reality Collapse ability." },
+            { "BUILDING", "Pick a faction tab (or press B for all towers), click a tower, then click a free spot beside the track. Each tower has three upgrades named after its model lineup (Zethos has four) and several targeting priorities. Once a tower has every upgrade, buy its overpowered ability for $15,000 (U or the side panel); Zethos has Reality Collapse from the start." },
             { "HERO STORE", "Press HEROES (or K) in game. Buy a hero once to unlock it permanently: Brad Lindemann, Brandon, Rohan, Ronil, Shashank or Owen. Unlocked heroes deploy free, once per match, and each has an active ability (ability bar along the bottom). New here? Try TUTORIAL; look anything up in CATALOG." },
             { "ECONOMY", "Enemies pay cash when destroyed; every wave pays a bonus. Perplexity earns research income. Selling refunds 70% of everything spent on a tower." },
             { "ENEMIES", "Data structures and sorting algorithms, each with a mechanic: Bubble Sort swaps places, Heap Sort shields allies and is Lead-type (Sharp damage cannot hurt it), Merge/Quick/Counting/TimSort split, Bucket Sort stores weaker enemies, Radix Sort turns Lead-type in its armoured phases, Shell Sort gap-jumps." },
@@ -319,6 +323,8 @@ public final class MenuScreen extends GCompound {
     public void mousePressed(double lx, double ly) {
         skipIntro();
         if (settingsShown) {   // the settings panel is modal
+            if (Slider.pressAny(lx, ly, settingsSliders)) return;   // AUDIO: volume sliders
+            for (UIButton c : settingsChips) if (c.hit(lx, ly)) { c.click(); return; }
             for (NeonButton b : buttons) if (b.getParent() == settings && b.isVisible() && b.hit(lx, ly)) { b.click(); return; }
             return;
         }
@@ -328,13 +334,14 @@ public final class MenuScreen extends GCompound {
 
     // ------------------------------------------------------------------ settings / admin code
     private void buildSettings() {
-        double w = 720, h = 560, x = (Ui.W - w) / 2, y = 220;
+        double w = 720, h = 740, x = (Ui.W - w) / 2, y = 130;
         settings.add(Ui.rect(0, 0, Ui.W, Ui.H, Ui.withAlpha(new Color(0x02030a), 170), Ui.withAlpha(new Color(0x02030a), 0)));
         settings.add(new Cyber.Chamfer(x, y, w, h, 18).fill(new Color(7, 10, 22, 248)).border(CYAN).glow(1).ticks(true));
         GLabel title = Ui.label("SETTINGS", 0, 0, menuFont(Font.BOLD, 32), CYAN);
         title.setLocation((Ui.W - title.getWidth()) / 2, y + 52);
         settings.add(title);
         double lx = x + 40, ty = y + 100;
+        ty = buildAudioSettings(lx, ty, w - 80);
         settings.add(Ui.label("ADMIN CODE", lx, ty, menuFont(Font.BOLD, 20), new Color(0x9b7bff)));
         Font body = Cyber.body(Font.PLAIN, 14);
         for (String l : Ui.wrap("Enter the admin code to unlock the cheat checklist. Each option can be switched on and off on its own and applies to matches started from PLAY.", body, w - 80)) {
@@ -375,6 +382,24 @@ public final class MenuScreen extends GCompound {
         settings.add(close);
         buttons.add(close);
         refreshSettings();
+    }
+
+    /** SETTINGS > AUDIO: per channel an on/off chip and a volume slider. Returns the baseline y of the next section. */
+    private double buildAudioSettings(double lx, double ty, double cw) {
+        settings.add(Ui.label("AUDIO", lx, ty, menuFont(Font.BOLD, 20), CYAN));
+        Font body = Cyber.body(Font.PLAIN, 14);
+        for (String l : Ui.wrap("Levels are saved. Switching a channel off keeps its level. Outside SETTINGS, M toggles music and N sound.", body, cw)) {
+            ty += 20;
+            settings.add(Ui.label(l, lx, ty, body, Ui.TEXT));
+        }
+        double ry = ty + 16, rh = 40, chipW = 200, gap = 12, sx = lx + chipW + gap, sw = cw - chipW - gap;
+        settingsToggles = new AudioToggle[] { AudioToggle.sound(lx, ry, chipW, rh, "SOUND"), AudioToggle.music(lx, ry + rh + 10, chipW, rh, "MUSIC") };
+        for (AudioToggle a : settingsToggles) { settings.add(a.getButton()); settingsChips.add(a.getButton()); }
+        settingsSliders = new Slider[] { AudioToggle.soundVolume(sx, ry, sw, rh, "VOLUME"), AudioToggle.musicVolume(sx, ry + rh + 10, sw, rh, "VOLUME") };
+        for (Slider sl : settingsSliders) settings.add(sl);
+        double divY = ry + 2 * rh + 10 + 22;
+        settings.add(Ui.rect(lx, divY, cw, 1, Ui.withAlpha(CYAN, 70), Ui.withAlpha(CYAN, 0)));
+        return divY + 40;
     }
 
     private void toggleSettings() {
@@ -446,11 +471,17 @@ public final class MenuScreen extends GCompound {
     /** True while the settings panel is open and capturing typed text. */
     public boolean isTyping() { return settingsShown; }
 
-    /** Keys while the settings panel is open: type the code, Enter submits, Backspace deletes, Esc closes. */
+    /**
+     * Keys on the main menu. Any key ends the intro and Esc closes the HELP panel. While the settings panel is open
+     * keys type the code: Enter submits, Backspace deletes, Esc closes.
+     */
     public void keyPressed(java.awt.event.KeyEvent e) {
         skipIntro();
-        if (!settingsShown) return;
         int k = e.getKeyCode();
+        if (!settingsShown) {
+            if (k == java.awt.event.KeyEvent.VK_ESCAPE && helpShown) toggleHelp();
+            return;
+        }
         if (k == java.awt.event.KeyEvent.VK_ESCAPE) { toggleSettings(); return; }
         if (k == java.awt.event.KeyEvent.VK_ENTER) { submitCode(); return; }
         if (k == java.awt.event.KeyEvent.VK_BACK_SPACE) { if (codeInput.length() > 0) codeInput.setLength(codeInput.length() - 1); updateCodeLabel(); return; }
@@ -464,7 +495,15 @@ public final class MenuScreen extends GCompound {
     public void mouseMoved(double lx, double ly) {
         for (NeonButton b : buttons) b.setHover(b.hit(lx, ly));
         for (UIButton c : chips) c.setHover(c.hit(lx, ly));
+        for (UIButton c : settingsChips) c.setHover(settingsShown && c.hit(lx, ly));
+        if (settingsShown) Slider.hoverAll(lx, ly, settingsSliders);
     }
+
+    /** Mouse drag (logical coordinates): moves a grabbed SETTINGS volume slider. */
+    public void mouseDragged(double lx, double ly) { if (settingsShown) Slider.dragAll(lx, ly, settingsSliders); }
+
+    /** Mouse release: ends a SETTINGS volume-slider drag (the level is saved). */
+    public void mouseReleased() { Slider.releaseAll(settingsSliders); }
 
     private void setLetterStackVisible(int i, boolean v) {
         main.setLetterVisible(i, v);
@@ -479,6 +518,9 @@ public final class MenuScreen extends GCompound {
         if (settingsShown) {
             updateCodeLabel();
             if (feedbackTime > 0 && (feedbackTime -= dt) <= 0) codeFeedback.setLabel("");
+            AudioToggle.syncAll(settingsToggles);   // AUDIO: SETTINGS chips / sliders follow M / N and the other screens
+            for (UIButton c : settingsChips) c.animate(dt);
+            Slider.frameAll(dt, settingsSliders);
         }
         animateIntro(dt);
         animateLogo(dt);

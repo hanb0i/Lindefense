@@ -251,9 +251,12 @@ public final class CatalogScreen extends GCompound {
         }
         AbilityDef a = d.ability;
         heading("active ability");
-        if (a == null) line("None: this tower is passive. Only heroes and Zethos have active abilities.", Cyber.body(Font.PLAIN, 14), Cyber.MUTED, TX, TW);
+        if (a == null) line("None: heroes are passive and grow through their upgrades.", Cyber.body(Font.PLAIN, 14), Cyber.MUTED, TX, TW);
         else {
             line(a.name + "   (" + (int) a.cooldown + " s cooldown)", Cyber.display(Font.BOLD, 17), Cyber.MAGENTA, TX, TW);
+            if (lindefense.tower.TowerCatalog.abilityNeedsUnlock(d.type)) {
+                line("Locked: buy it for " + Ui.money(lindefense.tower.TowerCatalog.ABILITY_UNLOCK_COST) + " once the tower has every upgrade.", Cyber.mono(Font.BOLD, 13), Cyber.YELLOW, TX, TW);
+            }
             line(a.description, Cyber.body(Font.PLAIN, 14), Cyber.TEXT, TX, TW);
         }
     }

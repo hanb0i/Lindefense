@@ -34,8 +34,8 @@ public final class MagicTowers {
                 s -> { s.set("zoneRadius", 70).set("zoneArmorCrack", 1); })
             .upgrade(1400, "Infinite Canvas", "Zones every 3 s, 4 creatures per wave, arrow pierce 6.",
                 s -> { s.set("zoneInterval", 3).set("creatureCount", 4); s.pierce = 6; })
-            .ability(AbilityBuilder.of("Outpainting Expansion", 50, "Paints a 10 s \"extra track\" zone on the selected track segment; enemies inside move at 25% speed.")
-                .target().p("duration", 10).p("speedCap", 0.25).p("radius", 90))
+            .ability(AbilityBuilder.of("Outpainting Expansion", 25, "Paints a 30 s \"extra track\" zone (180 px) on the selected track segment: enemies inside crawl at 5% speed (bosses resist part of it) and take 120 magic damage every 0.5 s.")
+                .target().p("duration", 30).p("speedCap", 0.05).p("radius", 180).p("tick", 0.5).p("damage", 120))
             .build();
     }
 
@@ -51,8 +51,8 @@ public final class MagicTowers {
                 s -> { s.set("rewindInterval", 8).set("rewindKnockback", 120); })
             .upgrade(1800, "Time Loop", "Places 2 loop zones (radius 60) on the track in range; enemies inside take 2 damage every 0.4 s and are SLOWED 60%.",
                 s -> { s.set("loopZones", 2).set("loopRadius", 60).set("loopTickDamage", 2).set("loopTick", 0.4).set("loopSlow", 0.6); })
-            .ability(AbilityBuilder.of("Cinematic Rewind", 75, "Every non-boss enemy on screen moves back along the track by 3 s of its own travel distance; bosses by 1 s.")
-                .p("rewindSeconds", 3).p("bossRewindSeconds", 1))
+            .ability(AbilityBuilder.of("Cinematic Rewind", 45, "Every non-boss enemy on screen is thrown back along the track by 15 s of its own travel distance; bosses by 6 s.")
+                .p("rewindSeconds", 15).p("bossRewindSeconds", 6))
             .build();
     }
 
@@ -67,8 +67,8 @@ public final class MagicTowers {
                 s -> { s.set("chordEvery", 4).set("chordDamage", 6).set("chordPierce", 10); })
             .upgrade(1350, "Uncontrolled Symphony", "Interval 0.4; every 1 s, 2 random sonic explosions (radius 50, damage 3) on enemies in range.",
                 s -> { s.interval(0.4); s.set("symphonyInterval", 1).set("symphonyCount", 2).set("symphonyRadius", 50).set("symphonyDamage", 3); })
-            .ability(AbilityBuilder.of("Symphonic Bass Drop", 60, "Every enemy on screen takes damage = 4 x its speed multiplier (bosses capped at 200).")
-                .p("damagePerSpeed", 4).p("bossCap", 200))
+            .ability(AbilityBuilder.of("Symphonic Bass Drop", 35, "Every enemy on screen takes 300 + 400 x its speed multiplier damage (bosses capped at 6,000).")
+                .p("baseDamage", 300).p("damagePerSpeed", 400).p("bossCap", 6000))
             .build();
     }
 }

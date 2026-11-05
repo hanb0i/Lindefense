@@ -57,15 +57,29 @@ public class TowerManager {
 
     public boolean canPlace(TowerType type, Vec p) { return placementProblem(type, p) == null; }
 
+    /** Most different heroes a player may deploy in one match; a dismissed hero still uses its slot. */
+    public static final int MAX_HEROES_PER_GAME = 3;
+
     /**
-     * Hero-only placement rules, independent of position: the hero must be unlocked in the Hero Store and can be
-     * deployed once per match (removing it does not give the deployment back). Null for shop towers.
+     * Hero-only placement rules, independent of position: the hero must be unlocked in the Hero Store, can be
+     * deployed once per match (removing it does not give the deployment back), and at most
+     * {@link #MAX_HEROES_PER_GAME} different heroes may be deployed per match. Null for shop towers.
      */
     public String heroProblem(TowerType type) {
         if (!type.isHero()) return null;
         if (!game.isHeroUnlocked(type)) return "Unlock " + type.displayName + " in the Hero Store";
         if (game.isHeroDeployed(type) || heroPlaced(type)) return type.displayName + " already deployed this match";
+        if (heroesDeployedThisMatch() >= game.getHeroLimit()) return "Hero limit reached (" + game.getHeroLimit() + " per game)";
         return null;
+    }
+
+    /** Different heroes deployed so far this match: the ones on the map plus any already dismissed. */
+    public int heroesDeployedThisMatch() {
+        java.util.EnumSet<TowerType> seen = java.util.EnumSet.noneOf(TowerType.class);
+        for (Tower t : towers) if (t.getType().isHero() && !t.isTemporary()) seen.add(t.getType());
+        for (Tower t : pending) if (t.getType().isHero() && !t.isTemporary()) seen.add(t.getType());
+        for (TowerType h : TowerType.heroes()) if (game.isHeroDeployed(h)) seen.add(h);
+        return seen.size();
     }
 
     /** True if a copy of this hero is currently placed (only one of each hero may exist). */
@@ -110,6 +124,19 @@ public class TowerManager {
         t.clearSurveilled();
         game.getEvents().add(VisualEvent.ability(t.getPosition(), 50, t.getType().secondaryRgb));
         recomputeAuras();
+        return true;
+    }
+
+    /**
+     * Buys a fully upgraded shop tower's ability for {@link TowerCatalog#ABILITY_UNLOCK_COST}. Fails (returns false)
+     * if the tower is not maxed, has no locked ability, or the player cannot pay.
+     */
+    public boolean unlockAbility(Tower t) {
+        if (t == null || !t.isAlive() || !t.canUnlockAbility()) return false;
+        if (!game.spendCash(TowerCatalog.ABILITY_UNLOCK_COST)) return false;
+        t.unlockAbility();
+        game.getEvents().add(VisualEvent.ability(t.getPosition(), 90, t.getType().primaryRgb));
+        game.getEvents().add(VisualEvent.text(t.getPosition(), t.getAbility().name + " UNLOCKED", t.getType().primaryRgb));
         return true;
     }
 

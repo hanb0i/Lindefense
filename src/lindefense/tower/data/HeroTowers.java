@@ -11,7 +11,7 @@ import lindefense.tower.TowerDef;
 import lindefense.tower.TowerType;
 
 /**
- * HERO STORE: the 17 heroes. A hero is bought once in the Hero Store ({@code unlockCost}, a permanent unlock saved
+ * HERO STORE: the 18 heroes. A hero is bought once in the Hero Store ({@code unlockCost}, a permanent unlock saved
  * between sessions), then deployed free, once per match, and upgraded in-match like any tower: base + exactly three
  * purchasable upgrades, so every hero has four progression levels.
  *
@@ -23,7 +23,9 @@ import lindefense.tower.TowerType;
  * <p>The roles are deliberately spread: artillery (Lobber Luis, Boom Sam), healing (Sage Aarav), melee control
  * (Iron Imraan), ice and time control (Chillstin, Justin Time), a beam monster (Kaiju Kai), flyers (Abhi-Ace,
  * Tanimbus), chain lightning (Zippy Matt), economy (Sunny Joe), sniping (Nik-Scope), traps and mines (Cami-Mine,
- * Trapper Che), piercing spears (Spear Hanbo), poison (Thorn Tuhin) and suppressing fire (Blitz Arnav).</p>
+ * Trapper Che), piercing spears (Spear Hanbo), poison (Thorn Tuhin) and suppressing fire (Blitz Arnav).
+ * Mr. Lindemann, the teacher, is the strongest hero (black holes of Java code plus a map-wide space warp) and the
+ * priciest; Spear Hanbo is the second strongest.</p>
  */
 public final class HeroTowers {
     private HeroTowers() { }
@@ -31,7 +33,7 @@ public final class HeroTowers {
     public static List<TowerDef> all() {
         return Arrays.asList(lobberLuis(), sageAarav(), ironImraan(), boomSam(), chillstin(), kaijuKai(), abhiAce(),
             zippyMatt(), sunnyJoe(), nikScope(), camiMine(), justinTime(), spearHanbo(), thornTuhin(), trapperChe(),
-            blitzArnav(), tanimbus());
+            blitzArnav(), tanimbus(), mrLindemann());
     }
 
     /** 1. Explosive artillery: arcing bombs that cluster, then call orbital strikes. */
@@ -244,17 +246,17 @@ public final class HeroTowers {
     /** 13. Spears: piercing throws that later return. */
     static TowerDef spearHanbo() {
         return TowerBuilder.of(TowerType.SPEAR_HANBO, "Piercing Projectile Specialist", 0)
-            .unlockCost(1100)
-            .description("Hero. Throws spears that fly straight through a whole line of enemies. Upgrades sharpen them, make them fly back through the line on the return trip, and finally throw three at once.")
+            .unlockCost(2000)
+            .description("Hero. The second strongest hero. Throws spears that fly straight through a whole line of enemies. Upgrades sharpen them, make them fly back through the line on the return trip, and finally hurl a fan of five at once.")
             .tiers("Spear Throw", "Sharpened Spear", "Returning Spear", "Spear Master")
-            .attack(AttackKind.PROJECTILE, DamageType.SHARP, u(50), 1.8, 35, 4)
-            .base(s -> { s.projectileSpeed = u(75); })
-            .upgrade(400, null, "Damage 35 -> 50 and pierces 5 enemies (was 4).",
-                s -> { s.hit.damage = 50; s.pierce = 5; })
-            .upgrade(850, null, "Damage 50 -> 60, and the spear flies back to Hanbo, hitting each enemy once more on the way.",
-                s -> { s.hit.damage = 60; s.set("returns", 1); })
-            .upgrade(1500, null, "Throws 3 spears in a spread at 75 damage each, pierce 6, interval 1.8 -> 1.5 s.",
-                s -> { s.hit.damage = 75; s.pierce = 6; s.projectilesPerShot = 3; s.interval(1.5); s.set("spread", 0.26); })
+            .attack(AttackKind.PROJECTILE, DamageType.SHARP, u(55), 1.7, 40, 5)
+            .base(s -> { s.projectileSpeed = u(80); })
+            .upgrade(400, null, "Damage 40 -> 55 and pierces 6 enemies (was 5).",
+                s -> { s.hit.damage = 55; s.pierce = 6; })
+            .upgrade(850, null, "Damage 55 -> 70, and the spear flies back to Hanbo, hitting each enemy once more on the way.",
+                s -> { s.hit.damage = 70; s.set("returns", 1); })
+            .upgrade(1500, null, "Throws 3 spears in a fan at 100 damage each, pierce 10, interval 1.7 -> 1.35 s.",
+                s -> { s.hit.damage = 100; s.pierce = 10; s.projectilesPerShot = 3; s.interval(1.35); s.set("spread", 0.24); })
             .build();
     }
 
@@ -324,6 +326,32 @@ public final class HeroTowers {
             .upgrade(1700, null, "+25% attack speed and +15% range to the network, and every 45 s every tower on the map gets +30% attack speed for 8 s.",
                 s -> { s.auraRate = 0.25; s.auraRangeBonus = 0.15; s.set("buffRate", 0.25)
                     .set("rallyInterval", 45).set("rallyRate", 0.30).set("rallyDuration", 8); })
+            .build();
+    }
+
+    /**
+     * 18. The teacher: Mr. Lindemann, the strongest hero. His shots are black holes of Java code: a gravity blast,
+     * then a singularity on the track that drags enemies to a crawl and keeps crushing them. Every
+     * {@code warpInterval} seconds he warps space and sends EVERY enemy on the map (bosses included) back
+     * {@code warpSeconds} seconds along the track.
+     */
+    static TowerDef mrLindemann() {
+        return TowerBuilder.of(TowerType.MR_LINDEMANN, "Space-Warping CS Teacher", 0)
+            .unlockCost(2500)
+            .description("Hero. The strongest hero. Fires black holes of Java code that crush everything near the impact and leave a singularity on the track that drags enemies to a crawl. Every 20 s he warps space and sends every enemy on the map, bosses included, back 5 s along the track.")
+            .tiers("Hello, World", "Recursion", "Garbage Collector", "Event Horizon")
+            .attack(AttackKind.PROJECTILE, DamageType.GRAVITY, u(60), 1.6, 60, 1)
+            .base(s -> {
+                s.splashRadius = u(12); s.projectileSpeed = u(32);
+                s.set("holeRadius", u(14)).set("holeDuration", 2).set("holeDps", 30).set("holeSlow", 0.5).set("maxHoles", 2)
+                    .set("warpInterval", 20).set("warpSeconds", 5);
+            })
+            .upgrade(1200, null, "Damage 60 -> 90; singularities last 2 -> 3 s and crush 30 -> 50 per second; sees Camo.",
+                s -> { s.hit.damage = 90; s.seesCamo = true; s.set("holeDuration", 3).set("holeDps", 50); })
+            .upgrade(2600, null, "Singularities grow 14 -> 18 units (up to 3 at once) and garbage-collect: a non-boss enemy inside one below 15% HP is deleted outright.",
+                s -> { s.set("holeRadius", u(18)).set("maxHoles", 3).set("gcThreshold", 0.15); })
+            .upgrade(5000, null, "Damage 90 -> 200, interval 1.6 -> 1.4 s, singularities crush 70 per second, and space warps every 15 s instead of 20.",
+                s -> { s.hit.damage = 200; s.interval(1.4); s.set("holeDps", 70).set("warpInterval", 15); })
             .build();
     }
 }

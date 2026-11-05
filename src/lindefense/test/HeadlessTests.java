@@ -66,6 +66,7 @@ public final class HeadlessTests {
         HeroPrimaryMilitaryTests.runAll();
         MagicSupportTests.runAll();
         HeroStoreTests.runAll();
+        AbilityUnlockTests.runAll();
         TitanTests.runAll();
         BalanceTests.runAll();
         ConsistencyTests.runAll();
@@ -77,6 +78,7 @@ public final class HeadlessTests {
 
         // AUDIO: sound / music system suite (headless, never opens a device)
         run("audioSystem", () -> { for (String f : AudioTests.run()) check(false, f); check(AudioTests.checkCount() > 30, "audio suite ran (" + AudioTests.checkCount() + " checks)"); });
+        VolumeTests.runAll();   // AUDIO: volume levels and the Slider component
 
         System.out.println();
         System.out.println("Passed: " + passed() + "  Failed: " + failed());
@@ -117,8 +119,8 @@ public final class HeadlessTests {
     // ------------------------------------------------------------------ tests
     private static void catalogIntegrity() {
         TowerType[] p = TowerType.purchasable();
-        check(p.length == 35, "35 placeable units (17 heroes + 18 shop towers), got " + p.length);
-        check(TowerType.heroes().length == 17 && TowerType.shopTowers().length == 18, "17 Hero Store heroes, 18 shop towers");
+        check(p.length == 36, "36 placeable units (18 heroes + 18 shop towers), got " + p.length);
+        check(TowerType.heroes().length == 18 && TowerType.shopTowers().length == 18, "18 Hero Store heroes, 18 shop towers");
         int heroes = 0;
         for (TowerType t : p) {
             TowerDef d = TowerCatalog.get(t);
@@ -134,7 +136,7 @@ public final class HeadlessTests {
             check(d.tierLabels.length == ups + 1, t + " " + (ups + 1) + " tier labels");
             check(d.subtitle != null && !d.subtitle.isEmpty(), t + " has a nickname subtitle");
         }
-        check(heroes == 17, "17 heroes");
+        check(heroes == 18, "18 heroes");
         int species = 0;
         for (EnemyType e : EnemyType.values()) if (e.isSpawnableSpecies() && !e.isBoss()) species++;
         check(species == 16, "16 standard enemy species, got " + species);
@@ -174,6 +176,7 @@ public final class HeadlessTests {
         check(g2.getCash() == Game.START_CASH, "cash unchanged after failed purchase");
         // Every tower can be placed and upgraded through its whole path (and never past it); heroes after unlocking
         Game g3 = newGame(0);
+        g3.setHeroLimit(Integer.MAX_VALUE);   // every unit in one game; the 3-hero cap is tested in heroes.heroLimit
         g3.addCash(1_000_000, null);
         int i = 0;
         for (TowerType type : TowerType.purchasable()) {
@@ -768,7 +771,12 @@ public final class HeadlessTests {
             gg.setGlobalEnemySpeedMultiplier(0);
             Path r = gg.getMap().getRoutes().get(0);
             Vec q = buildableNear(gg, r.positionAt(500).add(new Vec(0, -70)), 120);
-            Tower t = forcePlace(gg, type, q, Math.min(3, TowerCatalog.get(type).upgrades.length));
+            Tower t = forcePlace(gg, type, q, TowerCatalog.get(type).upgrades.length);
+            if (t.isAbilityLocked()) {   // shop towers: bought at max tier for $15,000, ready at once
+                check(!gg.activateAbility(t), type + " locked ability cannot activate");
+                gg.addCash(lindefense.tower.TowerCatalog.ABILITY_UNLOCK_COST, null);
+                check(gg.unlockAbility(t) && t.isAbilityReady(), type + " unlocks its ability at max tier");
+            }
             if (t.getAbility() == null) { check(!gg.activateAbility(t), type + " has no ability to activate"); continue; }
             spawnAt(gg, EnemyType.HEAP_SORT, null, 0, 500);
             spawnAt(gg, EnemyType.MERGE_SORT, EnumSet.of(Modifier.FORTIFIED), 0, 510);
@@ -780,7 +788,7 @@ public final class HeadlessTests {
             gg.run(60);
             i++;
         }
-        check(i == 1, "1 ability tested (Zethos; towers and heroes are passive), got " + i);
+        check(i == TowerType.shopTowers().length, "every shop tower's ability tested (17 unlockable + Zethos; heroes are passive), got " + i);
     }
 
     private static void mapsTraversable() {
@@ -1133,6 +1141,7 @@ public final class HeadlessTests {
         long start = System.currentTimeMillis();
         for (int m = 0; m < MapCatalog.MAP_COUNT; m++) {
             Game g = newGame(m);
+            g.setHeroLimit(Integer.MAX_VALUE);   // the whole roster on one map
             g.setInvincible(true);
             g.setGlobalEnemySpeedMultiplier(0.35);
             g.addCash(5_000_000, null);

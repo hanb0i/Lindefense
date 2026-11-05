@@ -349,7 +349,8 @@ public final class SidePanel extends GCompound {
     private String selectionKey() {
         Tower t = screen.getSelectedTower();
         String base = "@" + (int) infoY + compactShop + ":";
-        if (t != null) return base + "T" + t.getId() + ":" + t.getTier() + ":" + (game.getCash() >= Shop.upgradeCost(t)) + ":" + t.getTargeting() + ":" + t.isAbilityReady() + ":" + t.isSurveilled();
+        if (t != null) return base + "T" + t.getId() + ":" + t.getTier() + ":" + (game.getCash() >= Shop.upgradeCost(t)) + ":" + t.getTargeting() + ":" + t.isAbilityReady() + ":" + t.isSurveilled()
+            + ":" + t.isAbilityLocked() + ":" + (game.getCash() >= TowerCatalog.ABILITY_UNLOCK_COST);
         if (screen.getPlacing() != null) return base + "P" + screen.getPlacing();
         if (screen.getSelectedEnemy() != null) return base + "E" + screen.getSelectedEnemy().getId();
         return base + "none";
@@ -550,12 +551,14 @@ public final class SidePanel extends GCompound {
             pr.setLocation(x0 + textW - pr.getWidth(), y);
         }
         if (d.ability != null) {
-            section("ability");
+            boolean locked = TowerCatalog.abilityNeedsUnlock(type);
+            section(locked ? "ability  //  unlock at max tier" : "ability");
             y += 16;
             put(d.ability.name, x0, y, Cyber.display(Font.BOLD, 15), Cyber.MAGENTA);
-            GLabel cd = put((int) d.ability.cooldown + "s cooldown", 0, y, Cyber.mono(Font.BOLD, 11), Cyber.MUTED);
+            GLabel cd = locked ? put(Ui.money(TowerCatalog.ABILITY_UNLOCK_COST), 0, y, Cyber.mono(Font.BOLD, 12), Cyber.YELLOW)
+                : put((int) d.ability.cooldown + "s cooldown", 0, y, Cyber.mono(Font.BOLD, 11), Cyber.MUTED);
             cd.setLocation(x0 + textW - cd.getWidth(), y);
-            para(d.ability.description, F_TXT_S, Cyber.MUTED, 3);
+            para(d.ability.description + (locked ? " " + (int) d.ability.cooldown + "s cooldown." : ""), F_TXT_S, Cyber.MUTED, 3);
         }
         y += 12;
         para(type.isHero() ? "Click a free spot to deploy (free, once per match). Esc cancels." : "Click a free spot on the map. Right-click or Esc to cancel.", F_TXT_S, Cyber.CYAN, 1);
@@ -645,6 +648,23 @@ public final class SidePanel extends GCompound {
             pr.setLocation(x0 + textW - 12 - pr.getWidth(), y + 27);
             y += 40;
             para(u.description, F_TXT_S, Cyber.MUTED, 3);
+            AbilityDef locked = t.isAbilityLocked() ? t.getAbilityDef() : null;
+            if (locked != null) para("Max tier unlocks " + locked.name + " (" + Ui.money(TowerCatalog.ABILITY_UNLOCK_COST) + ").", F_TXT_S, Cyber.alpha(Cyber.MAGENTA, 220), 1);
+        } else if (!hero && t.isAbilityLocked()) {
+            // maxed: the $15,000 ability unlock takes the upgrade button's place
+            AbilityDef a = t.getAbilityDef();
+            int price = TowerCatalog.ABILITY_UNLOCK_COST;
+            boolean can = game.hasAdminMoney() || game.getCash() >= price;
+            UIButton ub = button(x0, y, textW, 40, "", () -> screen.unlockAbilitySelected());
+            ub.setEnabled(can);
+            ub.setAccent(Cyber.MAGENTA);
+            put(Cyber.spaced("unlock ability [u]"), x0 + 12, y + 14, F_MICRO, can ? Cyber.alpha(Cyber.MAGENTA, 235) : Cyber.DIM);
+            Font nf = fitFont(a.name, Cyber.display(Font.BOLD, 17), textW - 120, 12);
+            put(a.name, x0 + 12, y + 32, nf, can ? Cyber.TEXT : Cyber.lerp(Cyber.MUTED, Cyber.TEXT, 0.4));
+            GLabel pr = put(Ui.money(price), 0, y + 27, Cyber.mono(Font.BOLD, 16), can ? Cyber.YELLOW : Cyber.RED);
+            pr.setLocation(x0 + textW - 12 - pr.getWidth(), y + 27);
+            y += 40;
+            para(a.description + " " + (int) a.cooldown + "s cooldown.", F_TXT_S, Cyber.MUTED, 3);
         } else if (!hero) {
             y += 4;
             put("MAX TIER  //  " + t.getTierLabel(), x0, y + 14, Cyber.display(Font.BOLD, 16), Cyber.YELLOW);

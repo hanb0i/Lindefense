@@ -309,9 +309,12 @@ public final class GlobalRulesTests {
             TowerDef d = TowerCatalog.get(t);
             check(!d.statsForTier(1).seesCamo && d.statsForTier(2).seesCamo && d.statsForTier(3).seesCamo, t + " gains camo detection at U2");
         }
+        // Mr. Lindemann sees Camo from Recursion (U1)
+        TowerDef ml = TowerCatalog.get(TowerType.MR_LINDEMANN);
+        check(!ml.statsForTier(0).seesCamo && ml.statsForTier(1).seesCamo && ml.statsForTier(3).seesCamo, "MR_LINDEMANN gains camo detection at U1");
         // nobody else ever gets it
         for (TowerType t : TowerType.purchasable()) {
-            if (builtIn.contains(t) || t == TowerType.GEMINI || t == TowerType.LLAMA) continue;
+            if (builtIn.contains(t) || t == TowerType.GEMINI || t == TowerType.LLAMA || t == TowerType.MR_LINDEMANN) continue;
             TowerDef dd = TowerCatalog.get(t);
             check(!dd.statsForTier(dd.upgrades.length).seesCamo, t + " has no camo detection");
         }

@@ -56,6 +56,8 @@ public class Tower {
 
     private double attackCooldown;
     private double abilityCooldown;
+    /** True once the player has bought this tower's ability ({@link TowerCatalog#ABILITY_UNLOCK_COST}). */
+    private boolean abilityUnlocked;
     private double surveilledRemaining;
 
     // buff book
@@ -88,8 +90,10 @@ public class Tower {
         this.owner = owner;
         this.behavior = Behaviors.of(def.type);
         this.targeting = def.defaultTargeting;
-        // Abilities are usable from placement and start at 50% cooldown (spec 3.0).
-        this.abilityCooldown = def.ability == null ? 0 : def.ability.cooldown * 0.5;
+        // Abilities that need no unlock (Zethos) are usable from placement and start at 50% cooldown (spec 3.0).
+        // Shop-tower abilities stay locked until bought at max tier; buying one makes it ready at once.
+        boolean usable = def.ability != null && !TowerCatalog.abilityNeedsUnlock(def.type);
+        this.abilityCooldown = usable ? def.ability.cooldown * 0.5 : 0;
     }
 
     public Tower(TowerDef def, Vec position) { this(def, position, 0, false, 0, null); }
@@ -141,7 +145,7 @@ public class Tower {
 
     // ---------------- economy ----------------
     /** Total cash spent on this tower (base + purchased upgrades). */
-    public int getInvestedCost() { return def.totalCostForTier(tier); }
+    public int getInvestedCost() { return def.totalCostForTier(tier) + (abilityUnlocked ? TowerCatalog.ABILITY_UNLOCK_COST : 0); }
     public boolean canUpgrade() { return tier < def.upgrades.length; }
     public UpgradeDef nextUpgrade() { return canUpgrade() ? def.upgrades[tier] : null; }
 
@@ -264,11 +268,28 @@ public class Tower {
     public double getSurveilledRemaining() { return surveilledRemaining; }
 
     // ---------------- ability ----------------
-    public AbilityDef getAbility() { return def.ability; }
-    public boolean isAbilityReady() { return def.ability != null && abilityCooldown <= 0 && !isSurveilled(); }
+    /**
+     * The ability this tower can use right now, or null. A shop tower's ability is null until it is unlocked
+     * ({@link #unlockAbility}), so every ability UI and rule treats a locked ability as absent; use
+     * {@link #getAbilityDef()} to show what an unlock would give.
+     */
+    public AbilityDef getAbility() { return isAbilityLocked() ? null : def.ability; }
+    /** The tower's ability definition whether or not it is unlocked (null if it has none). */
+    public AbilityDef getAbilityDef() { return def.ability; }
+    /** True while this tower has an ability that still has to be bought. */
+    public boolean isAbilityLocked() { return def.ability != null && TowerCatalog.abilityNeedsUnlock(def.type) && !abilityUnlocked; }
+    /** True if the ability can be bought now: it is locked and every upgrade is owned (cash is checked by the buyer). */
+    public boolean canUnlockAbility() { return isAbilityLocked() && isMaxed() && !temporary; }
+    /** Unlocks the ability (cash handling is done by {@code TowerManager.unlockAbility}); it is ready immediately. */
+    public void unlockAbility() {
+        if (!isAbilityLocked()) return;
+        abilityUnlocked = true;
+        abilityCooldown = 0;
+    }
+    public boolean isAbilityReady() { return getAbility() != null && abilityCooldown <= 0 && !isSurveilled(); }
     public double getAbilityCooldownRemaining() { return abilityCooldown; }
-    public double getAbilityCooldownFraction() { return def.ability == null ? 0 : Math.max(0, abilityCooldown / def.ability.cooldown); }
-    public void startAbilityCooldown() { if (def.ability != null) abilityCooldown = def.ability.cooldown; }
+    public double getAbilityCooldownFraction() { AbilityDef a = getAbility(); return a == null ? 0 : Math.max(0, abilityCooldown / a.cooldown); }
+    public void startAbilityCooldown() { AbilityDef a = getAbility(); if (a != null) abilityCooldown = a.cooldown; }
     public void resetAbilityCooldown() { abilityCooldown = 0; }
     public void reduceAbilityCooldown(double fraction) { abilityCooldown *= (1 - fraction); }
 

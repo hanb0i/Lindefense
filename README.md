@@ -183,22 +183,24 @@ bot loses mid-game in every mode. Full tables are in DESIGN.md section 7; re-run
 | Input | Action |
 |---|---|
 | Shop card, then left-click on the map | Buy and place a tower (ghost shows range; cyan = valid, red with an X = invalid, with the reason) |
-| `B` / **ALL** button | Toggle the shop between one faction tab and a grid of all 20 towers grouped by faction (unaffordable towers are dimmed with a red price; hovering shows the shortfall). Clicking a faction tab leaves ALL mode |
+| `B` / **ALL** button | Toggle the shop between one faction tab and a grid of all 18 shop towers grouped by faction (unaffordable towers are dimmed with a red price; hovering shows the shortfall). Clicking a faction tab leaves ALL mode |
 | Left-click a placed tower | Select it: stats, upgrade button, targeting, ability, sell |
 | Left-click an enemy | Inspect it (HP, speed, mechanic, modifiers) |
-| Right-click / `Esc` | Cancel placement or deselect; with nothing selected, `Esc` opens the pause menu |
+| Right-click | Cancel placement or ability aiming, or deselect |
+| `Esc` | Toggle the pause menu in game (it closes HELP or the Hero Store first, and drops a tower you were placing). On the map screen it closes the briefing popup, or goes back to the main menu; on the main menu it closes HELP / SETTINGS |
+| **DEPLOY** on a map card | Opens the mission briefing: large map preview, description, map mechanics and your Difficulty Growth mode. Its **DEPLOY** (or `Enter`) starts the match; **BACK** / `Esc` closes it |
 | `Space` / **Start Wave** button | Start the next wave (never starts automatically unless **Auto** is on) |
 | `1` `2` `3` / buttons | Game speed 1x / 2x / 3x |
 | `P` / `||` button | Pause: opens the pause menu (resume with `P`, `Esc` or the play button) |
-| `U` | Upgrade the selected tower |
+| `U` | Upgrade the selected tower; on a fully upgraded shop tower, buy its ability for $15,000 |
 | `S` | Sell the selected tower (70% refund) |
-| `A` | Fire the selected tower's ability |
+| `A` | Fire the selected tower's ability (once unlocked) |
 | `T` | Cycle targeting priority (First / Last / Strongest / Weakest / Closest) |
 | `K` / **HEROES** button | Open / close the Hero Store (buy heroes, deploy unlocked ones) |
 | `M` / `N` | Toggle **M**usic / sou**N**d (also speaker and note buttons on the main menu, map select and the pause menu) |
 | `H` / **? HELP** button | Open the in-game help overlay (full controls, modifiers, economy, bosses) |
 | **Auto** button | Auto-start the next wave 8 s after the current one is cleared |
-| **Menu** button | Pause and open the pause menu: **Resume**, **Restart** (same map and difficulty, asks to confirm), **Sound effects** and **Music** toggles, **Quit level** (back to map select, asks to confirm) and **Main menu** |
+| **Menu** button | Pause and open the pause menu: **Resume**, **Restart** (same map and difficulty, asks to confirm), **Sound effects** and **Music** toggles with a **volume slider** beside each, **Quit level** (back to map select, asks to confirm) and **Main menu** |
 
 ## Audio
 
@@ -214,7 +216,11 @@ There are two independent switches, **Sound** (effects, speaker icon) and **Musi
 - the main menu (under QUIT) and the map / difficulty select screen,
 - the in-game pause menu (MENU button, `Esc` or `P`).
 
-Hotkeys work on every screen: **`M`** toggles music, **`N`** toggles sound. Both settings are saved between runs with
+Each channel also has a **volume slider** (0-100%, default 100% = the loudness the game was tuned at) in the in-game
+pause menu and in the main menu's **SETTINGS** panel: click the track or drag the knob. Mute is separate: muting keeps
+the slider level, unmuting restores it, and a muted channel's slider is greyed out.
+
+Hotkeys work on every screen: **`M`** toggles music, **`N`** toggles sound. All four settings are saved between runs with
 `java.util.prefs.Preferences` (node `lindefense/audio`). Assets (`assets/fonts`, `assets/sfx`, `assets/music`) are located by `lindefense.Assets`, which tries `-Dlindefense.home=<folder>`, the working directory, the folder above `build/`, then the classpath, so the game also runs from an IDE. File names are case-sensitive on Linux; a test checks that every referenced name matches exactly. Start with `-Dlindefense.nosound=true` to never open the device.
 
 ### Sound effects
@@ -277,14 +283,19 @@ ffmpeg -i input.mp4 -vn -t 90 -ar 22050 -ac 2 -c:a pcm_mulaw assets/music/menu.w
   DDT 1,000, Palantir 50,000), so no enemy gets weaker as the waves go on (DESIGN.md section 1 and 4).
 - Every original tower has a base form and **exactly three upgrades** named after its model lineup in order of
   model intelligence - upgrading Claude buys "Claude Sonnet 5.5", then "Claude Opus 5.5" and finally
-  "Claude Fable 5.1". The original towers are **passive** (no active abilities). **Zethos** (Primary, $650)
-  has **four** upgrades ($350 / $650 / $1,200 / $2,500, $5,350 in total) and the Reality Collapse ability.
+  "Claude Fable 5.1". Every original tower also has an **overpowered ability** that is locked until the tower is
+  fully upgraded: then the side panel offers **UNLOCK ABILITY** for **$15,000** (or press `U`), and the ability is
+  ready the moment you buy it (fire it with `A` or the ability bar; the unlock counts toward the sell refund).
+  **Zethos** (Primary, $650) has **four** upgrades ($350 / $650 / $1,200 / $2,500, $5,350 in total) and its Reality
+  Collapse ability from placement; it is tuned to about twice the best of Gemini, Claude and GPT at each tier.
   Towers have configurable **targeting** (Grok U2+ adds Densest Cluster) and sell for 70% of everything spent.
-- **Hero Store** (`HEROES` button or `K`): six heroes - Brad Lindemann ($1,800), Brandon ($1,100), Rohan
-  ($1,300), Ronil ($1,500), Shashank ($1,000) and Owen ($1,400). Everyone starts with none. Buying one with
+- **Hero Store** (`HEROES` button or `K`): 18 heroes ($850 to $2,500). Everyone starts with none. Buying one with
   match cash unlocks it **permanently** (saved with `java.util.prefs`, node `lindefense/heroes`); unlocked
-  heroes deploy **for free, once per match** (dismissing one does not give the deployment back). Heroes have
-  no upgrades; each has an **active ability** (usable from deployment at 50% cooldown; ring = cooldown).
+  heroes deploy **for free, once per match**, and **at most 3 different heroes per game** (dismissing one does not
+  give its deployment or its slot back). Heroes level up through three purchasable upgrades and have no active
+  abilities. **Mr. Lindemann** ($2,500) is the strongest hero: his shots are black holes of Java code that leave a
+  crushing singularity on the track, and every 20 s (15 s when maxed) he warps space and sends every enemy on the
+  map, bosses included, back 5 s along the track. **Spear Hanbo** ($2,000) is the second strongest.
   The heroes' and Zethos's ranges, radii and projectile speeds are specified in map units (1 unit = 4 px).
 - **Modifiers**: *Camo* enemies cannot be targeted without detection (Grok,
   Perplexity or its aura, Gemini U2, Llama U2). *Regrow* enemies heal 1 HP every 2 s.
@@ -304,7 +315,7 @@ ffmpeg -i input.mp4 -vn -t 90 -ar 22050 -ac 2 -c:a pcm_mulaw assets/music/menu.w
 
 | Faction | Towers | Role |
 |---|---|---|
-| Heroes (Hero Store) | Brad Lindemann, Brandon, Rohan, Ronil, Shashank, Owen | Splash + chain-lightning commander; rapid-fire piercing gunner; freeze / slow crowd control; long-range meteor artillery; economy + damage-vulnerability support; autonomous drone squadron |
+| Heroes (Hero Store, max 3 per game) | Lobber Luis, Sage Aarav, Iron Imraan, Boom Sam, Chillstin, Kaiju Kai, Abhi-Ace, Zippy Matt, Sunny Joe, Nik-Scope, Cami-Mine, Justin Time, Spear Hanbo, Thorn Tuhin, Trapper Che, Blitz Arnav, Tanimbus, Mr. Lindemann | Artillery; healing; melee control; explosives; ice; beam kaiju; flyer; chain lightning; economy; sniper; mines; time control; piercing spears (second strongest); poison; traps; suppressing fire; tower support; black holes of Java code + map-wide space warp (strongest) |
 | Primary | Gemini, Claude, GPT, Zethos | Chain lightning vs groups; piercing + slowing crowd control; adaptive all-rounder; piercing / splashing / bouncing quantum projectiles (four upgrades) |
 | Military | DeepSeek, Copilot | Railgun vs complex enemies/bosses; attack-speed aura (double for Military) and Surveillance firewall |
 | Magic | DALL-E, Sora, Suno | Splash + Sprite summons; time-slowing pulses; sonic pulses vs dense groups |

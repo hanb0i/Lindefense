@@ -217,7 +217,8 @@ public final class HudPanel extends GCompound {
 
         waveChip.set(w + " / " + WaveData.WAVE_COUNT, Cyber.TEXT);
         waveBar.setValue(w / (double) WaveData.WAVE_COUNT);
-        enemyChip.set(alive + " live" + (toSpawn > 0 ? " • " + toSpawn + " queued" : ""), alive > 0 || toSpawn > 0 ? Cyber.TEXT : Cyber.MUTED);
+        // hostiles: alive on the field / total still to beat this wave (alive + not yet spawned)
+        enemyChip.set(alive + " / " + (alive + toSpawn), alive > 0 || toSpawn > 0 ? Cyber.TEXT : Cyber.MUTED);
 
         boolean paused = game.isPaused();
         pauseBtn.setSelected(paused);

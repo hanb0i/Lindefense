@@ -115,6 +115,7 @@ public final class PerfBench {
             }
         }
         spots.sort((a, b) -> a[0] != b[0] ? Double.compare(a[0], b[0]) : a[1] != b[1] ? Double.compare(a[1], b[1]) : Double.compare(a[2], b[2]));
+        g.setHeroLimit(Integer.MAX_VALUE);   // benchmark: the whole roster at once
         g.setHeroCollection(lindefense.sim.HeroCollection.inMemory()); for (TowerType h : TowerType.heroes()) g.getHeroCollection().unlock(h);   // tools never touch saved unlocks
         TowerType[] all = TowerType.purchasable();
         int placed = 0, typeIdx = 0;
@@ -127,6 +128,7 @@ public final class PerfBench {
                 Tower tw = g.placeTower(t, p);
                 if (tw == null) continue;
                 while (g.upgradeTower(tw)) { /* max out */ }
+                g.unlockAbility(tw);   // and buy its ability, so ability effects are part of the benchmark
                 placed++;
                 typeIdx = (typeIdx + tries + 1) % all.length;
                 break;

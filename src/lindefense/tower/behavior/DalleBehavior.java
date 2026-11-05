@@ -138,6 +138,10 @@ public final class DalleBehavior extends TowerBehavior {
         TrackZone z = new TrackZone(tp.position, a.p("radius"), t);
         z.duration = a.p("duration");
         z.speedCap = a.p("speedCap");
+        if (a.has("damage")) {   // the unlocked canvas also burns everything standing in it
+            z.tickInterval = a.p("tick");
+            z.tickHit = new HitSpec(a.p("damage"), lindefense.combat.DamageType.MAGIC);
+        }
         z.kind = "outpaint";
         z.rgb = t.getType().secondaryRgb;
         game.getEffects().addZone(z);

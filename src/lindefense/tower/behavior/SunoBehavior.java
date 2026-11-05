@@ -73,7 +73,7 @@ public final class SunoBehavior extends TowerBehavior {
         double mult = t.damageMultiplier(game);
         for (Enemy e : new ArrayList<>(game.getEnemyManager().getEnemies())) {
             if (!e.isAlive() || e.isStored()) continue;
-            double dmg = a.p("damagePerSpeed") * e.speedMultiplier();
+            double dmg = a.p("baseDamage", 0) + a.p("damagePerSpeed") * e.speedMultiplier();
             if (e.isBoss()) dmg = Math.min(dmg, a.p("bossCap"));
             HitContext c = new HitContext(e, new HitSpec(dmg, t.getStats().hit.type), t);
             c.mult = mult;

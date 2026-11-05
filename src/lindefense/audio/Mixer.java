@@ -44,6 +44,8 @@ final class Mixer implements Runnable {
     private Thread thread;
     private volatile boolean running;
     private volatile float sfxVolume = 0.9f, musicVolume = 0.6f;
+    /** Volumes the last mixed block ended at (mixer thread only); each block ramps from these to the targets, so a dragged slider never clicks. */
+    private float sfxNow = 0.9f, musicNow = 0.6f;
 
     /** Opens the output line and starts the thread. Returns false (never throws) if there is no usable device. */
     boolean open() {
@@ -91,6 +93,7 @@ final class Mixer implements Runnable {
         LockSupport.unpark(thread);
     }
 
+    /** Sets the channel gains (any thread). Changes are ramped over one block (about 12 ms) so they never click. */
     void setVolumes(float sfx, float music) { sfxVolume = sfx; musicVolume = music; }
 
     // ------------------------------------------------------------------ mixer thread
@@ -101,6 +104,7 @@ final class Mixer implements Runnable {
                 drainCommands();
                 if (!active()) {
                     if (started) { line.stop(); line.flush(); started = false; }
+                    sfxNow = sfxVolume; musicNow = musicVolume;   // nothing audible: jump straight to the current levels
                     LockSupport.parkNanos(25_000_000L);
                     continue;
                 }
@@ -152,13 +156,15 @@ final class Mixer implements Runnable {
     private void mixBlock() {
         java.util.Arrays.fill(accL, 0f);
         java.util.Arrays.fill(accR, 0f);
-        float sv = sfxVolume;
+        // channel volumes ramp linearly across the block from where the last block ended to the current targets
+        float sv0 = sfxNow, sv1 = sfxVolume, svStep = (sv1 - sv0) / BLOCK;
+        float mv0 = musicNow, mv1 = musicVolume, mvStep = (mv1 - mv0) / BLOCK;
         for (int vi = 0; vi < voices.length; vi++) {
             Voice v = voices[vi];
             if (v == null) continue;
             float[] d = v.data;
             double pos = v.pos;
-            float g = v.gain * sv;
+            float g = v.gain * sv0, gStep = v.gain * svStep;
             int i = 0;
             for (; i < BLOCK; i++) {
                 int k = (int) pos;
@@ -167,25 +173,27 @@ final class Mixer implements Runnable {
                 float s = (d[k] + (d[k + 1] - d[k]) * fr) * g;
                 accL[i] += s; accR[i] += s;
                 pos += v.step;
+                g += gStep;
             }
             v.pos = pos;
             if (i < BLOCK) voices[vi] = null;
         }
-        float mv = musicVolume;
         for (int si = slots.size() - 1; si >= 0; si--) {
             Slot s = slots.get(si);
             if (s.stream.isFailed() || s.stream.isFinished()) { s.stream.close(); slots.remove(si); continue; }
             s.stream.read(tmp, BLOCK);
-            float g = s.gain;
+            float g = s.gain, mv = mv0;
             for (int i = 0; i < BLOCK; i++) {
                 if (g < s.target) g = Math.min(s.target, g + s.perFrame);
                 else if (g > s.target) g = Math.max(s.target, g - s.perFrame);
                 accL[i] += tmp[i * 2] * g * mv;
                 accR[i] += tmp[i * 2 + 1] * g * mv;
+                mv += mvStep;
             }
             s.gain = g;
             if (g <= 0 && s.target <= 0) { s.stream.close(); slots.remove(si); }
         }
+        sfxNow = sv1; musicNow = mv1;
         for (int i = 0; i < BLOCK; i++) {
             int l = (int) (soft(accL[i]) * 32767f), r = (int) (soft(accR[i]) * 32767f);
             out[i * 4] = (byte) l; out[i * 4 + 1] = (byte) (l >> 8);

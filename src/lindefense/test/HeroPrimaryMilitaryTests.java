@@ -110,7 +110,7 @@ public final class HeroPrimaryMilitaryTests {
         check(s.p("droneInterval") == 8 && s.p("droneDamage") == 6 && s.p("droneSplash") == 70, "Copilot U2 drone numbers");
         s = TowerCatalog.get(TowerType.COPILOT).statsForTier(3);
         check(near(s.p("globalMilitaryRate"), 0.15) && s.p("globalMilitaryDamage") == 1 && near(s.auraRate, 0.30) && s.auraPierce == 2, "Copilot U3 numbers");
-        for (Object[] r : BASE) check(TowerCatalog.get((TowerType) r[0]).ability == null, r[0] + " has no active ability");
+        for (Object[] r : BASE) check(TowerCatalog.get((TowerType) r[0]).ability != null && TowerCatalog.abilityNeedsUnlock((TowerType) r[0]), r[0] + " has an ability locked behind the max-tier unlock");
     }
 
     private static void baseAttacksDamageEnemies() {

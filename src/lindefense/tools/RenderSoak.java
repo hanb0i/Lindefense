@@ -191,7 +191,10 @@ public final class RenderSoak {
         for (int i = 0; i < 10; i++) edt("mapselect frame", () -> { menuFrames(0.05); app.mouseMoved(pixelEvent(100 + RNG.nextInt(1400), 100 + RNG.nextInt(800))); paint(); });
         edt("deploy", () -> {
             double[] dc = lindefense.ui.MapSelectScreen.deployCenter(m);
-            click(dc[0], dc[1]);
+            click(dc[0], dc[1]);   // opens the mission briefing popup
+            paint();
+            double[] bc = lindefense.ui.MapSelectScreen.briefingDeployCenter();
+            click(bc[0], bc[1]);   // the briefing's DEPLOY starts the match
             if (app.getGame() == null || app.getGame().getMap().getName() == null) app.startGame(m);
             paint();
         });
@@ -225,6 +228,11 @@ public final class RenderSoak {
                     while (t.getTier() < targetTier && t.canUpgrade()) {
                         app.getGameScreen().selectTower(t);
                         if (RNG.nextBoolean()) app.getGameScreen().upgradeSelected(); else if (!g.upgradeTower(t)) break;
+                    }
+                    // maxed shop towers buy their $15,000 ability (U on a maxed tower, or the side-panel button path)
+                    if (t.canUnlockAbility()) {
+                        app.getGameScreen().selectTower(t);
+                        if (RNG.nextBoolean()) app.getGameScreen().upgradeSelected(); else app.getGameScreen().unlockAbilitySelected();
                     }
                 }
             });
@@ -322,6 +330,7 @@ public final class RenderSoak {
     }
 
     static void placeAll(Game g) {
+        g.setHeroLimit(Integer.MAX_VALUE);   // stress: the whole roster at once
         g.setHeroCollection(lindefense.sim.HeroCollection.inMemory()); for (TowerType h : TowerType.heroes()) g.getHeroCollection().unlock(h);   // tools never touch saved unlocks
         GameMap map = g.getMap();
         List<Vec> spots = new ArrayList<>();

@@ -36,10 +36,17 @@ public final class CopilotBehavior extends TowerBehavior {
         game.getEffects().fire(b);
     }
 
+    /** Self-buff key of Enterprise Auto-Refactor on the towers it speeds up. */
+    public static final String AUTO_REFACTOR = "autoRefactor";
+
     @Override public boolean activateAbility(Game game, Tower t, Vec target) {
         AbilityDef a = t.getAbility();
+        boolean all = a.p("allTowers", 0) > 0;
         for (Tower o : game.getTowerManager().getTowers()) {
-            if (o.getType().faction == Faction.MILITARY) o.addTimedBuff(BuffStat.RATE, t.getType(), a.p("rateBonus"), a.p("duration"));
+            if (!all && o.getType().faction != Faction.MILITARY) continue;
+            // rateMult: an uncapped self buff (x3 stays x3); rateBonus: the capped tower-buff path
+            if (a.has("rateMult")) o.addSelfBuff(AUTO_REFACTOR, a.p("rateMult"), 1, a.p("duration"));
+            else o.addTimedBuff(BuffStat.RATE, t.getType(), a.p("rateBonus"), a.p("duration"));
         }
         return true;
     }

@@ -57,7 +57,7 @@ public final class KimiBehavior extends TowerBehavior {
         for (int i = 0; i < list.size(); i++) {
             Enemy e = list.get(i);
             if (stacks == 0) break;   // no memory yet: the burst fires but has nothing to deal
-            if (!e.isAlive() || e.isStored() || e.isFortified()) continue;
+            if (!e.isAlive() || e.isStored() || (e.isFortified() && a.p("hitsFortified", 0) <= 0)) continue;
             Vec p = e.getPosition();
             if (p.x < 0 || p.y < 0 || p.x > GameMap.WIDTH || p.y > GameMap.HEIGHT) continue;   // on screen only
             game.getCombat().applyHit(e, e.isBoss() ? half : full, t, 1, 0);

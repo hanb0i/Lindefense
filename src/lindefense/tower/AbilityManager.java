@@ -5,8 +5,9 @@ import lindefense.sim.Game;
 import lindefense.sim.Vec;
 
 /**
- * Enforces ability rules and delegates the effect to the tower's behaviour. Rules (spec 3.0): abilities are
- * usable from placement, the cooldown starts at 50% when placed, cooldowns count down in game time (so they
+ * Enforces ability rules and delegates the effect to the tower's behaviour. Rules: a shop tower's ability is locked
+ * until it is bought at max tier ({@link Tower#unlockAbility}) and is ready the moment it is bought; Zethos's ability
+ * is usable from placement with its cooldown starting at 50%; cooldowns count down in game time (so they
  * speed up with fast-forward), Surveillance locks them, and abilities that need a location
  * ({@link AbilityDef#needsTarget}) are only activated through {@link #activate(Tower, Vec)}.
  */

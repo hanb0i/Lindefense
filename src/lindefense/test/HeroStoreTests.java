@@ -35,7 +35,7 @@ import lindefense.tower.behavior.ZethosBehavior;
 import lindefense.ui.HeroStatText;
 
 /**
- * Hero Store, the 17 heroes and Zethos: registration and prices, purchasing and permanent unlocks, the shared
+ * Hero Store, the 18 heroes and Zethos: registration and prices, purchasing and permanent unlocks, the shared
  * base + 3 upgrade path, every hero's own mechanic, and Zethos's shop / tiers / projectiles / ability.
  */
 public final class HeroStoreTests {
@@ -55,11 +55,12 @@ public final class HeroStoreTests {
         { TowerType.NIK_SCOPE, 1300, 500, 1000, 1800 },
         { TowerType.CAMI_MINE, 1100, 450, 900, 1600 },
         { TowerType.JUSTIN_TIME, 1400, 500, 950, 1800 },
-        { TowerType.SPEAR_HANBO, 1100, 400, 850, 1500 },
+        { TowerType.SPEAR_HANBO, 2000, 400, 850, 1500 },
         { TowerType.THORN_TUHIN, 1200, 450, 900, 1700 },
         { TowerType.TRAPPER_CHE, 1150, 450, 900, 1600 },
         { TowerType.BLITZ_ARNAV, 1350, 500, 950, 1750 },
-        { TowerType.TANIMBUS, 1300, 500, 950, 1700 } };
+        { TowerType.TANIMBUS, 1300, 500, 950, 1700 },
+        { TowerType.MR_LINDEMANN, 2500, 1200, 2600, 5000 } };
 
     public static void runAll() {
         run("heroes.registration", HeroStoreTests::registration);
@@ -97,13 +98,15 @@ public final class HeroStoreTests {
         run("heroes.uiText", HeroStoreTests::uiText);
         run("ui.tutorialScript", HeroStoreTests::tutorialScript);
         run("ui.catalogEntries", HeroStoreTests::catalogEntries);
-        run("towers.originalTowersPassive", HeroStoreTests::originalTowersPassive);
+        // shop-tower abilities (locked until max tier + $15,000) are tested in AbilityUnlockTests
+        run("heroes.mrLindemann", HeroStoreTests::mrLindemann);
+        run("heroes.heroLimit", HeroStoreTests::heroLimit);
     }
 
     // ------------------------------------------------------------------ registration, store, placement
     private static void registration() {
         TowerType[] heroes = TowerType.heroes();
-        check(heroes.length == 17, "the Hero Store lists 17 heroes (" + heroes.length + ")");
+        check(heroes.length == 18, "the Hero Store lists 18 heroes (" + heroes.length + ")");
         Set<TowerType> seen = EnumSet.noneOf(TowerType.class);
         Set<String> names = new HashSet<>();
         for (TowerType h : heroes) {
@@ -697,11 +700,12 @@ public final class HeroStoreTests {
     private static void zethosTiers() {
         TowerDef d = TowerCatalog.get(TowerType.ZETHOS);
         double[][] t = {
-            { 10, 1.00, 40, 2, 0, 0, 0, 0 },
-            { 15, 0.85, 45, 3, 0, 0, 0, 0 },
-            { 22, 0.75, 50, 4, 5, 0.50, 0, 0 },
-            { 32, 0.65, 55, 5, 8, 0.75, 3, 0.75 },
-            { 55, 0.50, 65, 8, 12, 1.00, 5, 1.00 } };
+            // tuned to about twice the best of Gemini / Claude / GPT at each tier
+            { 2, 0.65, 45, 2, 0, 0, 0, 0 },
+            { 3, 0.60, 46, 4, 0, 0, 0, 0 },
+            { 4, 0.50, 47, 5, 7, 0.60, 0, 0 },
+            { 6, 0.55, 48, 5, 6, 0.45, 2, 0.45 },
+            { 7, 0.50, 50, 6, 6, 0.35, 2, 0.35 } };
         int[] cost = { 650, 350, 650, 1200, 2500 };
         check(d.baseCost == cost[0], "base $650");
         for (int i = 0; i < t.length; i++) {
@@ -740,9 +744,9 @@ public final class HeroStoreTests {
         for (Enemy e : line) {
             double d = taken(e);
             if (d == 0) continue;
-            if (near(d, 32)) full++; else if (near(d, 32 * 0.75)) bounce++; else other++;
+            if (near(d, 6)) full++; else if (near(d, 6 * 0.45)) bounce++; else other++;
         }
-        check(bounce == 3, "Tier 3 bounces to exactly 3 more enemies at 75% (" + bounce + ")");
+        check(bounce == 2, "Tier 3 bounces to exactly 2 more enemies at 45% (" + bounce + ")");
         check(full >= 1 && full <= 5, "direct (pierce) hits at full damage (" + full + ")");
         check(other == 0, "no other damage values (" + other + ")");
     }
@@ -751,16 +755,16 @@ public final class HeroStoreTests {
         Game g = frozen();
         Tower z = towerNearTrack(g, TowerType.ZETHOS, 4, 500);
         double range = z.effectiveRange(g), rate = z.effectiveRate(g);
-        check(near(range, u(65)), "Reality Engine range 65 units");
+        check(near(range, u(50)), "Reality Engine range 50 units");
         z.resetAbilityCooldown();
         check(g.activateAbility(z), "Reality Collapse activates");
-        check(near(z.effectiveRange(g), u(80)) && near(z.effectiveRate(g), rate * 2), "range 65 -> 80 units, attack interval halved");
+        check(near(z.effectiveRange(g), u(65)) && near(z.effectiveRate(g), rate * 2), "range 50 -> 65 units, attack interval halved");
         tank(g, 500);
         AttackContext c = g.getCombat().newAttackContext(z, g.getCombat().acquireTargets(z, 1));
         z.getBehavior().modifyAttack(g, z, c);
         check(near(c.damageMult, 2) && c.bounces == 8 && c.splash > 0, "x2 damage, 8 bounces, every impact explodes");
         runSeconds(g, 6.1);
-        check(!ZethosBehavior.isCollapsing(z) && near(z.effectiveRange(g), u(65)), "ends after 6 s");
+        check(!ZethosBehavior.isCollapsing(z) && near(z.effectiveRange(g), u(50)), "ends after 6 s");
         AbilityDef zd = TowerCatalog.get(TowerType.ZETHOS).ability;
         check(zd.p("damageMult") == 2 && zd.p("rateMult") == 2 && near(zd.p("rangeBonus"), u(15)) && zd.p("bounces") == 8, "Reality Collapse multipliers");
     }
@@ -788,6 +792,7 @@ public final class HeroStoreTests {
         check(!HeroStatText.isSupportHero(TowerType.NIK_SCOPE), "attackers are not");
         // the live line never throws for a placed hero
         Game g = frozen();
+        g.setHeroLimit(Integer.MAX_VALUE);
         for (TowerType h : TowerType.heroes()) {
             Tower t = hero(g, h, 400 + (h.ordinal() % 7) * 60);
             if (t != null) HeroStatText.liveLine(g, t);
@@ -844,19 +849,69 @@ public final class HeroStoreTests {
         for (EnemyType e : EnemyType.values()) allEnemies++;
         check(enemies + bosses == allEnemies && bosses == 5, "catalog lists every enemy (" + enemies + ") and all 5 bosses");
         check(towers == 18 && lindefense.ui.CatalogScreen.entries(lindefense.ui.CatalogScreen.Tab.TOWERS).contains(TowerType.ZETHOS), "catalog lists the 18 shop towers incl. Zethos");
-        check(heroes == 17 && !lindefense.ui.CatalogScreen.entries(lindefense.ui.CatalogScreen.Tab.HEROES).contains(TowerType.ZETHOS), "catalog lists the 17 heroes (not Zethos)");
+        check(heroes == 18 && !lindefense.ui.CatalogScreen.entries(lindefense.ui.CatalogScreen.Tab.HEROES).contains(TowerType.ZETHOS), "catalog lists the 18 heroes (not Zethos)");
     }
 
-    private static void originalTowersPassive() {
-        for (TowerType t : TowerType.shopTowers()) {
-            boolean shouldHave = t == TowerType.ZETHOS;
-            check((TowerCatalog.get(t).ability != null) == shouldHave, t + (shouldHave ? " keeps its ability" : " has no special ability"));
-        }
-        for (TowerType h : TowerType.heroes()) check(TowerCatalog.get(h).ability == null, h + " progresses through upgrades, not an ability");
+    /** At most 3 different heroes per match; a dismissed hero keeps using its slot. */
+    private static void heroLimit() {
+        check(lindefense.tower.TowerManager.MAX_HEROES_PER_GAME == 3, "the hero cap is 3 per game");
         Game g = frozen();
-        Tower claude = towerNearTrack(g, TowerType.CLAUDE, 3, 450);
-        tank(g, 450);
-        check(!claude.isAbilityReady() && !g.activateAbility(claude), "a passive tower cannot fire an ability");
+        check(g.getHeroLimit() == 3, "a new match allows 3 heroes");
+        TowerType[] h = { TowerType.LOBBER_LUIS, TowerType.KAIJU_KAI, TowerType.SPEAR_HANBO };
+        Tower first = null;
+        for (int i = 0; i < 3; i++) {
+            Tower t = hero(g, h[i], 300 + i * 150);
+            check(t != null, h[i] + " deploys (" + (i + 1) + " of 3)");
+            if (i == 0) first = t;
+        }
+        check(g.getTowerManager().heroesDeployedThisMatch() == 3, "3 heroes counted");
+        g.getHeroCollection().unlock(TowerType.MR_LINDEMANN);
+        String why = g.getTowerManager().heroProblem(TowerType.MR_LINDEMANN);
+        check(why != null && why.contains("limit"), "a 4th hero is refused: " + why);
+        check(g.getTowerManager().heroProblem(TowerType.GPT) == null, "shop towers are not affected by the hero cap");
+        g.sellTower(first);
+        check(g.getTowerManager().heroesDeployedThisMatch() == 3 && g.getTowerManager().heroProblem(TowerType.MR_LINDEMANN) != null,
+            "dismissing a hero does not free its slot");
+    }
+
+    /** Mr. Lindemann: map-wide space warp on schedule (bosses too), a singularity per impact, U2 garbage collection. */
+    private static void mrLindemann() {
+        Game g = frozen();
+        lindefense.map.Path r = g.getMap().getRoutes().get(0);
+        Tower ml = towerNearTrack(g, TowerType.MR_LINDEMANN, 0, 150);
+        double far = r.getTotalLength() - 60;
+        Enemy grunt = g.getEnemyManager().spawnScaled(EnemyType.DYNAMIC_ARRAY, null, 0, far, 500, 1.0);
+        Enemy boss = g.getEnemyManager().spawnScaled(EnemyType.BELLARMINE_COLLEGE_PREP, null, 0, far - 20, 50, 1.0);
+        g.getEnemyManager().update(0);
+        check(grunt.getPosition().dist(ml.getPosition()) > ml.effectiveRange(g) + 50, "warp test enemies start out of his range");
+        double g0 = grunt.getDistance(), b0 = boss.getDistance();
+        runSeconds(g, 19.8);
+        check(grunt.getDistance() == g0 && boss.getDistance() == b0, "no space warp before 20 s");
+        runSeconds(g, 0.4);
+        check(grunt.getDistance() < g0 - 30 && boss.getDistance() < b0 - 10, "the space warp sends every enemy back, bosses included (" + g0 + " -> " + grunt.getDistance() + ", boss " + b0 + " -> " + boss.getDistance() + ")");
+        check(lindefense.tower.behavior.MrLindemannBehavior.warpRemaining(ml) > 19, "the warp timer restarts after a warp");
+        check(near(TowerCatalog.get(TowerType.MR_LINDEMANN).statsForTier(3).p("warpInterval"), 15), "Event Horizon warps every 15 s");
+
+        // a shot opens a singularity on the track
+        Game g2 = frozen();
+        Tower m2 = towerNearTrack(g2, TowerType.MR_LINDEMANN, 0, 450);
+        tank(g2, 450);
+        boolean opened = false;
+        for (int i = 0; i < 600 && !opened; i++) { g2.step(Game.DT); opened = !g2.getEffects().zonesOf(m2, lindefense.tower.behavior.MrLindemannBehavior.HOLE).isEmpty(); }
+        check(opened, "a black hole shot opens a singularity on the track");
+
+        // U2 Garbage Collector deletes a weakened non-boss standing in a singularity (no children)
+        Game g3 = frozen();
+        Tower m3 = towerNearTrack(g3, TowerType.MR_LINDEMANN, 2, 450);
+        Enemy victim = tank(g3, 450);
+        for (int i = 0; i < 600 && g3.getEffects().zonesOf(m3, lindefense.tower.behavior.MrLindemannBehavior.HOLE).isEmpty(); i++) g3.step(Game.DT);
+        lindefense.effects.TrackZone hole = g3.getEffects().zonesOf(m3, lindefense.tower.behavior.MrLindemannBehavior.HOLE).get(0);
+        check(hole.contains(victim), "the singularity opened on the enemy");
+        hitFor(g3, victim, victim.getHp() - victim.getMaxHp() * 0.10, lindefense.combat.DamageType.TRUE);
+        g3.step(Game.DT);
+        int alive = 0;
+        for (Enemy e : g3.getEnemyManager().getEnemies()) if (e.isAlive()) alive++;
+        check(!victim.isAlive() && alive == 0, "Garbage Collector deletes a non-boss below 15% HP inside a singularity, with no children (alive " + alive + ")");
     }
 
     // ------------------------------------------------------------------ helpers

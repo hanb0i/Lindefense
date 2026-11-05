@@ -161,6 +161,11 @@ public final class HeroStatText {
             }
             case SAGE_AARAV:
                 return "Integrity " + game.getLives() + " / " + game.getMaxLives();
+            case MR_LINDEMANN: {
+                double left = lindefense.tower.behavior.MrLindemannBehavior.warpRemaining(t);
+                int holes = game.getEffects().zonesOf(t, lindefense.tower.behavior.MrLindemannBehavior.HOLE).size();
+                return (left <= 0 ? "Space warp ready" : "Space warp in " + (int) Math.ceil(left) + "s") + "  •  singularities " + holes + " / " + s.pi("maxHoles", 3);
+            }
             default:
                 return null;
         }

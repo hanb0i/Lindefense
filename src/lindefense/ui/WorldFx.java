@@ -397,6 +397,7 @@ final class WorldFx {
             case "vortex": zoneVortex(g, z, cx, cy, R, A); break;
             case "outpaint": zoneOutpaint(g, z, cx, cy, R, A); break;
             case "tempest": zoneTempest(g, z, cx, cy, R, A); break;
+            case "blackhole": zoneBlackHole(g, z, cx, cy, R, A); break;
             default:
                 oval(g, cx, cy, R, R, col(z.rgb, A * 0.25), col(INK, A * 0.8), 2.5);
                 ring(g, cx, cy, R - 3, col(z.rgb, A * 0.9), 2);
@@ -505,6 +506,45 @@ final class WorldFx {
         oval(g, cx, cy, R * 0.22, R * 0.22, col(new Color(10, 14, 30), A * 0.9), col(INK, A), 2.5);
         ring(g, cx, cy, R - 1.5, col(INK, A * 0.9), 6);
         ring(g, cx, cy, R - 1.5, col(Art_GOLD, A * (0.7 + 0.25 * Math.sin(time * 4))), 3);
+    }
+
+    /** Fragments of Java that spiral into Mr. Lindemann's singularities. */
+    private static final String[] JAVA_BITS = { "{ }", "void", "new", ";", "class", "public", "()", "int", "null", "static" };
+    private java.awt.Font codeFont;
+
+    /**
+     * Mr. Lindemann's singularity: a dark event horizon with an orange-violet accretion swirl and fragments of Java code
+     * spiralling in. Text is skipped at the lowest detail level.
+     */
+    private void zoneBlackHole(Graphics2D g, TrackZone z, double cx, double cy, double R, double A) {
+        Color glow = new Color(0x3a1d78);
+        oval(g, cx, cy, R, R, col(glow, A * 0.35), null, 0);
+        int arms = lod >= 2 ? 2 : 4;
+        for (int k = 0; k < arms; k++) {
+            path.reset();
+            int pts = lod >= 2 ? 10 : 20;
+            double rot = -time * 3.0 + k * Math.PI * 2 / arms;
+            for (int i = 0; i <= pts; i++) {
+                double f = i / (double) pts, rr = R * (0.2 + 0.8 * f), a = rot + f * 3.0;
+                double x = cx + Math.cos(a) * rr, y = cy + Math.sin(a) * rr;
+                if (i == 0) path.moveTo(x, y); else path.lineTo(x, y);
+            }
+            outlinedStroke(g, path, col(k % 2 == 0 ? new Color(z.rgb) : mix(0x3a1d78, Color.WHITE, 0.35), A * 0.9), 3.5);
+        }
+        if (lod < 2) {
+            if (codeFont == null) codeFont = lindefense.ui.Cyber.mono(java.awt.Font.BOLD, 11);
+            g.setFont(codeFont);
+            for (int i = 0; i < 5; i++) {
+                double f = ((time * 0.45 + i / 5.0) % 1.0);            // 0 = outer edge, 1 = swallowed
+                double a = -time * 2.2 + i * 1.3 + f * 4.0, rr = R * (1.0 - f * 0.85);
+                g.setColor(col(i % 2 == 0 ? Color.WHITE : new Color(z.rgb), A * (1 - f) * 0.95));
+                String bit = JAVA_BITS[(i + (int) (z.radius)) % JAVA_BITS.length];
+                g.drawString(bit, (float) (cx + Math.cos(a) * rr - 8), (float) (cy + Math.sin(a) * rr + 4));
+            }
+        }
+        oval(g, cx, cy, R * 0.34, R * 0.34, col(new Color(0x050208), A), col(z.rgb, A * 0.9), 2.5);
+        ring(g, cx, cy, R - 1.5, col(INK, A * 0.85), 5);
+        ring(g, cx, cy, R - 1.5, col(z.rgb, A * (0.6 + 0.3 * Math.sin(time * 5))), 2.5);
     }
 
     /** DALL-E Outpainting: a dashed canvas frame that keeps growing outwards, rainbow wash and corner brackets. */

@@ -179,9 +179,13 @@ public final class DesignDocGenerator {
         w.println("## 2. Towers");
         w.println();
         w.println("The tower shop sells 18 towers. The 17 original towers have one base form and **exactly three** purchasable upgrades");
-        w.println("(tier 0-3) and are **passive** (no active abilities). **Zethos** (Primary) has **four** upgrades and the Reality Collapse");
-        w.println("ability. The six **heroes** are not in the tower shop: they are unlocked once in the **Hero Store** (permanent, saved between");
-        w.println("sessions), deploy for free once per match, have no upgrades and each has an active ability. Heroes and Zethos are specified");
+        w.println("(tier 0-3). Each has an overpowered active ability that is **locked until the tower is fully upgraded and the player pays $"
+            + TowerCatalog.ABILITY_UNLOCK_COST + "** for it (U or the side-panel button); it is ready the moment it is bought. **Zethos** (Primary)");
+        w.println("has **four** upgrades and its Reality Collapse ability from placement; it is tuned to about twice the best of Gemini, Claude");
+        w.println("and GPT at each tier. The " + TowerType.heroes().length + " **heroes** are not in the tower shop: they are unlocked once in the **Hero Store** (permanent,");
+        w.println("saved between sessions), deploy for free once per match (at most " + lindefense.tower.TowerManager.MAX_HEROES_PER_GAME + " different heroes per game) and level up");
+        w.println("through three purchasable upgrades; they have no active abilities. Mr. Lindemann is the strongest hero and Spear Hanbo the");
+        w.println("second strongest. Heroes and Zethos are specified");
         w.println("in map units: 1 unit = " + f(TowerStats.MAP_UNIT) + " px (tables below are in px). Source of truth for every number: `lindefense/tower/data/*.java`.");
         w.println();
         w.println("### 2.1 Summary");
@@ -196,7 +200,7 @@ public final class DesignDocGenerator {
             w.printf("| %s | %s | %s | %s | %s | %s | %s | %s | %s |%n", t.displayName, t.faction.label, d.subtitle,
                 String.join(" -> ", d.tierLabels), price, ups.length() == 0 ? "none" : ups.toString(),
                 t.isHero() ? "-" : "$" + d.totalCost(), t.isHero() ? "no refund" : "$" + (int) Math.floor(d.totalCost() * Shop.SELL_FRACTION),
-                d.ability == null ? "none (passive)" : d.ability.name + " (" + f(d.ability.cooldown) + "s)");
+                d.ability == null ? "none (passive)" : d.ability.name + " (" + f(d.ability.cooldown) + "s" + (TowerCatalog.abilityNeedsUnlock(t) ? ", $" + TowerCatalog.ABILITY_UNLOCK_COST + " at max tier" : "") + ")");
         }
         w.println();
         w.println("Damage types per tower: Gemini / GPT / Zethos / DeepSeek / Copilot / Qwen / MiniMax / Brandon / Rohan / Shashank / Owen = Energy,");
@@ -226,8 +230,9 @@ public final class DesignDocGenerator {
                 w.println("- **U" + (i + 1) + " " + u.name + "** ($" + u.cost + "): " + u.description);
             }
             AbilityDef a = d.ability;
-            if (a == null) w.println("- No active ability (passive tower).");
-            else w.println("- **Ability: " + a.name + "** (cooldown " + f(a.cooldown) + " s" + (a.needsTarget ? ", player-chosen location" : "") + "): " + a.description);
+            if (a == null) w.println("- No active ability (passive).");
+            else w.println("- **Ability: " + a.name + "** (cooldown " + f(a.cooldown) + " s" + (a.needsTarget ? ", player-chosen location" : "")
+                + (TowerCatalog.abilityNeedsUnlock(t) ? ", unlocked for $" + TowerCatalog.ABILITY_UNLOCK_COST + " once fully upgraded" : "") + "): " + a.description);
             w.println();
         }
     }

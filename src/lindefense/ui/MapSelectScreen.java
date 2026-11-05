@@ -16,9 +16,11 @@ import lindefense.sim.Vec;
 /**
  * Map selection: a 4-column grid of cards (as many rows as
  * {@link MapCatalog#MAP_COUNT} needs) with a miniature track preview, name,
- * colour-coded difficulty badge, description and mechanic summary, styled to
- * match the cyberpunk title card. All geometry is in logical coordinates so
- * hit-testing stays correct at any window size.
+ * colour-coded difficulty badge and lane count, styled to match the cyberpunk
+ * title card. A card's DEPLOY button opens a mission briefing popup (large
+ * preview, description, map mechanics, chosen Difficulty Growth mode) whose own
+ * DEPLOY starts the match; BACK or Esc closes it. All geometry is in logical
+ * coordinates so hit-testing stays correct at any window size.
  */
 public final class MapSelectScreen extends GCompound {
     private static final long serialVersionUID = 1L;
@@ -30,8 +32,21 @@ public final class MapSelectScreen extends GCompound {
     private final LogoEmblem mark;
     private double t;
     private final DifficultySelector difficulty;   // DIFFICULTY HOOK
+    private final LindefenseProgram app;
+    private final List<GameMap> maps;
+
+    // ---- mission briefing popup (opened by a card's DEPLOY)
+    /** Popup panel geometry (logical), shared with {@link #briefingDeployCenter()}. */
+    private static final double BRIEF_W = 1100, BRIEF_H = 640;
+    private static final double BRIEF_X = (Ui.W - BRIEF_W) / 2, BRIEF_Y = (Ui.H - BRIEF_H) / 2;
+    private static final double BRIEF_PAD = 34, BRIEF_ART_W = 600, BRIEF_BUTTON_H = 54;
+    /** The open popup, or null while closed. */
+    private GCompound briefing;
+    private final List<NeonButton> briefingButtons = new ArrayList<>();
+    private int briefingMap = -1;
 
     public MapSelectScreen(LindefenseProgram app) {
+        this.app = app;
         add(Ui.rect(0, 0, Ui.W, Ui.H, MenuScreen.BG, MenuScreen.BG));
         for (int y = 0; y < Ui.H; y += 4) { GLine l = new GLine(0, y, Ui.W, y); l.setColor(Ui.withAlpha(Color.BLACK, 40)); add(l); }
         GLabel title = Ui.label("SELECT A MAP", 0, 0, MenuScreen.menuFont(Font.BOLD, 34), MenuScreen.CYAN);
@@ -47,7 +62,7 @@ public final class MapSelectScreen extends GCompound {
         sub.setLocation((Ui.W - sub.getWidth()) / 2, 88);
         add(sub);
 
-        List<GameMap> maps = MapCatalog.createAll();
+        maps = MapCatalog.createAll();
         int n = maps.size();
         int rows = Math.max(1, (n + COLS - 1) / COLS);
         // DIFFICULTY HOOK: mode picker under the subtitle; map cards start lower to make room
@@ -137,9 +152,116 @@ public final class MapSelectScreen extends GCompound {
         add(bl);
         double buttonY = y + h - (compact ? 54 : 70);
         double buttonH = compact ? 40 : 50;
-        NeonButton play = new NeonButton(x + 16, buttonY, w - 32, buttonH, "DEPLOY", MenuScreen.menuFont(Font.BOLD, compact ? 17 : 20), dc, () -> app.startGame(idx));
+        NeonButton play = new NeonButton(x + 16, buttonY, w - 32, buttonH, "DEPLOY", MenuScreen.menuFont(Font.BOLD, compact ? 17 : 20), dc, () -> openBriefing(idx));
         buttons.add(play);
         add(play);
+    }
+
+    // ------------------------------------------------------------------ mission briefing popup
+    /** Logical centre of the briefing popup's DEPLOY button (for tools that click through the real UI). */
+    public static double[] briefingDeployCenter() {
+        double[] r = briefingDeployRect();
+        return new double[] { r[0] + r[2] / 2, r[1] + r[3] / 2 };
+    }
+
+    /** {x, y, w, h} of the popup's DEPLOY button; BACK sits to its left. */
+    private static double[] briefingDeployRect() {
+        double rx = BRIEF_X + BRIEF_PAD + BRIEF_ART_W + 36, rw = BRIEF_X + BRIEF_W - BRIEF_PAD - rx;
+        double by = BRIEF_Y + BRIEF_H - BRIEF_PAD - BRIEF_BUTTON_H;
+        return new double[] { rx + 166, by, rw - 166, BRIEF_BUTTON_H };
+    }
+
+    /** True while the mission briefing popup is showing. */
+    public boolean isBriefingOpen() { return briefing != null; }
+
+    /** Index of the map in the open briefing, or -1. */
+    public int getBriefingMap() { return briefingMap; }
+
+    /** Opens the mission briefing for map {@code idx} (a card's DEPLOY button). */
+    public void openBriefing(int idx) {
+        closeBriefing();
+        GameMap m = maps.get(idx);
+        Color dc = difficultyColor(m.getDifficulty());
+        briefingMap = idx;
+        briefing = new GCompound();
+        // dim everything behind the popup; the popup is modal
+        briefing.add(Ui.rect(0, 0, Ui.W, Ui.H, Ui.c(0x02040a, 205), Ui.c(0x000000, 0)));
+        double px = BRIEF_X, py = BRIEF_Y, pw = BRIEF_W, ph = BRIEF_H;
+        briefing.add(new Cyber.Chamfer(px, py, pw, ph, 26).fill(new Color(6, 10, 24, 244)).border(dc).glow(1.1).lineWidth(2).ticks(true));
+        briefing.add(Ui.rect(px + 24, py + 12, 140, 3, MenuScreen.MAGENTA, MenuScreen.MAGENTA));
+        briefing.add(Ui.label(Cyber.spaced("// mission briefing  -  sector " + (idx + 1) + " of " + maps.size()), px + BRIEF_PAD, py + 40, Cyber.mono(Font.BOLD, 12), Ui.withAlpha(MenuScreen.MAGENTA, 230)));
+
+        // left: large preview with entry (green) and exit (red) markers
+        double ax = px + BRIEF_PAD, ay = py + 60, aw = BRIEF_ART_W, ah = aw * GameMap.HEIGHT / GameMap.WIDTH, s = aw / GameMap.WIDTH;
+        briefing.add(new MapArt(m, ax, ay, aw, ah));
+        briefing.add(Ui.rect(ax, ay, aw, ah, null, Ui.withAlpha(dc, 170)));
+        for (Path r : m.getRoutes()) {
+            briefing.add(Ui.oval(ax + r.getStart().x * s - 5, ay + r.getStart().y * s - 5, 10, 10, Ui.GREEN, Ui.GREEN));
+            briefing.add(Ui.oval(ax + r.getEnd().x * s - 5, ay + r.getEnd().y * s - 5, 10, 10, Ui.RED, Ui.RED));
+        }
+        double ly = ay + ah + 30;
+        Font legendF = Cyber.mono(Font.BOLD, 12);
+        briefing.add(Ui.oval(ax, ly - 9, 10, 10, Ui.GREEN, Ui.GREEN));
+        GLabel entry = Ui.label("ENTRY", ax + 16, ly, legendF, Ui.TEXT);
+        briefing.add(entry);
+        double ex = ax + 16 + entry.getWidth() + 22;
+        briefing.add(Ui.oval(ex, ly - 9, 10, 10, Ui.RED, Ui.RED));
+        briefing.add(Ui.label("EXIT", ex + 16, ly, legendF, Ui.TEXT));
+
+        // right: name, badge, description, mechanics, difficulty growth mode
+        double rx = ax + aw + 36, rw = px + pw - BRIEF_PAD - rx, ty = py + 92;
+        Font nameF = MenuScreen.menuFont(Font.BOLD, 30);
+        for (String line : Ui.wrap(m.getName().toUpperCase(), nameF, rw)) { briefing.add(Ui.label(line, rx, ty, nameF, Ui.TEXT)); ty += 34; }
+        ty += 2;
+        String badge = m.getDifficulty().toUpperCase() + "  /  " + m.getRoutes().size() + (m.getRoutes().size() == 1 ? " LANE" : " LANES");
+        GLabel bl = Ui.label(badge, rx + 8, ty, Cyber.display(Font.BOLD, 16), dc);
+        briefing.add(Ui.rect(rx, ty - 15, bl.getWidth() + 16, 22, Ui.withAlpha(dc, 35), Ui.withAlpha(dc, 160)));
+        briefing.add(bl);
+        ty += 40;
+        ty = briefingSection("BRIEFING", m.getDescription(), MenuScreen.CYAN, rx, ty, rw);
+        ty = briefingSection("MAP MECHANICS", m.getMechanicSummary(), MenuScreen.YELLOW, rx, ty, rw);
+        lindefense.sim.Difficulty d = lindefense.sim.Difficulty.getSelected();
+        briefingSection("DIFFICULTY GROWTH", DifficultySelector.display(d, Cyber.body(Font.PLAIN, 16)) + "  -  " + d.subtitle, MenuScreen.MAGENTA, rx, ty, rw);
+
+        double[] dep = briefingDeployRect();
+        NeonButton back = new NeonButton(rx, dep[1], 150, dep[3], "BACK", MenuScreen.menuFont(Font.BOLD, 18), MenuScreen.CYAN, this::closeBriefing);
+        NeonButton go = new NeonButton(dep[0], dep[1], dep[2], dep[3], "DEPLOY", MenuScreen.menuFont(Font.BOLD, 22), dc, () -> app.startGame(idx));
+        briefingButtons.add(back);
+        briefingButtons.add(go);
+        briefing.add(back);
+        briefing.add(go);
+        add(briefing);
+    }
+
+    /** One heading + wrapped paragraph in the briefing's right column; returns the y for the next section. */
+    private double briefingSection(String heading, String text, Color col, double x, double y, double w) {
+        briefing.add(Ui.label(Cyber.spaced(heading), x, y, Cyber.mono(Font.BOLD, 12), Ui.withAlpha(col, 235)));
+        y += 24;
+        Font f = Cyber.body(Font.PLAIN, 16);
+        for (String line : Ui.wrap(text, f, w)) { briefing.add(Ui.label(line, x, y, f, Ui.TEXT)); y += 22; }
+        return y + 18;
+    }
+
+    /** Closes the mission briefing popup (BACK, Esc); does nothing if it is not open. */
+    public void closeBriefing() {
+        if (briefing == null) return;
+        remove(briefing);
+        briefing = null;
+        briefingButtons.clear();
+        briefingMap = -1;
+    }
+
+    /** Esc closes the briefing popup, or goes back to the main menu; Enter deploys from an open briefing. */
+    public void keyPressed(java.awt.event.KeyEvent e) {
+        int k = e.getKeyCode();
+        if (k == java.awt.event.KeyEvent.VK_ESCAPE) {
+            if (briefing != null) { lindefense.audio.AudioManager.sfx(lindefense.audio.Sfx.UI_CLICK); closeBriefing(); }   // AUDIO HOOK
+            else app.showMenu();
+        } else if (k == java.awt.event.KeyEvent.VK_ENTER && briefing != null) {
+            int idx = briefingMap;
+            lindefense.audio.AudioManager.sfx(lindefense.audio.Sfx.UI_SELECT);   // AUDIO HOOK
+            app.startGame(idx);
+        }
     }
 
     private static GPolygon cut(double x, double y, double w, double h, double c) {
@@ -150,12 +272,22 @@ public final class MapSelectScreen extends GCompound {
     }
 
     public void mousePressed(double lx, double ly) {
+        if (briefing != null) {   // the briefing popup is modal: only its own buttons respond
+            for (NeonButton b : new ArrayList<>(briefingButtons)) if (b.hit(lx, ly)) { b.click(); return; }
+            return;
+        }
         for (UIButton c : chips) if (c.hit(lx, ly)) { c.click(); return; }
         if (difficulty.mousePressed(lx, ly)) { lindefense.audio.AudioManager.sfx(lindefense.audio.Sfx.UI_CLICK); return; }   // DIFFICULTY HOOK / AUDIO HOOK
         for (NeonButton b : buttons) if (b.hit(lx, ly)) { b.click(); return; }
     }
 
     public void mouseMoved(double lx, double ly) {
+        if (briefing != null) {
+            for (NeonButton b : briefingButtons) b.setHover(b.hit(lx, ly));
+            for (NeonButton b : buttons) b.setHover(false);
+            for (UIButton c : chips) c.setHover(false);
+            return;
+        }
         difficulty.mouseMoved(lx, ly);
         for (NeonButton b : buttons) b.setHover(b.hit(lx, ly));
         for (UIButton c : chips) c.setHover(c.hit(lx, ly));
@@ -165,6 +297,7 @@ public final class MapSelectScreen extends GCompound {
         t += dt;
         mark.animate(t);
         for (NeonButton b : buttons) b.animate(dt);
+        for (NeonButton b : briefingButtons) b.animate(dt);
         AudioToggle.syncAll(audioToggles);
         for (UIButton c : chips) c.animate(dt);
     }

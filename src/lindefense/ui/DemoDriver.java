@@ -62,10 +62,32 @@ final class DemoDriver {
         switch (idx) {
             case 0: snap("01_menu"); break;
             case 1: clickLogical(Ui.W / 2.0, 528); break;              // Play
-            case 2: snap("02_mapselect"); break;
+            case 2: {
+                snap("02_mapselect");
+                // regression: Esc from map select back to the menu must leave the menu's buttons working (the hidden
+                // map-select screen used to keep receiving every click). Esc several times, then PLAY again.
+                for (int k = 0; k < 3; k++) pressKey(java.awt.event.KeyEvent.VK_ESCAPE);
+                boolean onMenu = app.getMenu() != null && app.getMapSelect() == null;
+                clickLogical(Ui.W / 2.0, 528);   // PLAY
+                boolean reopened = app.getMapSelect() != null && app.getMenu() == null;
+                results.add((onMenu && reopened ? "PASS" : "FAIL") + " Esc to the menu keeps its buttons working (menu " + onMenu + ", PLAY reopened map select " + reopened + ")");
+                break;
+            }
             case 3: {
-                double[] dc = MapSelectScreen.deployCenter(0);   // Play map 1
+                // a card's DEPLOY opens the mission briefing; Esc closes it; the briefing's own DEPLOY starts the match
+                double[] dc = MapSelectScreen.deployCenter(0);   // map 1
                 clickLogical(dc[0], dc[1]);
+                MapSelectScreen ms = app.getMapSelect();
+                boolean popup = app.getGame() == null && ms != null && ms.isBriefingOpen() && ms.getBriefingMap() == 0;
+                pressKey(java.awt.event.KeyEvent.VK_ESCAPE);
+                boolean closed = app.getMapSelect() == ms && ms != null && !ms.isBriefingOpen();
+                clickLogical(dc[0], dc[1]);
+                if (ms != null) ms.frame(0.05);
+                snap("02b_briefing");
+                double[] bc = MapSelectScreen.briefingDeployCenter();
+                clickLogical(bc[0], bc[1]);
+                boolean started = app.getGame() != null;
+                results.add((popup && closed && started ? "PASS" : "FAIL") + " DEPLOY opens the map briefing, Esc closes it, its DEPLOY starts the match (popup " + popup + ", closed " + closed + ", started " + started + ")");
                 Game g = app.getGame();
                 g.addCash(5000, null);
                 g.setHeroCollection(lindefense.sim.HeroCollection.inMemory()); for (TowerType h : TowerType.heroes()) g.getHeroCollection().unlock(h);   // tools never touch saved unlocks
@@ -74,6 +96,17 @@ final class DemoDriver {
                 placeViaClick(TowerType.PERPLEXITY, new Vec(460, 520));
                 placeViaClick(TowerType.LOBBER_LUIS, new Vec(560, 480));
                 placeViaClick(TowerType.SUNO, new Vec(820, 660));
+                // in game, Esc toggles the pause menu (and drops a tower that was being placed)
+                GameScreen gs = app.getGameScreen();
+                gs.beginPlacing(TowerType.GPT);
+                pressKey(java.awt.event.KeyEvent.VK_ESCAPE);
+                boolean opened = gs.isMenuOpen() && gs.getPlacing() == null;
+                pressKey(java.awt.event.KeyEvent.VK_ESCAPE);
+                boolean resumed = !gs.isMenuOpen();
+                pressKey(java.awt.event.KeyEvent.VK_ESCAPE);
+                boolean again = gs.isMenuOpen();
+                pressKey(java.awt.event.KeyEvent.VK_ESCAPE);
+                results.add((opened && resumed && again && !gs.isMenuOpen() ? "PASS" : "FAIL") + " Esc toggles the in-game menu (opened " + opened + ", resumed " + resumed + ", reopened " + again + ")");
                 app.getGameScreen().keyPressed(new java.awt.event.KeyEvent(canvas, 0, 0, 0, java.awt.event.KeyEvent.VK_SPACE, ' '));
                 app.getGameScreen().setSpeed(3);
                 for (int k = 0; k < 12; k++) g.getWaveManager().startNextWave();
@@ -137,7 +170,7 @@ final class DemoDriver {
             case 16: { resize(900, 600); break; }
             case 17: { snap("00b_menu_small"); resize(2400, 1400); break; }
             case 18: { snap("00c_menu_large"); resize(1600, 1028); break; }
-            case 19: { app.mouseMoved(pixelEvent(Ui.W / 2.0, 528)); break; }
+            case 19: { menuSettingsAudioFlow(); app.mouseMoved(pixelEvent(Ui.W / 2.0, 528)); break; }
             case 20: {
                 // busy late wave: ~100 damaged enemies across all lanes
                 Game g = app.getGame();
@@ -269,6 +302,7 @@ final class DemoDriver {
         gs.frame(0.01);
         check(gs.isMenuOpen() && g0.isPaused(), "MENU button path opens the pause menu and pauses the game");
         snap("10_pause_menu");
+        pauseAudioFlow(gs);
         clickLogical(600, 489);                                   // RESTART
         check(gs.getPendingConfirm() == 1 && app.getGame() == g0, "RESTART asks for confirmation first");
         gs.frame(0.01);
@@ -297,6 +331,69 @@ final class DemoDriver {
         snap("10c_quit_to_mapselect");
     }
 
+    // ------------------------------------------------------------------ volume sliders (demo audio settings live in memory only)
+    /** Every {@link Slider} under {@code c}, in paint order. */
+    private static List<Slider> findSliders(acm.graphics.GObject o, List<Slider> into) {
+        if (o instanceof Slider) into.add((Slider) o);
+        else if (o instanceof acm.graphics.GCompound) {
+            acm.graphics.GCompound c = (acm.graphics.GCompound) o;
+            for (int i = 0; i < c.getElementCount(); i++) findSliders(c.getElement(i), into);
+        }
+        return into;
+    }
+
+    /** Presses a slider's track at {@code from} (0-1) and drags to {@code to} through the program's real mouse handlers. */
+    private MouseEvent dragSlider(Slider s, double from, double to) {
+        MouseEvent a = pixelEvent(s.getTrackLeft() + s.getTrackWidth() * from, s.getCenterY());
+        app.mouseMoved(a);
+        app.mousePressed(a);
+        MouseEvent b = pixelEvent(s.getTrackLeft() + s.getTrackWidth() * to, s.getCenterY() + 30);   // drift off the box: still dragging
+        app.mouseDragged(b);
+        s.animate(0.3);
+        return b;
+    }
+
+    /** Main menu SETTINGS > AUDIO: open the panel, drag the MUSIC slider, snapshot, release, close. */
+    private void menuSettingsAudioFlow() {
+        lindefense.audio.AudioManager am = lindefense.audio.AudioManager.get();
+        clickLogical(Ui.W / 2.0, 745);                             // SETTINGS
+        List<Slider> sl = findSliders(app.getRoot(), new ArrayList<>());
+        check(sl.size() == 2 && am != null, "SETTINGS has a SOUND and a MUSIC volume slider (" + sl.size() + ")");
+        if (sl.size() != 2 || am == null) return;
+        int before = am.getMusicVolume();
+        MouseEvent up = dragSlider(sl.get(1), 1.0, 0.35);
+        check(Math.abs(am.getMusicVolume() - 35) <= 1 && sl.get(1).isDragging(), "SETTINGS music slider drag sets the level live (" + am.getMusicVolume() + ")");
+        snap("01b_menu_settings_audio");
+        app.mouseReleased(up);
+        check(!sl.get(1).isDragging() && am.isMusicEnabled() && am.getSoundVolume() == sl.get(0).getValue(), "release ends the drag; music stays on; sound untouched");
+        am.setMusicVolume(before);
+        app.keyPressed(new java.awt.event.KeyEvent(app.getGCanvas(), 0, 0, 0, java.awt.event.KeyEvent.VK_ESCAPE, (char) 27));   // close SETTINGS
+    }
+
+    /** Pause menu: drag the SOUND slider, mute MUSIC with its toggle (level kept, slider greyed), unmute with M. */
+    private void pauseAudioFlow(GameScreen gs) {
+        lindefense.audio.AudioManager am = lindefense.audio.AudioManager.get();
+        List<Slider> sl = findSliders(gs, new ArrayList<>());
+        check(sl.size() == 2 && am != null, "pause menu has a SOUND and a MUSIC volume slider (" + sl.size() + ")");
+        if (sl.size() != 2 || am == null) return;
+        Slider snd = sl.get(0), mus = sl.get(1);
+        int sBefore = am.getSoundVolume(), mBefore = am.getMusicVolume();
+        MouseEvent up = dragSlider(snd, snd.getValue() / 100.0, 0.45);   // grab the knob where it is
+        check(Math.abs(am.getSoundVolume() - 45) <= 1, "pause SOUND slider drag sets the effects level (" + am.getSoundVolume() + ")");
+        snap("10f_pause_volume_drag");
+        app.mouseReleased(up);
+        clickLogical(mus.getX() - 100, mus.getCenterY());          // the MUSIC toggle left of its slider
+        gs.frame(0.01);
+        check(!am.isMusicEnabled() && am.getMusicVolume() == mBefore && mus.isInactive() && mus.getValue() == mBefore,
+            "MUSIC toggle mutes without touching the level; slider greyed (" + mus.getValue() + ")");
+        snap("10g_pause_music_muted");
+        app.keyPressed(new java.awt.event.KeyEvent(app.getGCanvas(), 0, 0, 0, java.awt.event.KeyEvent.VK_M, 'm'));
+        gs.frame(0.01);
+        check(am.isMusicEnabled() && am.getMusicVolume() == mBefore && !mus.isInactive(), "M unmutes music at its kept level");
+        am.setSoundVolume(sBefore);
+        app.mouseMoved(pixelEvent(5, 5));
+    }
+
     private void resize(int w, int h) {
         Window win = SwingUtilities.getWindowAncestor(app.getGCanvas());
         win.setSize(w, h);
@@ -308,6 +405,11 @@ final class DemoDriver {
         int px = (int) Math.round(lx * root.getScale() + (app.getGCanvas().getWidth() - Ui.W * root.getScale()) / 2);
         int py = (int) Math.round(ly * root.getScale() + (app.getGCanvas().getHeight() - Ui.H * root.getScale()) / 2);
         return new MouseEvent(app.getGCanvas(), MouseEvent.MOUSE_PRESSED, System.currentTimeMillis(), 0, px, py, 1, false, MouseEvent.BUTTON1);
+    }
+
+    /** Sends a key press through the program's real key routing. */
+    private void pressKey(int code) {
+        app.keyPressed(new java.awt.event.KeyEvent(app.getGCanvas(), java.awt.event.KeyEvent.KEY_PRESSED, 0, 0, code, java.awt.event.KeyEvent.CHAR_UNDEFINED));
     }
 
     /** Sends a press through the real program mouse handler at the pixel position of a logical point. */

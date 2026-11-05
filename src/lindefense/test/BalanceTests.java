@@ -76,14 +76,45 @@ public final class BalanceTests {
     private static void bradDuel() {
         // Hero Store heroes vs a lone boss (abilities used on cooldown): reported for tuning; no hero may solo a BFB
         // at the HP it has on its last campaign appearance (wave 99), so towers stay necessary.
-        StringBuilder sb = new StringBuilder("      hero solo, HP left: MOAB(w40) / BFB(w99):");
+        // Ranking: Mr. Lindemann is the strongest hero and Spear Hanbo the second strongest, both against a boss (least
+        // BFB HP left) and against a crowd (most damage per second into a dense column of enemies).
+        StringBuilder sb = new StringBuilder("      hero solo, HP left: MOAB(w40) / BFB(w99) / crowd dps:");
+        java.util.Map<TowerType, Double> bfbLeft = new java.util.EnumMap<>(TowerType.class), crowd = new java.util.EnumMap<>(TowerType.class);
         for (TowerType h : TowerType.heroes()) {
             double moab = duel(h, EnemyType.BELLARMINE_COLLEGE_PREP, lindefense.wave.WaveData.hpScale(40));
             double bfb = duel(h, EnemyType.SW_RESOURCE_CONSULTANT, lindefense.wave.WaveData.hpScale(99));
-            sb.append(' ').append(h).append('=').append(pct(moab)).append('/').append(pct(bfb));
+            double dps = crowdDps(h);
+            bfbLeft.put(h, bfb); crowd.put(h, dps);
+            sb.append(' ').append(h).append('=').append(pct(moab)).append('/').append(pct(bfb)).append('/').append(Math.round(dps));
             check(bfb > 0, h + " alone must not defeat a wave-99 BFB (HP left " + pct(bfb) + ")");
         }
         System.out.println(sb);
+        TowerType ml = TowerType.MR_LINDEMANN, sh = TowerType.SPEAR_HANBO;
+        for (TowerType h : TowerType.heroes()) {
+            if (h == ml) continue;
+            check(bfbLeft.get(ml) < bfbLeft.get(h) && crowd.get(ml) > crowd.get(h), "Mr. Lindemann is stronger than " + h + " (boss and crowd)");
+            if (h == sh) continue;
+            check(bfbLeft.get(sh) < bfbLeft.get(h) && crowd.get(sh) > crowd.get(h), "Spear Hanbo is stronger than " + h + " (boss and crowd)");
+        }
+    }
+
+    /**
+     * Damage per second one fully upgraded hero deals to a dense column of enemies too tough to die (a new one every
+     * 0.25 s for 60 s; the column needs about 20 s to reach the best spot, so this covers about 40 s of fighting) on the
+     * duel map: the crowd-control half of the hero ranking.
+     */
+    public static double crowdDps(TowerType type) {
+        Game g = newGame(DUEL_MAP);
+        g.setInvincible(true);
+        Tower t = forcePlace(g, type, bestSpot(g, type), TowerCatalog.get(type).upgrades.length);
+        double secs = 60, every = 0.25, acc = 0;
+        for (double time = 0; time < secs; time += Game.DT) {
+            acc += Game.DT;
+            if (acc >= every) { acc -= every; g.getEnemyManager().spawnScaled(EnemyType.DYNAMIC_ARRAY, null, 0, 0, 3000, 1.0); }
+            g.step(Game.DT);
+            g.getEvents().clear();
+        }
+        return t.getDamageDealt() / secs;
     }
 
     private static void noSoloBfb() {
@@ -116,12 +147,13 @@ public final class BalanceTests {
         TowerType cheapType = null, priceyType = null;
         for (TowerType h : TowerType.heroes()) {
             int p = TowerCatalog.get(h).unlockCost;
-            check(p >= 800 && p <= 2000, h + " Hero Store price $" + p + " is in the $800-2000 band");
+            check(p >= 800 && p <= 2500, h + " Hero Store price $" + p + " is in the $800-2500 band");
             if (p < cheapest) { cheapest = p; cheapType = h; }
             if (p > priciest) { priciest = p; priceyType = h; }
         }
         check(cheapType == TowerType.SUNNY_JOE && cheapest == 850, "Sunny Joe is the cheapest hero at $850");
-        check(priceyType == TowerType.KAIJU_KAI && priciest == 1500, "Kaiju Kai is the priciest hero at $1,500");
+        check(priceyType == TowerType.MR_LINDEMANN && priciest == 2500, "Mr. Lindemann (the strongest hero) is the priciest at $2,500");
+        check(TowerCatalog.get(TowerType.SPEAR_HANBO).unlockCost == 2000, "Spear Hanbo (second strongest) costs $2,000");
         check(TowerCatalog.get(TowerType.ZETHOS).totalCost() == 5350, "Zethos fully upgraded costs $5,350");
     }
 
@@ -130,6 +162,7 @@ public final class BalanceTests {
         // overkilled before it reaches the back of the build). Abilities are not used. Every attacker must deal damage or
         // score kills; Perplexity (pure economy) must pay its round-end income.
         Game g = new Game(lindefense.map.MapCatalog.create(DUEL_MAP), 99L, lindefense.sim.Difficulty.ONN);
+        g.setHeroLimit(Integer.MAX_VALUE);   // one of every unit, heroes included
         g.setInvincible(true);
         List<Tower> build = new ArrayList<>();
         List<TowerType> order = new ArrayList<>(java.util.Arrays.asList(TowerType.purchasable()));

@@ -39,6 +39,11 @@ public final class GameScreen extends GCompound {
     private boolean helpShown;
     private boolean heroStoreShown;
     private String heroStoreKey = "";
+    /** Live parts of the open Hero Store, updated in place every frame so a cash change never rebuilds the overlay. */
+    private GLabel heroStoreCash;
+    private double heroStoreCashRight;
+    private UIButton heroStoreNeedButton;
+    private int heroStoreNeedPrice;
     private String heroStoreNotice;
     /** Hero Store: which hero's detail panel is open (the grid has 17 tiles). */
     private TowerType heroStoreSelection = TowerType.heroes()[0];
@@ -54,6 +59,7 @@ public final class GameScreen extends GCompound {
     private final lindefense.audio.MusicDirector musicDirector = new lindefense.audio.MusicDirector();   // AUDIO HOOK
     private double musicTimer;
     private AudioToggle[] pauseToggles;
+    private Slider[] pauseSliders;   // AUDIO: pause-menu volume sliders beside the toggles
     /** Pending in-overlay confirmation of the pause menu (RESTART / QUIT LEVEL). */
     private enum Confirm { NONE, RESTART, QUIT }
     private Confirm menuConfirm = Confirm.NONE;
@@ -144,9 +150,27 @@ public final class GameScreen extends GCompound {
     public void toggleAuto() { game.getWaveManager().setAutoStart(!game.getWaveManager().isAutoStart()); }
     public void backToMenu() { app.showMenu(); }
 
-    /** MENU button / Esc: pauses the game and opens the pause menu (resume, restart, sound, music, quit level, main menu). */
+    /**
+     * Esc toggles the pause menu. An overlay drawn on top of the game (HELP, then the pause menu itself, then the Hero
+     * Store) closes first; with none of them showing, Esc opens the pause menu, even while placing a tower or aiming an
+     * ability (right-click still cancels those). Does nothing on the victory / defeat screen.
+     */
+    public void escapePressed() {
+        if (game.getState() != Game.State.PLAYING) return;
+        if (helpShown) toggleHelp();
+        else if (isMenuOpen()) resumeGame();
+        else if (heroStoreShown) toggleHeroStore();
+        else openMenu();
+    }
+
+    /**
+     * MENU button / Esc: pauses the game and opens the pause menu (resume, restart, sound, music, quit level, main menu).
+     * A half-finished tower placement or ability aim is dropped so nothing is still armed when the game resumes.
+     */
     public void openMenu() {
         if (game.getState() != Game.State.PLAYING) return;
+        if (placing != null) beginPlacing(null);
+        cancelTargeting();
         helpShown = false;
         menuConfirm = Confirm.NONE;
         game.setPaused(true);
@@ -203,11 +227,45 @@ public final class GameScreen extends GCompound {
             sb.append(game.isHeroUnlocked(t) ? 'U' : game.getCash() >= lindefense.tower.Shop.unlockPriceOf(t) ? 'A' : 'L');
             sb.append(game.isHeroDeployed(t) ? 'D' : '-');
         }
-        return sb.append(heroStoreSelection).append((int) game.getCash()).toString();
+        // no exact cash here: the credits readout and "NEED $X MORE" update in place (refreshHeroStoreLive), and a
+        // rebuild on every cash change made the whole store flash and replay its glitch-in
+        return sb.append(heroStoreSelection).toString();
     }
 
+    private String heroStoreCashText() { return "CREDITS  " + (game.isAdmin() ? "ADMIN \u221e" : Ui.money(game.getCash())); }
+
+    /** Updates the open Hero Store's credits readout and NEED-MORE button text without rebuilding it. */
+    private void refreshHeroStoreLive() {
+        if (heroStoreCash != null) {
+            String txt = heroStoreCashText();
+            if (!txt.equals(heroStoreCash.getLabel())) {
+                heroStoreCash.setLabel(txt);
+                heroStoreCash.setLocation(heroStoreCashRight - heroStoreCash.getWidth(), heroStoreCash.getY());
+            }
+        }
+        if (heroStoreNeedButton != null) {
+            String txt = "NEED " + Ui.money(Math.max(0, heroStoreNeedPrice - game.getCash())) + " MORE";
+            if (!txt.equals(heroStoreNeedButton.getText())) heroStoreNeedButton.setText(txt);
+        }
+    }
+
+    /** U / the upgrade button: buys the next upgrade; on a maxed tower with a locked ability it buys the ability. */
     public void upgradeSelected() {
-        if (selectedTower != null) { game.upgradeTower(selectedTower); side.requestRebuild(); }
+        if (selectedTower == null) return;
+        if (selectedTower.canUpgrade()) game.upgradeTower(selectedTower);
+        else if (selectedTower.isAbilityLocked()) unlockAbilitySelected();
+        side.requestRebuild();
+    }
+
+    /** UNLOCK ABILITY button: buys the selected maxed tower's ability ($15,000); it is ready at once. */
+    public void unlockAbilitySelected() {
+        Tower t = selectedTower;
+        if (t == null || !t.isAbilityLocked()) return;
+        String name = t.getAbilityDef().name;
+        if (game.unlockAbility(t)) abilities.showHint(name + " UNLOCKED  -  press A or click it in the ability bar", Cyber.GREEN, 3);
+        else if (!t.canUnlockAbility()) abilities.showHint(name + ": buy every upgrade first", Cyber.RED, 2.5);
+        else abilities.showHint(name + ": needs " + Ui.money(lindefense.tower.TowerCatalog.ABILITY_UNLOCK_COST), Cyber.RED, 2.5);
+        side.requestRebuild();
     }
 
     public void sellSelected() {
@@ -287,6 +345,7 @@ public final class GameScreen extends GCompound {
 
     public void mousePressed(double lx, double ly, boolean rightButton) {
         mouseMoved(lx, ly);
+        if (!rightButton && Slider.pressAny(lx, ly, pauseSliders)) return;   // AUDIO: volume sliders
         if (!overlayButtons.isEmpty()) {
             for (UIButton b : overlayButtons) if (b.hit(lx, ly)) { b.click(); return; }
             if (game.getState() != Game.State.PLAYING || helpShown || heroStoreShown || game.isPaused()) return;
@@ -326,7 +385,14 @@ public final class GameScreen extends GCompound {
         mouseLx = lx; mouseLy = ly;
         mouseWorld = toWorld(lx, ly);
         for (UIButton b : allButtons()) b.setHover(b.hit(lx, ly));
+        Slider.hoverAll(lx, ly, pauseSliders);
     }
+
+    /** Mouse drag (logical coordinates): moves a grabbed pause-menu volume slider. */
+    public void mouseDragged(double lx, double ly) { Slider.dragAll(lx, ly, pauseSliders); }
+
+    /** Mouse release: ends a volume-slider drag (the level is saved). */
+    public void mouseReleased() { Slider.releaseAll(pauseSliders); }
 
     private Vec toWorld(double lx, double ly) { return world.toWorld(lx, ly); }
 
@@ -342,15 +408,7 @@ public final class GameScreen extends GCompound {
             case KeyEvent.VK_P: togglePause(); break;
             case KeyEvent.VK_H: toggleHelp(); break;
             case KeyEvent.VK_K: toggleHeroStore(); break;
-            case KeyEvent.VK_ESCAPE:
-                if (helpShown) { toggleHelp(); break; }
-                if (heroStoreShown) { toggleHeroStore(); break; }
-                if (isMenuOpen()) { if (menuConfirm != Confirm.NONE) setConfirm(Confirm.NONE); else resumeGame(); break; }
-                if (targetingTower != null) { cancelTargeting(); break; }
-                if (placing != null) beginPlacing(null);
-                else if (selectedTower != null || selectedEnemy != null) { selectTower(null); selectEnemy(null); }
-                else openMenu();
-                break;
+            case KeyEvent.VK_ESCAPE: escapePressed(); break;
             case KeyEvent.VK_U: upgradeSelected(); break;
             case KeyEvent.VK_S: sellSelected(); break;
             case KeyEvent.VK_A: abilitySelected(); break;
@@ -398,6 +456,7 @@ public final class GameScreen extends GCompound {
         if (game.isVictorySequenceActive()) victoryFireworks(realDt);
         updateMusic(realDt);
         if (pauseToggles != null) AudioToggle.syncAll(pauseToggles);
+        Slider.frameAll(realDt, pauseSliders);
         Game.State st = game.getState();
         if (st != shownState) {
             shownState = st;
@@ -408,6 +467,7 @@ public final class GameScreen extends GCompound {
         }
         else if (st == Game.State.PLAYING && game.isPaused() != pauseShown) buildOverlay();
         else if (heroStoreShown && !heroStoreStateKey().equals(heroStoreKey)) buildOverlay();
+        if (heroStoreShown) refreshHeroStoreLive();
     }
 
     private Game.State shownMusicState;
@@ -443,9 +503,13 @@ public final class GameScreen extends GCompound {
 
     private void buildOverlay() {
         overlay.removeAll();
+        heroStoreCash = null;
+        heroStoreNeedButton = null;
         overlayButtons.clear();
         overlayTitle = null;
         pauseToggles = null;
+        Slider.releaseAll(pauseSliders);   // a rebuild mid-drag still saves the level
+        pauseSliders = null;
         pauseShown = game.isPaused();
         Game.State st = game.getState();
         if (st != Game.State.PLAYING) heroStoreShown = false;
@@ -525,13 +589,13 @@ public final class GameScreen extends GCompound {
         return b;
     }
 
-    /** The pause menu: RESUME, RESTART, SOUND EFFECTS, MUSIC, QUIT LEVEL, MAIN MENU (or a Yes / No confirmation). */
+    /** The pause menu: RESUME, RESTART, SOUND EFFECTS and MUSIC (each toggle with its volume slider), QUIT LEVEL, MAIN MENU (or a Yes / No confirmation). */
     private void buildMenuOverlay() {
         overlay.add(Ui.rect(Ui.WORLD_X, Ui.WORLD_Y, Ui.WORLD_W, Ui.WORLD_H, Ui.c(0x02040a, 150), Ui.c(0x000000, 0)));
         double cx = Ui.WORLD_X + Ui.WORLD_W / 2.0, cy = Ui.WORLD_Y + Ui.WORLD_H / 2.0;
         boolean confirm = menuConfirm != Confirm.NONE;
         Color col = confirm ? Cyber.RED : Cyber.CYAN;
-        double pw = confirm ? 600 : 500, ph = confirm ? 320 : 520;
+        double pw = 600, ph = confirm ? 320 : 520;
         double px = cx - pw / 2, py = cy - ph / 2;
         overlay.add(new Cyber.Chamfer(px, py, pw, ph, 26).fill(new Color(6, 10, 24, 238)).border(col).glow(1.1).lineWidth(2).ticks(true));
         overlay.add(Ui.rect(px + 24, py + 12, 140, 3, Cyber.MAGENTA, Cyber.MAGENTA));
@@ -560,14 +624,17 @@ public final class GameScreen extends GCompound {
         GLabel hint = Ui.label("P / Esc to resume", 0, py + 146, Cyber.mono(Font.BOLD, 12), Cyber.MUTED);
         hint.setLocation(cx - hint.getWidth() / 2, py + 146);
         overlay.add(hint);
-        double bw = 400, bx = cx - bw / 2, by = py + 172, bh = 46, gap = 10;
+        double bw = 500, bx = cx - bw / 2, by = py + 172, bh = 46, gap = 10, tw = 200;   // tw: audio toggle width, its slider fills the rest of the row
         UIButton resume = menuButton(bx, by, bw, bh, "RESUME", Cyber.Kind.PLAY, null, this::resumeGame);
         resume.setPrimary(true);
         menuButton(bx, by + (bh + gap), bw, bh, "RESTART", Cyber.Kind.AUTO, Cyber.YELLOW, () -> setConfirm(Confirm.RESTART));
-        AudioToggle snd = AudioToggle.sound(bx, by + 2 * (bh + gap), bw, bh, "SOUND EFFECTS:");
-        AudioToggle mus = AudioToggle.music(bx, by + 3 * (bh + gap), bw, bh, "MUSIC:");
+        AudioToggle snd = AudioToggle.sound(bx, by + 2 * (bh + gap), tw, bh, "SOUND EFFECTS:");
+        AudioToggle mus = AudioToggle.music(bx, by + 3 * (bh + gap), tw, bh, "MUSIC:");
         pauseToggles = new AudioToggle[] { snd, mus };
         for (AudioToggle at : pauseToggles) { overlay.add(at.getButton()); overlayButtons.add(at.getButton()); }
+        pauseSliders = new Slider[] { AudioToggle.soundVolume(bx + tw + gap, by + 2 * (bh + gap), bw - tw - gap, bh, "VOL"),
+            AudioToggle.musicVolume(bx + tw + gap, by + 3 * (bh + gap), bw - tw - gap, bh, "VOL") };
+        for (Slider sl : pauseSliders) overlay.add(sl);
         menuButton(bx, by + 4 * (bh + gap), bw, bh, "QUIT LEVEL", Cyber.Kind.SKULL, Cyber.RED, () -> setConfirm(Confirm.QUIT));
         menuButton(bx, by + 5 * (bh + gap), bw, bh, "MAIN MENU", Cyber.Kind.MENU, Cyber.MAGENTA, this::backToMenu);
         AudioToggle.syncAll(pauseToggles);
@@ -586,14 +653,17 @@ public final class GameScreen extends GCompound {
         overlay.add(new Cyber.Chamfer(px, py, pw, ph, 24).fill(new Color(6, 10, 24, 245)).border(Cyber.YELLOW).glow(1).lineWidth(2).ticks(true));
         overlay.add(Ui.label(Cyber.spaced("// permanent unlocks"), px + 30, py + 32, Cyber.mono(Font.BOLD, 12), Cyber.alpha(Cyber.MAGENTA, 230)));
         overlay.add(Ui.label("HERO STORE", px + 30, py + 68, Cyber.display(Font.BOLD, 34), Cyber.TEXT));
-        GLabel cash = Ui.label("CREDITS  " + (game.isAdmin() ? "ADMIN \u221e" : Ui.money(game.getCash())), 0, py + 62, Cyber.mono(Font.BOLD, 18), Cyber.YELLOW);
-        cash.setLocation(px + pw - 30 - 130 - 20 - cash.getWidth(), py + 62);
+        GLabel cash = Ui.label(heroStoreCashText(), 0, py + 62, Cyber.mono(Font.BOLD, 18), Cyber.YELLOW);
+        heroStoreCashRight = px + pw - 30 - 130 - 20;
+        cash.setLocation(heroStoreCashRight - cash.getWidth(), py + 62);
         overlay.add(cash);
+        heroStoreCash = cash;
+        heroStoreNeedButton = null;
         UIButton close = new UIButton(px + pw - 30 - 130, py + 38, 130, 36, "CLOSE  [K]", Cyber.display(Font.BOLD, 16), this::toggleHeroStore);
         close.setAccent(Cyber.MAGENTA);
         overlay.add(close); overlayButtons.add(close);
         String sub = heroStoreNotice != null ? heroStoreNotice
-            : "Buy a hero once to unlock it forever. Unlocked heroes deploy free, once per match, then level up with three upgrades bought in game.";
+            : "Buy a hero once to unlock it forever. Unlocked heroes deploy free, once per match (up to " + lindefense.tower.TowerManager.MAX_HEROES_PER_GAME + " heroes per game), then level up with three upgrades bought in game.";
         overlay.add(Ui.label(sub, px + 30, py + 92, Cyber.body(Font.BOLD, 14), heroStoreNotice != null ? Cyber.GREEN : Cyber.MUTED));
 
         // ---- left: the roster grid
@@ -690,11 +760,15 @@ public final class GameScreen extends GCompound {
         UIButton b;
         if (!unlocked) {
             b = new UIButton(x + 16, by, w - 32, 40, afford ? "BUY  " + Ui.money(price) : "NEED " + Ui.money(price - game.getCash()) + " MORE", Cyber.display(Font.BOLD, 17), () -> buyHero(t));
+            if (!afford) { heroStoreNeedButton = b; heroStoreNeedPrice = price; }
             b.setEnabled(afford);
             b.setAccent(Cyber.YELLOW);
             if (afford) b.setPrimary(true);
+        } else if (!deployed && game.getTowerManager().heroesDeployedThisMatch() >= game.getHeroLimit()) {
+            b = new UIButton(x + 16, by, w - 32, 40, "HERO LIMIT  " + game.getHeroLimit() + " PER GAME", Cyber.display(Font.BOLD, 16), null);
+            b.setEnabled(false);
         } else if (!deployed) {
-            b = new UIButton(x + 16, by, w - 32, 40, "DEPLOY (FREE)", Cyber.display(Font.BOLD, 17), () -> deployHero(t));
+            b = new UIButton(x + 16, by, w - 32, 40, "DEPLOY (FREE)  " + game.getTowerManager().heroesDeployedThisMatch() + " / " + game.getHeroLimit() + " USED", Cyber.display(Font.BOLD, 17), () -> deployHero(t));
             b.setAccent(Cyber.GREEN);
             b.setPrimary(true);
         } else {

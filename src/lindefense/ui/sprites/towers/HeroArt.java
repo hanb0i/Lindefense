@@ -12,7 +12,8 @@ import lindefense.ui.sprites.towers.HeroFigure.Mouth;
 /**
  * Body art for every Hero Store hero: the shared chibi {@link HeroFigure} wearing that hero's own face and outfit,
  * plus the gear that makes their role readable at a glance (a mortar, a healing staff, gauntlets, dynamite, frost
- * shards, kaiju spines, jet wings, a sniper rifle, mines, a clock, a spear, vines, traps, a rifle, a drone).
+ * shards, kaiju spines, jet wings, a sniper rifle, mines, a clock, a spear, vines, traps, a rifle, a drone, and Mr.
+ * Lindemann's floating black hole of Java code).
  *
  * <p>{@code tier} is the hero's game tier 0-3, so all four progression levels look different: the gear grows,
  * gains emitters and finally lights up with the hero's colour at the maxed tier.</p>
@@ -45,6 +46,9 @@ public final class HeroArt extends TowerArt {
                 .onHead(HeroArt::glasses);
             case BLITZ_ARNAV: return new Look().skin(0xa8714a).hair(0x12100f, Hair.STRAIGHT_FRINGE).shirt(0x27324a).pants(0x2a3140).mouth(Mouth.GRIN);
             case TANIMBUS: return new Look().skin(0xa8714a).hair(0x14100e, Hair.CURLY_BIG).shirt(0xe8a0a8).pants(0x3a3550).mouth(Mouth.GRIN);
+            // Mr. Lindemann: fair skin, bald with a grey side trim, rectangular glasses, teacher's blue button-down
+            case MR_LINDEMANN: return new Look().skin(0xf6d6c0).hair(0xb9b4ae, Hair.BALD).shirt(0x9fbfe6).pants(0x2f3445).mouth(Mouth.SMILE)
+                .onShirt(HeroArt::collar).onHead(HeroArt::squareGlasses);
             default: return new Look().skin(0xe8bb92).hair(0x17110e, Hair.STRAIGHT_FRINGE).shirt(0x3a4158).mouth(Mouth.SMILE);
         }
     }
@@ -63,6 +67,34 @@ public final class HeroArt extends TowerArt {
         }
         g.setColor(HeroFigure.INK);
         g.draw(new Line2D.Double(-R * 0.09, ey - R * 0.04, R * 0.09, ey - R * 0.04));
+    }
+
+    /** Mr. Lindemann's rectangular glasses. */
+    private static void squareGlasses(java.awt.Graphics2D g, double r, HeroFigure.Head h) {
+        double R = h.rad, ey = h.eyeY();
+        g.setStroke(HeroFigure.round(R * 0.08));
+        for (int s = -1; s <= 1; s += 2) {
+            double cx = s * h.eyeX();
+            java.awt.geom.RoundRectangle2D lens = new java.awt.geom.RoundRectangle2D.Double(cx - R * 0.31, ey - R * 0.24, R * 0.62, R * 0.46, R * 0.12, R * 0.12);
+            HeroFigure.fill(g, lens, new Color(200, 230, 255, 50));
+            g.setColor(HeroFigure.INK);
+            g.draw(lens);
+            g.draw(new Line2D.Double(cx + s * R * 0.31, ey - R * 0.08, cx + s * R * 0.62, ey - R * 0.14));
+        }
+        g.setColor(HeroFigure.INK);
+        g.draw(new Line2D.Double(-R * 0.06, ey - R * 0.06, R * 0.06, ey - R * 0.06));
+    }
+
+    /** A white collar with a dark tie (Mr. Lindemann's teaching outfit). */
+    private static void collar(java.awt.Graphics2D g, double r, HeroFigure.Head h) {
+        java.awt.geom.Path2D.Double c = new java.awt.geom.Path2D.Double();
+        c.moveTo(-r * 0.2, r * 0.05); c.lineTo(0, r * 0.2); c.lineTo(r * 0.2, r * 0.05); c.lineTo(r * 0.12, r * 0.02); c.lineTo(0, r * 0.12); c.lineTo(-r * 0.12, r * 0.02);
+        c.closePath();
+        HeroFigure.fill(g, c, new Color(0xf4f6fa));
+        java.awt.geom.Path2D.Double tie = new java.awt.geom.Path2D.Double();
+        tie.moveTo(-r * 0.04, r * 0.14); tie.lineTo(r * 0.04, r * 0.14); tie.lineTo(r * 0.06, r * 0.42); tie.lineTo(0, r * 0.5); tie.lineTo(-r * 0.06, r * 0.42);
+        tie.closePath();
+        HeroFigure.fill(g, tie, new Color(0x3a1d78));
     }
 
     @Override protected void build() {
@@ -103,6 +135,24 @@ public final class HeroArt extends TowerArt {
                     plain(new double[] { s * span * 0.78, r * 0.12, s * span * 1.05, r * 0.2, s * span * 0.78, r * 0.28 },
                         Art.alpha(0xffd166, 220));
                 }
+                break;
+            }
+            case MR_LINDEMANN: {
+                // a black hole of Java code hovering over his shoulder: the accretion ring widens and more code
+                // fragments orbit with every tier; the maxed tier gets a second, counter-rotating ring
+                double cx = r * 0.62, cy = -r * 0.62, hole = r * (0.26 + 0.04 * tier);
+                poly(Art.ring(cx, cy, hole * 1.9, hole * 1.35, 20), Art.alpha(pri, 200));
+                plain(Art.ring(cx, cy, hole * 1.4, hole * 1.15, 18), Art.alpha(sec, 230));
+                poly(Art.circle(cx, cy, hole, 16), new Color(0x07040f));
+                plain(Art.circle(cx - hole * 0.25, cy - hole * 0.25, hole * 0.22, 8), Art.alpha(sec.brighter(), 160));
+                int bits = 2 + tier;
+                for (int i = 0; i < bits; i++) {
+                    double a = i * Math.PI * 2 / bits;
+                    double bx = cx + Math.cos(a) * hole * 2.2, by = cy + Math.sin(a) * hole * 1.6;
+                    spinningPoly(new double[] { -r * 0.07, -r * 0.03, r * 0.07, -r * 0.03, r * 0.07, r * 0.03, -r * 0.07, r * 0.03 },
+                        bx, by, i % 2 == 0 ? pri : Art.alpha(Color.WHITE, 220), 120 + 60 * tier);
+                }
+                if (tier >= 3) poly(Art.ring(cx, cy, hole * 2.5, hole * 2.3, 24), Art.alpha(pri, 120));
                 break;
             }
             case TANIMBUS: {

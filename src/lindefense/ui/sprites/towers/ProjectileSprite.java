@@ -23,7 +23,9 @@ public class ProjectileSprite extends GCompound implements Animated {
     /** Visual families; {@link ProjectileSprites} picks one per tower type. */
     public enum Style { LANCE, TOKEN, SLUG, SNIPPET, PAINT, NOTE, BOLT, PIN, BLADE, WAD, GALE, ORB, ROUND, BOOK, SHELL, SPARK, PULSE, DOT,
         /** Hero Store and Zethos families. */
-        COMMAND, VOLLEY, CRYO, METEOR, DATA, DRONE, QUANTUM }
+        COMMAND, VOLLEY, CRYO, METEOR, DATA, DRONE, QUANTUM,
+        /** Mr. Lindemann: a black hole of Java code (dark core, accretion ring, orbiting code fragments). */
+        SINGULARITY }
 
     private final List<GPolygon> oriented = new ArrayList<>(4);
     private final List<GPolygon> spinners = new ArrayList<>(3);
@@ -301,6 +303,18 @@ public class ProjectileSprite extends GCompound implements Animated {
                     spinPart(Art.circle(-rad * 1.5, 0, rad * 0.25, 8), tier >= 4 ? Art.GOLD : c, false);
                     spinSpeed = 600;
                 }
+                break;
+            }
+            case SINGULARITY: {
+                double rad = k * 7;
+                plainPart(Art.ring(0, 0, rad * 1.9, rad * 1.25, 18), Art.alpha(c, 170));
+                part(Art.circle(0, 0, rad, 14), new Color(0x07040f));
+                plainPart(Art.ring(0, 0, rad * 1.25, rad * 1.0, 16), Art.alpha(c2, 230));
+                // code fragments ({ } ;) orbiting the core
+                spinPart(Art.rect(rad * 2.0, -rad * 0.18, rad * 0.55, rad * 0.36), Color.WHITE, false);
+                spinPart(Art.rect(-rad * 2.55, -rad * 0.18, rad * 0.55, rad * 0.36), c, false);
+                spinPart(Art.rect(-rad * 0.18, rad * 2.0, rad * 0.36, rad * 0.55), c2, false);
+                spinSpeed = 420;
                 break;
             }
             case DOT: default: {

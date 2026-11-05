@@ -16,8 +16,9 @@ import lindefense.tower.data.TowerBuilder.AbilityBuilder;
  * {@code bouncePct} (bounce-hit damage fraction); Reality Collapse {@code duration, damageMult, rateMult, rangeBonus,
  * bounces} and, for tiers that have no explosion / bounce yet, {@code fallbackSplash, fallbackSplashPct,
  * fallbackBouncePct}. Unspecified by the spec: the projectile speed after Quantum Acceleration (65 units/s) and the
- * bounce reach (25 units). Damage is nerfed from the original specification (12 / 18 / 28 / 45 / 85) to
- * 10 / 15 / 22 / 32 / 55 so a maxed Zethos no longer out-damages DeepSeek against bosses.
+ * bounce reach (25 units). Zethos is tuned to about TWICE the best of Gemini, Claude and GPT at the same tier (damage
+ * 2 / 3 / 4 / 6 / 7, intervals and ranges near theirs, splash and bounces trimmed): measured as crowd damage per second
+ * and single-target damage per second, averaged, about 1.9x-2.2x at tiers 0-3 and 2.5x for the extra fifth tier.
  * Parameters: GPT {@code moonCount, moonRadius, moonDamage, moonInterval} plus the unspecified {@code moonOrbitSpeed} (rad/s) and
  * {@code moonSize} (contact radius px); Astra Beam {@code duration, dps, bossMult, tick}, GPT U3 knockback is the hit's
  * {@code knockbackVsLead}; Gemini U2 strip flag is the hit's {@code stripsCamoRegrow}.
@@ -31,18 +32,18 @@ public final class PrimaryTowers {
         return TowerBuilder.of(TowerType.ZETHOS, "The Quantum Architect", 650)
             .description("Precision quantum-energy projectiles that pierce the first enemies on the track, fracture into splash at Tier 2 and bounce between enemies from Tier 3. One projectile never damages the same enemy twice. Expensive upgrade path. No camo detection.")
             .tiers("Quantum Pulse", "Quantum Acceleration", "Dimensional Fracture", "Quantum Singularity", "Zethos: Reality Engine")
-            .attack(AttackKind.PROJECTILE, DamageType.ENERGY, u(40), 1.0, 10, 2)
+            .attack(AttackKind.PROJECTILE, DamageType.ENERGY, u(45), 0.65, 2, 2)
             .base(s -> { s.projectileSpeed = u(55); s.bounceRange = u(25); s.set("splashPct", 0).set("bouncePct", 0); })
-            .upgrade(350, null, "Damage 15, interval 0.85 s, range 45 units, pierce 3. Faster projectiles (65 units/s) with a brighter energy trail.",
-                s -> { s.hit.damage = 15; s.interval(0.85); s.range = u(45); s.pierce = 3; s.projectileSpeed = u(65); })
-            .upgrade(650, null, "Damage 22, interval 0.75 s, range 50 units, pierce 4. Each impact fractures into quantum fragments: 50% splash damage within 5 units.",
-                s -> { s.hit.damage = 22; s.interval(0.75); s.range = u(50); s.pierce = 4; s.splashRadius = u(5); s.set("splashPct", 0.50); })
-            .upgrade(1200, null, "Damage 32, interval 0.65 s, range 55 units, pierce 5. Singularity explosions: 75% splash within 8 units. Then bounces to up to 3 more enemies at 75% damage.",
-                s -> { s.hit.damage = 32; s.interval(0.65); s.range = u(55); s.pierce = 5; s.splashRadius = u(8); s.set("splashPct", 0.75);
-                    s.bounces = 3; s.set("bouncePct", 0.75); })
-            .upgrade(2500, null, "Damage 55, interval 0.5 s, range 65 units, pierce 8. Every impact explodes for 55 within 12 units; bounces to up to 5 more enemies at full damage.",
-                s -> { s.hit.damage = 55; s.interval(0.50); s.range = u(65); s.pierce = 8; s.splashRadius = u(12); s.set("splashPct", 1.0);
-                    s.bounces = 5; s.set("bouncePct", 1.0); })
+            .upgrade(350, null, "Damage 3, interval 0.6 s, range 46 units, pierce 4. Faster projectiles (65 units/s) with a brighter energy trail.",
+                s -> { s.hit.damage = 3; s.interval(0.6); s.range = u(46); s.pierce = 4; s.projectileSpeed = u(65); })
+            .upgrade(650, null, "Damage 4, interval 0.5 s, range 47 units, pierce 5. Each impact fractures into quantum fragments: 60% splash damage within 7 units.",
+                s -> { s.hit.damage = 4; s.interval(0.5); s.range = u(47); s.pierce = 5; s.splashRadius = u(7); s.set("splashPct", 0.60); })
+            .upgrade(1200, null, "Damage 6, interval 0.55 s, range 48 units, pierce 5. Singularity explosions: 45% splash within 6 units. Then bounces to up to 2 more enemies at 45% damage.",
+                s -> { s.hit.damage = 6; s.interval(0.55); s.range = u(48); s.pierce = 5; s.splashRadius = u(6); s.set("splashPct", 0.45);
+                    s.bounces = 2; s.set("bouncePct", 0.45); })
+            .upgrade(2500, null, "Damage 7, interval 0.5 s, range 50 units, pierce 6. Every impact explodes for 35% damage within 6 units; bounces to up to 2 more enemies at 35% damage.",
+                s -> { s.hit.damage = 7; s.interval(0.50); s.range = u(50); s.pierce = 6; s.splashRadius = u(6); s.set("splashPct", 0.35);
+                    s.bounces = 2; s.set("bouncePct", 0.35); })
             .ability(AbilityBuilder.of("Reality Collapse", 55, "For 6 s: double damage, double attack speed, +15 units range, projectiles bounce to up to 8 extra enemies and every impact explodes.")
                 .p("duration", 6).p("damageMult", 2.0).p("rateMult", 2.0).p("rangeBonus", u(15)).p("bounces", 8)
                 .p("fallbackSplash", u(5)).p("fallbackSplashPct", 0.50).p("fallbackBouncePct", 0.75))
@@ -60,8 +61,8 @@ public final class PrimaryTowers {
                 s -> { s.seesCamo = true; s.hit.stripsCamoRegrow = true; })
             .upgrade(1200, "Prismatic Beam", "Chains to up to 8 enemies; damage 2; x3 vs MOAB-class.",
                 s -> { s.chainHops = 7; s.hit.damage = 2; s.hit.multVsBoss = 3; })
-            .ability(AbilityBuilder.of("Argon Singularity", 50, "Pulls all non-boss enemies within 150 px into a vortex for 2 s (they stop moving), then deals 10 damage to each. Bosses take 30.")
-                .p("radius", 150).p("holdTime", 2).p("damage", 10).p("bossDamage", 30).p("pullSpeed", 150))
+            .ability(AbilityBuilder.of("Argon Singularity", 30, "Pulls every non-boss enemy within 400 px into a vortex and holds it there for 6 s, then deals 500 damage to each. Bosses caught in it take 5,000.")
+                .p("radius", 400).p("holdTime", 6).p("damage", 500).p("bossDamage", 5000).p("pullSpeed", 300))
             .build();
     }
 
@@ -77,8 +78,8 @@ public final class PrimaryTowers {
                 s -> { s.hit.markFlat = 1; s.hit.markDuration = 4; s.hit.slowFraction = 0.15; s.hit.slowDuration = 4; })
             .upgrade(1100, null, "Pierce 20, damage 2, +3 damage vs Fortified / Lead-type / Ceramic-type, and can damage Lead.",
                 s -> { s.pierce = 20; s.hit.damage = 2; s.hit.flatVsFortified = 3; s.hit.flatVsLead = 3; s.hit.flatVsCeramic = 3; s.hit.ignoresResistance = true; })
-            .ability(AbilityBuilder.of("Opus Time-Lock", 45, "FREEZES all non-boss enemies in range for 4 s (bosses SLOWED 50%). Frozen enemies take x2 damage.")
-                .p("freezeTime", 4).p("bossSlow", 0.5).p("bossSlowTime", 4))
+            .ability(AbilityBuilder.of("Opus Time-Lock", 30, "FREEZES every non-boss enemy on the map for 12 s and slows every boss by 60% for 12 s. Frozen enemies take x2 damage.")
+                .p("radius", 3000).p("freezeTime", 12).p("bossSlow", 0.6).p("bossSlowTime", 12))
             .build();
     }
 
@@ -95,8 +96,8 @@ public final class PrimaryTowers {
                 s -> { s.hit.dotDps = 1; s.hit.dotDuration = 3; })
             .upgrade(1300, "Adaptive Plasma", "Each shot checks its target: x2 vs MOAB-class, +2 vs Fortified, +2 vs Ceramic-type, SONIC-like knockback vs Lead-type.",
                 s -> { s.hit.multVsBoss = 2; s.hit.flatVsFortified = 2; s.hit.flatVsCeramic = 2; s.hit.knockbackVsLead = 20; })
-            .ability(AbilityBuilder.of("Astra Beam", 60, "5 s continuous beam on the strongest enemy, 30 damage/s, x2 vs MOAB-class, ignores Fortified.")
-                .p("duration", 5).p("dps", 30).p("bossMult", 2).p("tick", 0.25))
+            .ability(AbilityBuilder.of("Astra Beam", 35, "12 s continuous beam on the strongest enemy: 1,500 damage/s, x2 vs MOAB-class (3,000/s), ignores Fortified.")
+                .p("duration", 12).p("dps", 1500).p("bossMult", 2).p("tick", 0.25))
             .build();
     }
 }

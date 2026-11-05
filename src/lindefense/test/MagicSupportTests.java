@@ -122,7 +122,7 @@ public final class MagicSupportTests {
         check(near(s.fieldMarkPct, 0.20) && near(s.auraRangeBonus, 0.15) && s.auraSurveillanceImmunity, "Perplexity U2: +20% mark, +15% range, Surveillance immunity");
         s = TowerCatalog.get(TowerType.PERPLEXITY).statsForTier(3);
         check(s.incomePerWave == 250, "Perplexity U3: +$250 per round");
-        for (Object[] r : BASE) check(TowerCatalog.get((TowerType) r[0]).ability == null, r[0] + " has no active ability");
+        for (Object[] r : BASE) check(TowerCatalog.get((TowerType) r[0]).ability != null && TowerCatalog.abilityNeedsUnlock((TowerType) r[0]), r[0] + " has an ability locked behind the max-tier unlock");
     }
 
     private static void baseAttacksDamageEnemies() {

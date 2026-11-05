@@ -16,13 +16,19 @@ import lindefense.tower.data.TowerBuilder;
  * Central tower registry. The numbers live in the per-faction data files in {@code tower/data}
  * ({@link HeroTowers}, {@link PrimaryTowers}, {@link MilitaryTowers}, {@link MagicTowers}, {@link SupportTowers},
  * {@link TitanTowers}), transcribed from the tower specification. Standard shop towers and Hero Store heroes are
- * base + {@value #STANDARD_UPGRADES} upgrades; Zethos has {@value #ZETHOS_UPGRADES}. Only Zethos has an ability.
+ * base + {@value #STANDARD_UPGRADES} upgrades; Zethos has {@value #ZETHOS_UPGRADES}.
+ *
+ * <p>Abilities: every standard shop tower has an overpowered active ability that is locked until the tower is fully
+ * upgraded and the player pays {@value #ABILITY_UNLOCK_COST} for it ({@link Tower#unlockAbility}). Zethos's Reality
+ * Collapse is part of its own specification and is usable from placement. Heroes have no abilities.</p>
  */
 public final class TowerCatalog {
     /** Upgrades of every standard shop tower. */
     public static final int STANDARD_UPGRADES = 3;
     /** Zethos's upgrade path (Quantum Acceleration .. Reality Engine). */
     public static final int ZETHOS_UPGRADES = 4;
+    /** Price of unlocking a shop tower's ability, available once the tower has every upgrade. */
+    public static final int ABILITY_UNLOCK_COST = 15_000;
     private static final Map<TowerType, TowerDef> DEFS = new EnumMap<>(TowerType.class);
 
     private TowerCatalog() { }
@@ -30,14 +36,14 @@ public final class TowerCatalog {
     public static TowerDef get(TowerType type) { return DEFS.get(type); }
     public static Map<TowerType, TowerDef> all() { return Collections.unmodifiableMap(DEFS); }
 
-    /**
-     * Whether a tower type keeps an active ability. Only Zethos (whose Reality Collapse is part of its
-     * specification) has one; every other tower and hero is passive and progresses through purchasable upgrades.
-     */
-    public static boolean hasActiveAbility(TowerType type) { return type == TowerType.ZETHOS; }
+    /** Whether a tower type has an active ability at all (every shop tower and Zethos; heroes are passive). */
+    public static boolean hasActiveAbility(TowerType type) { return !type.isHero() && get(type) != null && get(type).ability != null; }
+
+    /** Whether a tower type's ability must be bought at max tier for {@link #ABILITY_UNLOCK_COST} (all but Zethos). */
+    public static boolean abilityNeedsUnlock(TowerType type) { return type != TowerType.ZETHOS && !type.isHero(); }
 
     private static void register(Iterable<TowerDef> defs) {
-        for (TowerDef d : defs) DEFS.put(d.type, hasActiveAbility(d.type) ? d : withoutAbility(d));
+        for (TowerDef d : defs) DEFS.put(d.type, d.type.isHero() ? withoutAbility(d) : d);
     }
 
     /** The same definition with its active ability removed. */

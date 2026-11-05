@@ -31,6 +31,7 @@ public final class UiSnapshots {
         File dir = new File(args.length > 0 ? args[0] : "snapshots");
         dir.mkdirs();
         Game g = new Game(MapCatalog.create(0), 7L);
+        g.setHeroLimit(Integer.MAX_VALUE);   // the review battle fields six heroes at once
         g.addCash(1600, null);
         GameScreen s = new GameScreen(null, g, true);
         s.frame(0.02);

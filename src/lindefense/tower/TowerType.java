@@ -25,6 +25,7 @@ public enum TowerType {
     TRAPPER_CHE("Trapper Che", Faction.HERO, 0x5fe0d0, 0x113a36),
     BLITZ_ARNAV("Blitz Arnav", Faction.HERO, 0x9dff3a, 0x16301a),
     TANIMBUS("Tanimbus", Faction.HERO, 0xff9ad5, 0x4a1f3a),
+    MR_LINDEMANN("Mr. Lindemann", Faction.HERO, 0xf89820, 0x3a1d78),
     // Primary
     GEMINI("Gemini", Faction.PRIMARY, 0x4f7cff, 0x9b5cff),
     CLAUDE("Claude", Faction.PRIMARY, 0xe88a4a, 0xf3d9c4),

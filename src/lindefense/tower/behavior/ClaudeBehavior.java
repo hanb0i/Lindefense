@@ -14,9 +14,9 @@ import lindefense.tower.Tower;
 public final class ClaudeBehavior extends TowerBehavior {
     @Override public boolean activateAbility(Game game, Tower t, Vec target) {
         AbilityDef a = t.getAbility();
-        double range = t.effectiveRange(game);
+        double range = a.has("radius") ? a.p("radius") : t.effectiveRange(game);   // radius: the unlocked ability reaches the whole map
         for (Enemy e : enemiesWithin(game, t.getPosition(), range)) {
-            if (e.isBoss()) e.applyStatus(StatusEffect.Kind.SLOW, a.p("bossSlow"), a.p("bossSlowTime"));
+            if (e.isBoss()) e.applyExactSlow(a.p("bossSlow"), a.p("bossSlowTime"));   // the stated boss slow, not divided by 3
             else e.applyStatus(StatusEffect.Kind.FREEZE, 1, a.p("freezeTime"));
         }
         return true;
