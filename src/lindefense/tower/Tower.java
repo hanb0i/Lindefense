@@ -92,8 +92,8 @@ public class Tower {
         this.owner = owner;
         this.behavior = Behaviors.of(def.type);
         this.targeting = def.defaultTargeting;
-        // Abilities that need no unlock (Zethos) are usable from placement and start at 50% cooldown (spec 3.0).
-        // Shop-tower abilities stay locked until bought at max tier; buying one makes it ready at once.
+        // Shop-tower abilities (Zethos included) stay locked until bought at max tier; buying one makes it ready at once.
+        // An ability that needed no unlock would be usable from placement at 50% cooldown (spec 3.0).
         boolean usable = def.ability != null && !TowerCatalog.abilityNeedsUnlock(def.type);
         this.abilityCooldown = usable ? def.ability.cooldown * 0.5 : 0;
     }

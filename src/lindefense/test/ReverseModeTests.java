@@ -35,6 +35,7 @@ public final class ReverseModeTests {
     /** Runs every reverse-mode test group. */
     public static void runAll() {
         run("reverse.economy", ReverseModeTests::economy);
+        run("reverse.difficultyRules", ReverseModeTests::difficultyRules);
         run("reverse.unlockGating", ReverseModeTests::unlockGating);
         run("reverse.spawning", ReverseModeTests::spawning);
         run("reverse.exploits", ReverseModeTests::exploits);
@@ -111,9 +112,56 @@ public final class ReverseModeTests {
             check(p.level == d && p.income > prev, d + " -> " + p + " funds more than the level below");
             prev = p.income;
         }
-        check(reverse(0, Difficulty.ONN).getCash() == 2 * Game.START_CASH, "Superintelligence starts with double cash");
+        for (Difficulty d : Difficulty.values())
+            check(reverse(0, d).getCash() == Game.START_CASH * DefenderProfile.of(d).startCash, d + " starts the AI with its profile's cash");
         check(ReverseMatch.trackBonus(MapCatalog.create(0)) == 1 && ReverseMatch.trackBonus(MapCatalog.create(1)) > 1.2, "long tracks pay a compute bonus, short ones none");
         check(ReverseMatch.trackSpeed(MapCatalog.create(0)) == 1 && ReverseMatch.trackSpeed(MapCatalog.create(1)) > 2, "units cross long tracks faster");
+    }
+
+    /**
+     * The difficulty's match rules: harder modes give the AI's towers more damage and the AI more integrity, and give
+     * the attacker frailer units and less income; O(N) is the neutral baseline. Each lever is checked in a live match.
+     */
+    private static void difficultyRules() {
+        DefenderProfile n = DefenderProfile.COMPETENT;
+        check(n.towerDamage == 1 && n.unitHp == 1 && n.attackerIncome == 1 && n.integrity == Game.START_LIVES, "O(N) is the neutral baseline");
+        DefenderProfile prev = null;
+        for (Difficulty d : Difficulty.values()) {
+            DefenderProfile p = DefenderProfile.of(d);
+            if (prev != null) {
+                check(p.towerDamage > prev.towerDamage, d + ": the AI's towers hit harder than on the mode below");
+                check(p.integrity > prev.integrity, d + ": the AI has more integrity than on the mode below");
+                check(p.unitHp < prev.unitHp, d + ": your units have less health than on the mode below");
+                check(p.attackerIncome < prev.attackerIncome, d + ": you earn less than on the mode below");
+            }
+            prev = p;
+            String tag = " [" + d + "]";
+            Game g = reverse(0, d);
+            ReverseMatch r = g.getReverse();
+            check(g.getLives() == p.integrity && g.getMaxLives() == p.integrity, "the AI starts with " + p.integrity + " integrity" + tag);
+            check(Math.abs(g.getGlobalDamageMultiplier() - p.towerDamage) < 1e-9, "the AI's towers deal x" + p.towerDamage + " damage" + tag);
+            check(Math.abs(r.incomeRate() - 12 * p.attackerIncome) < 1e-9, "compute income starts at 12/s x " + p.attackerIncome + tag + " (" + r.incomeRate() + ")");
+            double c0 = r.getCredits();
+            Enemy dummy = g.getEnemyManager().spawnScaled(EnemyType.PRIMITIVE_VARIABLE, null, 0, 0, 1, 1);
+            r.onLeak(5, dummy);
+            check(Math.abs(r.getCredits() - c0 - ReverseMatch.LEAK_BONUS_PER_LIFE * 5 * p.attackerIncome) < 1e-9, "leak bounties scale with income" + tag);
+            // a sent Heap Sort enters with the mode's health multiplier
+            Game s = reverse(0, d);
+            ReverseMatch rs = s.getReverse();
+            rs.setUnlimitedCredits(true);
+            for (int i = 0; i < (int) (AttackUnit.HEAP.unlockAt / Game.DT) + 1; i++) rs.update(Game.DT);
+            check(rs.send(AttackUnit.HEAP, null, 1, 0) == 1, "a Heap Sort is sent" + tag);
+            for (int i = 0; i < (int) (2 * ReverseMatch.SPAWN_GAP / Game.DT) + 1; i++) rs.update(Game.DT);
+            s.getEnemyManager().update(0);
+            Enemy heap = null;
+            for (Enemy e : s.getEnemyManager().getEnemies()) if (e.getType() == EnemyType.HEAP_SORT) heap = e;
+            check(heap != null && heap.getMaxHp() == Math.max(1, Math.round(EnemyType.HEAP_SORT.baseHp * s.getWaveHpScale(EnemyType.HEAP_SORT) * p.unitHp)),
+                "units enter with x" + p.unitHp + " health" + tag + " (" + (heap == null ? "none" : heap.getMaxHp()) + ")");
+            // healing never lifts integrity past the mode's maximum
+            s.loseLives(10, heap);
+            s.restoreLives(1000);
+            check(s.getLives() == p.integrity, "healing stops at the mode's integrity" + tag);
+        }
     }
 
     /** Advances only the reverse controller's clock (no AI or towers): for curve checks. */
@@ -396,7 +444,7 @@ public final class ReverseModeTests {
             AttackerBot.Outcome win = AttackerBot.play(map, 42, Difficulty.O1, AttackerBot.Style.REASONABLE);
             check(win.attackerWon && win.time < ReverseMatch.DURATION, "a scripted attacker beats the Novice AI on map " + map + " (" + win + ")");
             AttackerBot.Outcome idle = AttackerBot.play(map, 42, Difficulty.O1, AttackerBot.Style.PASSIVE);
-            check(!idle.attackerWon && idle.defenderLives == Game.START_LIVES && idle.time >= ReverseMatch.DURATION, "a do-nothing attacker loses on map " + map + " (" + idle + ")");
+            check(!idle.attackerWon && idle.defenderLives == DefenderProfile.NOVICE.integrity && idle.time >= ReverseMatch.DURATION, "a do-nothing attacker loses on map " + map + " (" + idle + ")");
         }
         AttackerBot.Outcome spam = AttackerBot.play(0, 42, Difficulty.ON, AttackerBot.Style.SPAM);
         check(!spam.attackerWon, "flooding Primitive Variables does not beat the Competent AI (" + spam + ")");

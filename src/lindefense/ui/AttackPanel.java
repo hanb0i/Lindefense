@@ -58,7 +58,7 @@ public final class AttackPanel extends GCompound {
         { "adversarial training", "Roles reversed: you send the enemies, an AI builds and upgrades the towers. Drop its integrity to 0 before the 15:00 training run ends. Units already sent get up to 1:00 of overtime." },
         { "compute", "Credits grow every second and faster as the run goes on. SCALE COMPUTE adds income; every integrity point a leak takes pays 8 credits. Units unlock over time, bosses last." },
         { "modifiers & exploits", "Camo needs detection, Regrow heals, Fortified doubles HP. Overclock speeds your units up, Hotfix heals them, Zero-Day jams the AI's three priciest towers." },
-        { "the defender", "The Difficulty Growth mode picks the AI: Novice, Competent, Expert or Superintelligence. It earns funding plus the listed kill rewards, so failed pushes feed it." } };
+        { "the defender", "The Difficulty Growth mode picks the AI (Novice to Superintelligence) and the rules: harder modes give its towers more damage and integrity, your units less health and income." } };
 
     /** One unit card. */
     private static final class Card {
@@ -489,10 +489,11 @@ public final class AttackPanel extends GCompound {
             u.isBoss() ? t.getBossClass().label + "-CLASS" : t.isSortingAlgorithm() ? "SORTER" : "DATA", u.isBoss() ? Cyber.RED : Cyber.MAGENTA);
         para(u.blurb, F_TXT, Cyber.MUTED, 2);
         EnumSet<Modifier> eff = match.effectiveModifiers(u, mods);
-        double hp = t.baseHp * (eff.contains(Modifier.FORTIFIED) ? 2 : 1);
+        // the difficulty scales unit health; whole HP, rounded the way Enemy does
+        long hp = Math.max(1, Math.round(t.baseHp * match.unitHpScale(t))) * (eff.contains(Modifier.FORTIFIED) ? 2 : 1);
         y += 6;
         double cw = tw / 3;
-        statCell(tx, y, "health", () -> Cyber.commas((long) hp), Cyber.TEXT);
+        statCell(tx, y, "health", () -> Cyber.commas(hp), Cyber.TEXT);
         statCell(tx + cw, y, "speed", () -> Ui.fmt(Math.round(t.speed * match.getTrackSpeed() * 100) / 100.0) + "x", Cyber.TEXT);
         statCell(tx + 2 * cw, y, "integrity", () -> String.valueOf(t.lives), Cyber.RED);
         y += 38;
@@ -606,6 +607,6 @@ public final class AttackPanel extends GCompound {
             { "time", ReverseMatch.clock(r.getElapsed()), "" },
             { "units sent", Cyber.commas(r.getUnitsBought()), "" },
             { "credits spent", Ui.money(r.getCreditsSpent()), "y" },
-            { "integrity taken", String.valueOf(Math.max(0, Game.START_LIVES - g.getLives())), "r" } };
+            { "integrity taken", String.valueOf(Math.max(0, g.getMaxLives() - g.getLives())), "r" } };
     }
 }

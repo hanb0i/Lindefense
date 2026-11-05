@@ -303,6 +303,7 @@ public final class MapSelectScreen extends GCompound {
         lindefense.sim.Difficulty d = lindefense.sim.Difficulty.getSelected();
         lindefense.ai.DefenderProfile prof = lindefense.ai.DefenderProfile.of(d);
         ty = briefingSection("DEFENDER AI: " + prof.displayName, DifficultySelector.display(d, Cyber.body(Font.PLAIN, 16)) + "  -  " + prof.description, MenuScreen.YELLOW, rx, ty, rw);
+        ty = briefingSection("DIFFICULTY RULES", prof.rulesLine(), Ui.RED, rx, ty, rw);   // REVERSE HOOK: the mode's damage / integrity / health / income
         double tb = lindefense.ai.ReverseMatch.trackBonus(m), sp = lindefense.ai.ReverseMatch.trackSpeed(m);
         int lanes = m.getRoutes().size();
         String up = lanes + (lanes == 1 ? " lane." : " lanes: pick one per send or spread them.") + (tb > 1 || sp > 1

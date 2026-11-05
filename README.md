@@ -1,6 +1,6 @@
 # Lindefense - The Last Line of Code
 
-**Version: beta 2.02**
+**Version: beta 2.03**
 
 ![Lindefense title card](docs/titlecard.png)
 
@@ -18,6 +18,15 @@ fit whatever size you drag it to.
 
 All tuning numbers (tower stats, upgrades, abilities, enemy stats, boss phases, every wave) are in
 data classes and documented in [DESIGN.md](DESIGN.md), which is generated from those classes.
+
+### What's new in beta 2.03
+
+- **Abilities rebalanced:** the $15,000 tower abilities were tuned down to about the value of five maxed towers: no more
+  map-wide freezes or always-on zones, boss damage of roughly 1,000-3,200 per minute instead of up to 65,000, and 45-60 s
+  cooldowns. Zethos's Reality Collapse now has to be unlocked too ($15,000 after its fourth upgrade).
+- **Adversarial Training scales with the difficulty:** harder modes give the AI's towers more damage (x0.9 to x1.2) and
+  more integrity (80 to 150), and give your units less health and you less compute income (x1.1 to x0.9). The briefing
+  shows the rules for the selected mode. See [Adversarial Training](#adversarial-training-reverse-mode).
 
 ### What's new in beta 2.02
 
@@ -319,8 +328,9 @@ ffmpeg -i input.mp4 -vn -t 90 -ar 22050 -ac 2 -c:a pcm_mulaw assets/music/menu.w
   "Claude Fable 5.1". Every original tower also has an **overpowered ability** that is locked until the tower is
   fully upgraded: then the side panel offers **UNLOCK ABILITY** for **$15,000** (or press `U`), and the ability is
   ready the moment you buy it (fire it with `A` or the ability bar; the unlock counts toward the sell refund).
-  **Zethos** (Primary, $650) has **four** upgrades ($350 / $650 / $1,200 / $2,500, $5,350 in total) and its Reality
-  Collapse ability from placement; it is tuned to about twice the best of Gemini, Claude and GPT at each tier.
+  **Zethos** (Primary, $650) has **four** upgrades ($350 / $650 / $1,200 / $2,500, $5,350 in total); its Reality
+  Collapse ability unlocks the same way, for $15,000 after the fourth upgrade. It is tuned to about twice the best of
+  Gemini, Claude and GPT at each tier.
   Towers have configurable **targeting** (Grok U2+ adds Densest Cluster) and sell for 70% of everything spent.
 - **Hero Store** (`HEROES` button or `K`): 18 heroes ($850 to $2,500). Everyone starts with none. Buying one with
   match cash unlocks it **permanently** (saved with `java.util.prefs`, node `lindefense/heroes`); unlocked
@@ -369,10 +379,21 @@ ffmpeg -i input.mp4 -vn -t 90 -ar 22050 -ac 2 -c:a pcm_mulaw assets/music/menu.w
 You are the attacker. Pick a map and a Difficulty Growth mode (it chooses the AI: **O(1)** Novice, **O(N)** Competent,
 **O(N²)** Expert, **O(Nᴺ)** Superintelligence), click DEPLOY, then **ATTACK INSTEAD** in the briefing.
 
-- **Goal:** break the AI's 100 integrity within 15:00 of game time (15 one-minute epochs; units already on the track get
-  up to a minute of overtime). If the AI survives, it wins.
-- **Compute credits:** you start with 250 and earn an income that grows every minute (12/s at the start, about 160/s at
-  10:00); **SCALE COMPUTE** (`C`) raises it. Every integrity point a leak costs the AI pays you 8.
+- **Goal:** break the AI's integrity (80 to 150, see below) within 15:00 of game time (15 one-minute epochs; units already
+  on the track get up to a minute of overtime). If the AI survives, it wins.
+- **Difficulty:** the harder the mode, the harder the AI's towers hit and the more integrity it has, and the less health
+  your units have and the less compute you earn (shown in the briefing):
+
+  | Mode | AI | AI tower damage | AI integrity | Your unit health | Your income |
+  |---|---|---|---|---|---|
+  | O(1) | Novice | x0.9 | 80 | x1.1 | x1.1 |
+  | O(N) | Competent | x1 | 100 | x1 | x1 |
+  | O(N²) | Expert | x1.1 | 125 | x0.95 | x0.95 |
+  | O(Nᴺ) | Superintelligence | x1.2 | 150 | x0.9 | x0.9 |
+
+- **Compute credits:** you start with 250 and earn an income that grows every minute (on O(N): 12/s at the start, about
+  160/s at 10:00); **SCALE COMPUTE** (`C`) raises it. Every integrity point a leak costs the AI pays you 8 (times your
+  income multiplier).
 - **Units** unlock over time, from Primitive Variables at 0:00 to the five bosses (MOAB 5:00 ... Palantir 12:00).
   Modifiers multiply the price: Regrow x1.3, Camo x1.5, Fortified x2, **Prompt Injection x1.6** (from 6:00; it hijacks
   the AI's towers that are not immune).

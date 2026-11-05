@@ -9,6 +9,7 @@ import lindefense.enemy.Modifier;
 import lindefense.enemy.StatusEffect;
 import lindefense.map.Path;
 import lindefense.sim.Game;
+import lindefense.tower.AbilityDef;
 import lindefense.tower.Shop;
 import lindefense.tower.Tower;
 import lindefense.tower.TowerCatalog;
@@ -51,7 +52,7 @@ public final class AbilityUnlockTests {
         check(price == 15_000, "ability unlock costs $15,000");
         for (TowerType t : TowerType.shopTowers()) {
             check(TowerCatalog.get(t).ability != null, t + " has an ability");
-            check(TowerCatalog.abilityNeedsUnlock(t) == (t != TowerType.ZETHOS), t + (t == TowerType.ZETHOS ? " ability is free from placement" : " ability must be unlocked"));
+            check(TowerCatalog.abilityNeedsUnlock(t), t + " ability must be unlocked");
         }
         for (TowerType h : TowerType.heroes()) check(TowerCatalog.get(h).ability == null, h + " is passive (no ability)");
 
@@ -76,9 +77,17 @@ public final class AbilityUnlockTests {
         g.addCash(price, null);
         check(!g.unlockAbility(c) && g.getCash() == price, "an ability cannot be bought twice");
 
-        Tower z = towerNearTrack(frozen(), TowerType.ZETHOS, 0, 450);
-        check(!z.isAbilityLocked() && z.getAbility() != null && Math.abs(z.getAbilityCooldownRemaining() - z.getAbility().cooldown * 0.5) < 1e-9,
-            "Zethos's ability is usable from placement at 50% cooldown");
+        // Zethos: Reality Collapse is locked like every shop tower's ability, until all FOUR upgrades are bought
+        Game zg = frozen();
+        Tower z = towerNearTrack(zg, TowerType.ZETHOS, 0, 450);
+        check(z.isAbilityLocked() && z.getAbility() == null && !zg.activateAbility(z), "Zethos's Reality Collapse is locked at placement");
+        zg.addCash(100_000, null);
+        for (int i = 0; i < TowerCatalog.ZETHOS_UPGRADES - 1; i++) check(zg.upgradeTower(z), "upgrade Zethos");
+        check(!z.isMaxed() && !z.canUnlockAbility() && !zg.unlockAbility(z), "Zethos cannot unlock after only three upgrades");
+        check(zg.upgradeTower(z) && z.isMaxed() && z.getTier() == TowerCatalog.ZETHOS_UPGRADES, "Zethos's fourth upgrade maxes it");
+        double zCash = zg.getCash();
+        check(zg.unlockAbility(z) && zg.getCash() == zCash - price, "Zethos unlocks Reality Collapse for $15,000 after the fourth upgrade");
+        check(!z.isAbilityLocked() && z.isAbilityReady() && zg.activateAbility(z), "Zethos's unlocked Reality Collapse fires at once");
 
         Game admin = frozen();
         admin.setAdmin(false, true, false);
@@ -87,35 +96,51 @@ public final class AbilityUnlockTests {
     }
 
     private static void unlockedMechanics() {
-        // Opus Time-Lock reaches the whole map and slows bosses by the stated 60%
+        // Opus Time-Lock reaches past Claude's own range up to its ability radius, and slows bosses there by the stated amount
         Game g = frozen();
         Path r = g.getMap().getRoutes().get(0);
         Tower claude = unlocked(g, TowerType.CLAUDE, 300);
-        Enemy far = spawnAt(g, EnemyType.HEAP_SORT, null, 0, r.getTotalLength() - 40);
-        Enemy boss = spawnAt(g, EnemyType.BELLARMINE_COLLEGE_PREP, null, 0, r.getTotalLength() - 80);
-        check(far.getPosition().dist(claude.getPosition()) > claude.effectiveRange(g), "test enemy starts outside Claude's normal range");
+        AbilityDef opus = claude.getAbility();
+        double reach = opus.p("radius"), range = claude.effectiveRange(g);
+        double dIn = -1, dOut = -1;
+        for (double d = 0; d < r.getTotalLength(); d += 5) {
+            double dist = r.positionAt(d).dist(claude.getPosition());
+            if (dIn < 0 && dist > range + 30 && dist < reach - 60) dIn = d;
+            if (dist > reach + 60) dOut = d;
+        }
+        check(dIn >= 0 && dOut >= 0, "test spots inside and outside Opus Time-Lock's reach exist");
+        Enemy reached = spawnAt(g, EnemyType.HEAP_SORT, null, 0, dIn);
+        Enemy beyond = spawnAt(g, EnemyType.HEAP_SORT, null, 0, dOut);
+        Enemy boss = spawnAt(g, EnemyType.BELLARMINE_COLLEGE_PREP, null, 0, dIn + 10);
         check(g.activateAbility(claude), "Opus Time-Lock fires");
-        check(far.isFrozen(), "Opus Time-Lock freezes an enemy far outside Claude's range");
-        check(Math.abs(boss.statusMagnitude(StatusEffect.Kind.SLOW) - 0.6) < 1e-6, "Opus Time-Lock slows bosses by 60% (got " + boss.statusMagnitude(StatusEffect.Kind.SLOW) + ")");
+        check(reached.isFrozen(), "Opus Time-Lock freezes an enemy outside Claude's range but within " + (int) reach + " px");
+        check(!beyond.isFrozen(), "Opus Time-Lock does not reach past " + (int) reach + " px");
+        check(Math.abs(boss.statusMagnitude(StatusEffect.Kind.SLOW) - opus.p("bossSlow")) < 1e-6,
+            "Opus Time-Lock slows bosses by " + Math.round(opus.p("bossSlow") * 100) + "% (got " + boss.statusMagnitude(StatusEffect.Kind.SLOW) + ")");
 
-        // R1 Deep Reasoning Strike destroys the 25 strongest non-bosses and strikes bosses for 15% max HP
+        // R1 Deep Reasoning Strike destroys the N strongest non-bosses and strikes bosses for a share of their max HP
         g = frozen();
         Tower ds = unlocked(g, TowerType.DEEPSEEK, 450);
-        for (int i = 0; i < 30; i++) spawnAt(g, EnemyType.TIMSORT, null, 0, 200 + i * 15);
+        AbilityDef r1 = ds.getAbility();
+        int count = (int) r1.p("count");
+        for (int i = 0; i < count + 5; i++) spawnAt(g, EnemyType.TIMSORT, null, 0, 200 + i * 15);
         boss = spawnAt(g, EnemyType.BELLARMINE_COLLEGE_PREP, null, 0, 650);
         double bossHp = boss.getHp();
         check(g.activateAbility(ds), "R1 Deep Reasoning Strike fires");
         int left = 0;
         for (Enemy e : g.getEnemyManager().getEnemies()) if (e.isAlive() && !e.isBoss()) left++;
-        check(left == 5, "R1 destroys the 25 strongest of 30 non-boss enemies (left " + left + ")");
-        check(boss.getHp() <= bossHp - boss.getMaxHp() * 0.14, "R1 strikes bosses for 15% of max HP (" + bossHp + " -> " + boss.getHp() + ")");
+        check(left == 5, "R1 destroys the " + count + " strongest of " + (count + 5) + " non-boss enemies (left " + left + ")");
+        double pct = r1.p("bossDamagePct");
+        check(boss.getHp() <= bossHp - boss.getMaxHp() * pct * 0.9 && boss.getHp() >= bossHp - boss.getMaxHp() * pct * 1.01,
+            "R1 strikes bosses for " + Math.round(pct * 100) + "% of max HP (" + bossHp + " -> " + boss.getHp() + ")");
 
-        // Enterprise Auto-Refactor: every tower, x3, past the +100% buff cap
+        // Enterprise Auto-Refactor: every tower, past the +100% buff cap
         g = frozen();
         Tower copilot = unlocked(g, TowerType.COPILOT, 300);
         Tower gpt = towerNearTrack(g, TowerType.GPT, 0, 700);
+        double mult = copilot.getAbility().p("rateMult");
         check(g.activateAbility(copilot), "Enterprise Auto-Refactor fires");
-        check(Math.abs(gpt.selfRateMult() - 3) < 1e-9, "Auto-Refactor speeds up a non-Military tower x3 (got x" + gpt.selfRateMult() + ")");
+        check(Math.abs(gpt.selfRateMult() - mult) < 1e-9, "Auto-Refactor speeds up a non-Military tower x" + mult + " (got x" + gpt.selfRateMult() + ")");
 
         // Outpainting Expansion now burns enemies standing in it
         g = frozen();
@@ -127,13 +152,15 @@ public final class AbilityUnlockTests {
         runSeconds(g, 1.2);
         check(t1.getHp() < hp, "Outpainting's zone damages enemies inside it (" + hp + " -> " + t1.getHp() + ")");
 
-        // Symphonic Bass Drop: 300 base + 400 x speed multiplier
+        // Symphonic Bass Drop: base + per-speed damage
         g = frozen();
         Tower suno = unlocked(g, TowerType.SUNO, 450);
+        AbilityDef bass = suno.getAbility();
         Enemy t2 = tank(g, null, 450, 5000);
         hp = t2.getHp();
+        double expected = bass.p("baseDamage") + bass.p("damagePerSpeed") * t2.speedMultiplier();
         check(g.activateAbility(suno), "Symphonic Bass Drop fires");
-        check(hp - t2.getHp() >= 300 + 400 * t2.speedMultiplier() * 0.99, "Bass Drop deals 300 + 400 x speed (" + (hp - t2.getHp()) + ")");
+        check(hp - t2.getHp() >= expected * 0.99, "Bass Drop deals base + per-speed damage (" + (hp - t2.getHp()) + " of " + expected + ")");
 
         // Infinite Context Burst goes through Fortified
         g = frozen();
@@ -142,6 +169,7 @@ public final class AbilityUnlockTests {
         Enemy fort = tank(g, EnumSet.of(Modifier.FORTIFIED), 450, 5000);
         hp = fort.getHp();
         check(g.activateAbility(kimi), "Infinite Context Burst fires");
-        check(hp - fort.getHp() >= 12 * 300 * 0.99, "Context Burst hits a Fortified enemy for 12 stacks x 300 (" + (hp - fort.getHp()) + ")");
+        double perStack = kimi.getAbility().p("damagePerStack");
+        check(hp - fort.getHp() >= 12 * perStack * 0.99, "Context Burst hits a Fortified enemy for 12 stacks x " + (int) perStack + " (" + (hp - fort.getHp()) + ")");
     }
 }

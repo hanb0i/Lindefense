@@ -18,9 +18,9 @@ import lindefense.tower.data.TowerBuilder;
  * {@link TitanTowers}), transcribed from the tower specification. Standard shop towers and Hero Store heroes are
  * base + {@value #STANDARD_UPGRADES} upgrades; Zethos has {@value #ZETHOS_UPGRADES}.
  *
- * <p>Abilities: every standard shop tower has an overpowered active ability that is locked until the tower is fully
- * upgraded and the player pays {@value #ABILITY_UNLOCK_COST} for it ({@link Tower#unlockAbility}). Zethos's Reality
- * Collapse is part of its own specification and is usable from placement. Heroes have no abilities.</p>
+ * <p>Abilities: every shop tower (Zethos included) has an overpowered active ability that is locked until the tower is
+ * fully upgraded and the player pays {@value #ABILITY_UNLOCK_COST} for it ({@link Tower#unlockAbility}). Heroes have
+ * no abilities.</p>
  */
 public final class TowerCatalog {
     /** Upgrades of every standard shop tower. */
@@ -36,11 +36,11 @@ public final class TowerCatalog {
     public static TowerDef get(TowerType type) { return DEFS.get(type); }
     public static Map<TowerType, TowerDef> all() { return Collections.unmodifiableMap(DEFS); }
 
-    /** Whether a tower type has an active ability at all (every shop tower and Zethos; heroes are passive). */
+    /** Whether a tower type has an active ability at all (every shop tower; heroes are passive). */
     public static boolean hasActiveAbility(TowerType type) { return !type.isHero() && get(type) != null && get(type).ability != null; }
 
-    /** Whether a tower type's ability must be bought at max tier for {@link #ABILITY_UNLOCK_COST} (all but Zethos). */
-    public static boolean abilityNeedsUnlock(TowerType type) { return type != TowerType.ZETHOS && !type.isHero(); }
+    /** Whether a tower type's ability must be bought at max tier for {@link #ABILITY_UNLOCK_COST} (every shop tower, Zethos included). */
+    public static boolean abilityNeedsUnlock(TowerType type) { return !type.isHero(); }
 
     /**
      * Whether a tower type is immune to prompt injection (the {@link TowerStats#injectionImmune} flag set in its data

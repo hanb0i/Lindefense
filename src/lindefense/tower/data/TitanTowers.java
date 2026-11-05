@@ -29,8 +29,8 @@ public final class TitanTowers {
                 s -> { s.set("droneCount", 2).set("droneInterval", 1.2).set("droneSegment", 180).set("droneSpeed", 70); })
             .upgrade(2000, "Sovereign Processing", "Damage 4; x3 vs enemies with max HP of 5 or more and vs Fortified MOAB-class.",
                 s -> { s.hit.damage = 4; s.hit.multVsHighHp = 3; })
-            .ability(AbilityBuilder.of("Cosmic Sovereign Burst", 50, "Screen-wide wave deals 1,500 damage to every enemy, bosses included, and removes Fortified from all airships except Palantir (Palantir loses its current phase shield for 30 s).")
-                .p("damage", 1500).p("palantirShieldOff", 30))
+            .ability(AbilityBuilder.of("Cosmic Sovereign Burst", 60, "Screen-wide wave deals 400 damage to every enemy, bosses included, and removes Fortified from all airships except Palantir (Palantir loses its current phase shield for 10 s).")
+                .p("damage", 400).p("palantirShieldOff", 10))
             .build();
     }
 
@@ -46,8 +46,8 @@ public final class TitanTowers {
                 s -> { s.seesCamo = true; s.pierce = 12; })
             .upgrade(1900, "Mythical Stampede", "Every 4 s, a kinetic shockwave across the full range (damage 8, KNOCKBACK 40 px, x2 vs MOAB-class).",
                 s -> { s.set("shockInterval", 4).set("shockDamage", 8).set("shockKnockback", 40).set("shockBossMult", 2); })
-            .ability(AbilityBuilder.of("Open Titan Stampede", 45, "A herd runs from exit to entrance along every route, dealing 600 damage to every enemy it touches. Bosses take 4,000 and are knocked back 250 px.")
-                .p("damage", 600).p("bossDamage", 4000).p("bossKnockback", 250).p("herdSpeed", 500))
+            .ability(AbilityBuilder.of("Open Titan Stampede", 60, "A herd runs from exit to entrance along every route, dealing 200 damage to every enemy it touches. Bosses take 1,500 and are knocked back 120 px.")
+                .p("damage", 200).p("bossDamage", 1500).p("bossKnockback", 120).p("herdSpeed", 500))
             .build();
     }
 
@@ -63,8 +63,8 @@ public final class TitanTowers {
                 s -> { s.set("tornadoInterval", 8).set("tornadoDuration", 5).set("tornadoTick", 0.3).set("tornadoDamage", 1).set("tornadoRadius", 45); })
             .upgrade(1750, "Hurricane", "A permanent vortex (radius 70) at the nearest track bend in range: 2 damage every 0.3 s, SLOW 30%, x2 vs MOAB-class.",
                 s -> { s.set("vortexRadius", 70).set("vortexTick", 0.3).set("vortexDamage", 2).set("vortexSlow", 0.3).set("vortexBossMult", 2); })
-            .ability(AbilityBuilder.of("Stratosphere Tempest", 40, "For 30 s, a super-hurricane (180 px) on a player-chosen bend deals 150 damage every 0.2 s to airships and pushes MOAB-class enemies back 300 px.")
-                .target().p("duration", 30).p("tick", 0.2).p("damage", 150).p("bossKnockback", 300).p("radius", 180).p("snapRange", 300))
+            .ability(AbilityBuilder.of("Stratosphere Tempest", 50, "For 10 s, a super-hurricane (150 px) on a player-chosen bend deals 60 damage every 0.5 s to airships and pushes MOAB-class enemies back 120 px.")
+                .target().p("duration", 10).p("tick", 0.5).p("damage", 60).p("bossKnockback", 120).p("radius", 150).p("snapRange", 300))
             .build();
     }
 
@@ -80,8 +80,8 @@ public final class TitanTowers {
                 s -> { s.hit.armorBreak = 1; s.hit.armorBreakDuration = 5; s.hit.markBonus = 0.5; s.hit.markDuration = 5; })
             .upgrade(2200, "Supreme Command", "Damage 10, splash 90, interval 1.1, x3 vs MOAB-class.",
                 s -> { s.hit.damage = 10; s.splashRadius = 90; s.interval(1.1); s.hit.multVsBoss = 3; })
-            .ability(AbilityBuilder.of("Command Override", 45, "The 30 nearest non-boss enemies (Bellarmine College Prep MOAB allowed; BFB, ZOMG, DDT and BAD excluded) reverse direction for 20 s and deal 400 damage/s to enemies they touch, then resume normally.")
-                .p("count", 30).p("duration", 20).p("contactDps", 400))
+            .ability(AbilityBuilder.of("Command Override", 60, "The 12 nearest non-boss enemies (Bellarmine College Prep MOAB allowed; BFB, ZOMG, DDT and BAD excluded) reverse direction for 8 s and deal 100 damage/s to enemies they touch, then resume normally.")
+                .p("count", 12).p("duration", 8).p("contactDps", 100))
             .build();
     }
 
@@ -97,8 +97,8 @@ public final class TitanTowers {
                 s -> { s.set("nodes", 4).set("gridSlow", 0.30); })
             .upgrade(1500, "Grid Saturation", "6 nodes, line damage 5, x2 vs Fortified.",
                 s -> { s.set("nodes", 6).set("lineDamage", 5).set("lineFortifiedMult", 2); })
-            .ability(AbilityBuilder.of("Matrix Overload", 50, "STUNS every non-boss enemy on the track for 12 s; bosses for 5 s.")
-                .p("stun", 12).p("bossStun", 5))
+            .ability(AbilityBuilder.of("Matrix Overload", 60, "STUNS every non-boss enemy on the track for 5 s; bosses for 1.5 s.")
+                .p("stun", 5).p("bossStun", 1.5))
             .build();
     }
 
@@ -114,8 +114,8 @@ public final class TitanTowers {
                 s -> { s.set("streakMax", 8).set("pierceBonusPerStack", 1); s.stackCap = 8; })
             .upgrade(1950, "Infinite Context", "Memory cap becomes +12; every 10th attack fires a crystal burst (damage 15, splash 70).",
                 s -> { s.set("memoryCap", 12).set("burstEvery", 10).set("burstDamage", 15).set("burstSplash", 70); })
-            .ability(AbilityBuilder.of("Infinite Context Burst", 50, "Every enemy on screen, Fortified included, takes damage = memory stacks x 300 (3,600 at the 12-stack cap). Bosses take the full amount.")
-                .p("damagePerStack", 300).p("bossFraction", 1.0).p("hitsFortified", 1))
+            .ability(AbilityBuilder.of("Infinite Context Burst", 60, "Every enemy on screen, Fortified included, takes damage = memory stacks x 80 (960 at the 12-stack cap). Bosses take half.")
+                .p("damagePerStack", 80).p("bossFraction", 0.5).p("hitsFortified", 1))
             .build();
     }
 
@@ -131,8 +131,8 @@ public final class TitanTowers {
                 s -> { s.clones = 2; })
             .upgrade(1800, "Infinite Multiplication", "3 clones; every 6 s, a synchronized barrage of 20 packets.",
                 s -> { s.set("cloneCount", 3).set("barrageInterval", 6).set("barrageCount", 20); })
-            .ability(AbilityBuilder.of("Scale Factor Overclock", 30, "Bounce count x8 and fire rate x6 for 25 s.")
-                .p("duration", 25).p("bounceMult", 8).p("rateMult", 6))
+            .ability(AbilityBuilder.of("Scale Factor Overclock", 50, "Bounce count x3 and fire rate x2.5 for 10 s.")
+                .p("duration", 10).p("bounceMult", 3).p("rateMult", 2.5))
             .build();
     }
 }

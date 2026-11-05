@@ -32,8 +32,8 @@ public final class MilitaryTowers {
                 s -> { s.set("defaultStrongest", 1).set("streakStep", 1).set("streakMax", 6); s.stackCap = 6; s.stackStep = 1; })
             .upgrade(1500, "Advanced Computation", "Damage 6; x3 vs all Sorting Algorithm enemies and Linked Lists; x2 vs bosses.",
                 s -> { s.hit.damage = 6; s.hit.multVsSortingAndLists = 3; s.hit.multVsBoss = 2; })
-            .ability(AbilityBuilder.of("R1 Deep Reasoning Strike", 25, "Instantly destroys the 25 strongest non-boss enemies (no children; each parent's cash is paid once) and strikes every boss for 15% of its max HP (Palantir 5%).")
-                .p("count", 25).p("bossDamagePct", 0.15).p("palantirDamagePct", 0.05))
+            .ability(AbilityBuilder.of("R1 Deep Reasoning Strike", 45, "Instantly destroys the 10 strongest non-boss enemies (no children; each parent's cash is paid once) and strikes every boss for 6% of its max HP (Palantir 2.5%).")
+                .p("count", 10).p("bossDamagePct", 0.06).p("palantirDamagePct", 0.025))
             .build();
     }
 
@@ -50,8 +50,8 @@ public final class MilitaryTowers {
                 s -> { s.set("droneInterval", 8).set("droneDamage", 6).set("droneSplash", 70); })
             .upgrade(1000, "Enterprise Network", "All MILITARY towers anywhere on the map get +15% attack speed and +1 damage; the local tether becomes +30% speed and +2 pierce.",
                 s -> { s.set("globalMilitaryRate", 0.15).set("globalMilitaryDamage", 1); s.auraRate = 0.30; s.auraPierce = 2; })
-            .ability(AbilityBuilder.of("Enterprise Auto-Refactor", 45, "EVERY tower on the map attacks x3 faster for 20 s. Stacks with other speed boosts and ignores the tower-buff cap.")
-                .p("duration", 20).p("rateMult", 3).p("allTowers", 1))
+            .ability(AbilityBuilder.of("Enterprise Auto-Refactor", 60, "EVERY tower on the map attacks x2 faster for 10 s. Stacks with other speed boosts and ignores the tower-buff cap.")
+                .p("duration", 10).p("rateMult", 2).p("allTowers", 1))
             .build();
     }
 }

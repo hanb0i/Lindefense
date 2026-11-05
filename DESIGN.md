@@ -44,7 +44,7 @@ without touching game logic.
 | Buff stacking | same source tower type never stacks (highest wins); different types add. Caps: +100% attack speed, +10 pierce, +5 flat damage |
 | Camo detection | built-in: Bellarmine Student + AI, Grok, Perplexity; gained at U2: Gemini, Llama; any tower within Perplexity's radius; every tower while a Perplexity U1+ exists |
 | Heroes | only one copy of each hero may be placed |
-| Abilities | usable from placement, start at 50% cooldown, count down in game time (so they speed up with fast-forward) |
+| Abilities | locked until the tower has every upgrade and the $15000 unlock is bought; ready at once when bought; cooldowns count down in game time (so they speed up with fast-forward) |
 | Knockback budget | per enemy, pushes from attacks are capped per second at 40% (bosses 25%) of the enemy's unslowed movement, so stacked pushers can never hold an enemy in place; ability blasts and scheduled events ignore the cap |
 | Rewards | each body pays its own reward exactly once when destroyed; leaks pay nothing; no double payment on splits |
 | Lives | leaked enemy removes its listed lives (a leaking Bucket Sort also leaks everything it stored); 0 lives = defeat |
@@ -55,8 +55,8 @@ without touching game logic.
 ## 2. Towers
 
 The tower shop sells 18 towers. The 17 original towers have one base form and **exactly three** purchasable upgrades
-(tier 0-3). Each has an overpowered active ability that is **locked until the tower is fully upgraded and the player pays $15000** for it (U or the side-panel button); it is ready the moment it is bought. **Zethos** (Primary)
-has **four** upgrades and its Reality Collapse ability from placement; it is tuned to about twice the best of Gemini, Claude
+(tier 0-3). Every shop tower has an overpowered active ability that is **locked until the tower is fully upgraded and the player pays $15000** for it (U or the side-panel button); it is ready the moment it is bought. **Zethos** (Primary)
+has **four** upgrades (its Reality Collapse unlocks after the fourth); it is tuned to about twice the best of Gemini, Claude
 and GPT at each tier. The 18 **heroes** are not in the tower shop: they are unlocked once in the **Hero Store** (permanent,
 saved between sessions), deploy for free once per match (at most 3 different heroes per game) and level up
 through three purchasable upgrades; they have no active abilities. Mr. Lindemann is the strongest hero and Spear Hanbo the
@@ -85,24 +85,24 @@ in map units: 1 unit = 4 px (tables below are in px). Source of truth for every 
 | Blitz Arnav | Heroes | Rapid-Fire Military Specialist | Tactical Burst -> Extended Magazine -> Suppressive Fire -> Full Auto | Hero Store $1350 (deploy free) | $500 / $950 / $1750 | - | no refund | none (passive) |
 | Tanimbus | Heroes | Flying Tower Support | Command Drone -> Enhanced Drone -> Tactical Network -> Battlefield Command | Hero Store $1300 (deploy free) | $500 / $950 / $1700 | - | no refund | none (passive) |
 | Mr. Lindemann | Heroes | Space-Warping CS Teacher | Hello, World -> Recursion -> Garbage Collector -> Event Horizon | Hero Store $2500 (deploy free) | $1200 / $2600 / $5000 | - | no refund | none (passive) |
-| Gemini | Primary | Prism Blaster | Gemini 3.7 Flash -> Gemini 3.8 Flash -> Gemini 3.1 Pro -> Gemini 4 Argon | $400 | $650 / $700 / $1200 | $2950 | $2065 | Argon Singularity (30s, $15000 at max tier) |
-| Claude | Primary | Ink Weaver | Claude Haiku 5.5 -> Claude Sonnet 5.5 -> Claude Opus 5.5 -> Claude Fable 5.1 | $450 | $550 / $650 / $1100 | $2750 | $1924 | Opus Time-Lock (30s, $15000 at max tier) |
-| GPT | Primary | Cosmic Strategist | GPT-5.6 Terra -> GPT-6 Luna -> GPT-6 Astra -> GPT-6.1 Sol | $500 | $750 / $800 / $1300 | $3350 | $2345 | Astra Beam (35s, $15000 at max tier) |
-| Zethos | Primary | The Quantum Architect | Quantum Pulse -> Quantum Acceleration -> Dimensional Fracture -> Quantum Singularity -> Zethos: Reality Engine | $650 | $350 / $650 / $1200 / $2500 | $5350 | $3744 | Reality Collapse (55s) |
-| DeepSeek | Military | Railgun Engineer | DeepSeek V4 Flash -> DeepSeek V4.1 Flash -> DeepSeek R1 -> DeepSeek V4 Pro | $600 | $850 / $900 / $1500 | $3850 | $2695 | R1 Deep Reasoning Strike (25s, $15000 at max tier) |
-| Copilot | Military | Autonomous Engineer | Copilot -> Copilot Pro -> Microsoft 365 Copilot -> GitHub Copilot Enterprise | $350 | $350 / $600 / $1000 | $2300 | $1610 | Enterprise Auto-Refactor (45s, $15000 at max tier) |
-| DALL·E | Magic | Sketch Summoner | DALL·E 2 -> DALL·E 3 -> DALL·E 3 HD -> DALL·E 3 API | $550 | $500 / $850 / $1400 | $3300 | $2310 | Outpainting Expansion (25s, $15000 at max tier) |
-| Sora | Magic | Time Director | Sora -> Sora Turbo -> Sora 2 -> Sora 2 Pro | $700 | $650 / $1000 / $1800 | $4150 | $2905 | Cinematic Rewind (45s, $15000 at max tier) |
-| Suno | Magic | Sonic Composer | Suno v5 -> Suno v6-Mini -> Suno v6 -> Suno v6-Wild | $500 | $500 / $800 / $1350 | $3150 | $2205 | Symphonic Bass Drop (35s, $15000 at max tier) |
-| Grok | Support | Chaos Generator | Grok 4.5 -> Grok 4.6 -> Grok 4.20 Reasoning -> Grok 4.7 | $650 | $600 / $950 / $1600 | $3800 | $2660 | Real-Time Override (40s, $15000 at max tier) |
+| Gemini | Primary | Prism Blaster | Gemini 3.7 Flash -> Gemini 3.8 Flash -> Gemini 3.1 Pro -> Gemini 4 Argon | $400 | $650 / $700 / $1200 | $2950 | $2065 | Argon Singularity (45s, $15000 at max tier) |
+| Claude | Primary | Ink Weaver | Claude Haiku 5.5 -> Claude Sonnet 5.5 -> Claude Opus 5.5 -> Claude Fable 5.1 | $450 | $550 / $650 / $1100 | $2750 | $1924 | Opus Time-Lock (50s, $15000 at max tier) |
+| GPT | Primary | Cosmic Strategist | GPT-5.6 Terra -> GPT-6 Luna -> GPT-6 Astra -> GPT-6.1 Sol | $500 | $750 / $800 / $1300 | $3350 | $2345 | Astra Beam (45s, $15000 at max tier) |
+| Zethos | Primary | The Quantum Architect | Quantum Pulse -> Quantum Acceleration -> Dimensional Fracture -> Quantum Singularity -> Zethos: Reality Engine | $650 | $350 / $650 / $1200 / $2500 | $5350 | $3744 | Reality Collapse (55s, $15000 at max tier) |
+| DeepSeek | Military | Railgun Engineer | DeepSeek V4 Flash -> DeepSeek V4.1 Flash -> DeepSeek R1 -> DeepSeek V4 Pro | $600 | $850 / $900 / $1500 | $3850 | $2695 | R1 Deep Reasoning Strike (45s, $15000 at max tier) |
+| Copilot | Military | Autonomous Engineer | Copilot -> Copilot Pro -> Microsoft 365 Copilot -> GitHub Copilot Enterprise | $350 | $350 / $600 / $1000 | $2300 | $1610 | Enterprise Auto-Refactor (60s, $15000 at max tier) |
+| DALL·E | Magic | Sketch Summoner | DALL·E 2 -> DALL·E 3 -> DALL·E 3 HD -> DALL·E 3 API | $550 | $500 / $850 / $1400 | $3300 | $2310 | Outpainting Expansion (45s, $15000 at max tier) |
+| Sora | Magic | Time Director | Sora -> Sora Turbo -> Sora 2 -> Sora 2 Pro | $700 | $650 / $1000 / $1800 | $4150 | $2905 | Cinematic Rewind (60s, $15000 at max tier) |
+| Suno | Magic | Sonic Composer | Suno v5 -> Suno v6-Mini -> Suno v6 -> Suno v6-Wild | $500 | $500 / $800 / $1350 | $3150 | $2205 | Symphonic Bass Drop (45s, $15000 at max tier) |
+| Grok | Support | Chaos Generator | Grok 4.5 -> Grok 4.6 -> Grok 4.20 Reasoning -> Grok 4.7 | $650 | $600 / $950 / $1600 | $3800 | $2660 | Real-Time Override (50s, $15000 at max tier) |
 | Perplexity | Support | Intelligence Scanner | Sonar -> Sonar Pro -> Sonar Reasoning Pro -> Sonar Deep Research | $450 | $450 / $750 / $1250 | $2900 | $2029 | Deep Research Scrape (60s, $15000 at max tier) |
-| Qwen | Titans | Modular Drone Factory | Qwen3.8 Flash -> Qwen3.6 Max -> Qwen3.7 Plus -> Qwen3.8 Max | $750 | $1100 / $1200 / $2000 | $5050 | $3535 | Cosmic Sovereign Burst (50s, $15000 at max tier) |
-| Llama | Titans | Primal Swarm | Llama 4 Scout -> Llama 4 Maverick -> Muse Glimmer -> Muse Wonder | $700 | $1000 / $1100 / $1900 | $4700 | $3290 | Open Titan Stampede (45s, $15000 at max tier) |
-| Mistral | Titans | Windblade Turbine | Ministral 3 8B -> Ministral 3 14B -> Mistral Small 4 -> Mistral Large 4 | $650 | $650 / $1050 / $1750 | $4100 | $2870 | Stratosphere Tempest (40s, $15000 at max tier) |
-| Cohere | Titans | Command Commander | Command R7B -> Command R+ -> Command A -> Command A+ | $800 | $800 / $1300 / $2200 | $5100 | $3570 | Command Override (45s, $15000 at max tier) |
-| GLM | Titans | Gravity Manipulator | GLM 5.1 -> GLM 5.2 -> GLM 5.3 Flash -> GLM 5.3 | $600 | $550 / $900 / $1500 | $3550 | $2485 | Matrix Overload (50s, $15000 at max tier) |
-| Kimi | Titans | Dimensional Assassin | Kimi K2.5 -> Kimi K2.6 -> Kimi K3 -> Kimi K3.1 Pro | $700 | $700 / $1150 / $1950 | $4500 | $3150 | Infinite Context Burst (50s, $15000 at max tier) |
-| MiniMax | Titans | Clone Generator | MiniMax M2.5 -> MiniMax M2.7 -> MiniMax M3 -> MiniMax M3.1 Flash | $650 | $1050 / $1050 / $1800 | $4550 | $3185 | Scale Factor Overclock (30s, $15000 at max tier) |
+| Qwen | Titans | Modular Drone Factory | Qwen3.8 Flash -> Qwen3.6 Max -> Qwen3.7 Plus -> Qwen3.8 Max | $750 | $1100 / $1200 / $2000 | $5050 | $3535 | Cosmic Sovereign Burst (60s, $15000 at max tier) |
+| Llama | Titans | Primal Swarm | Llama 4 Scout -> Llama 4 Maverick -> Muse Glimmer -> Muse Wonder | $700 | $1000 / $1100 / $1900 | $4700 | $3290 | Open Titan Stampede (60s, $15000 at max tier) |
+| Mistral | Titans | Windblade Turbine | Ministral 3 8B -> Ministral 3 14B -> Mistral Small 4 -> Mistral Large 4 | $650 | $650 / $1050 / $1750 | $4100 | $2870 | Stratosphere Tempest (50s, $15000 at max tier) |
+| Cohere | Titans | Command Commander | Command R7B -> Command R+ -> Command A -> Command A+ | $800 | $800 / $1300 / $2200 | $5100 | $3570 | Command Override (60s, $15000 at max tier) |
+| GLM | Titans | Gravity Manipulator | GLM 5.1 -> GLM 5.2 -> GLM 5.3 Flash -> GLM 5.3 | $600 | $550 / $900 / $1500 | $3550 | $2485 | Matrix Overload (60s, $15000 at max tier) |
+| Kimi | Titans | Dimensional Assassin | Kimi K2.5 -> Kimi K2.6 -> Kimi K3 -> Kimi K3.1 Pro | $700 | $700 / $1150 / $1950 | $4500 | $3150 | Infinite Context Burst (60s, $15000 at max tier) |
+| MiniMax | Titans | Clone Generator | MiniMax M2.5 -> MiniMax M2.7 -> MiniMax M3 -> MiniMax M3.1 Flash | $650 | $1050 / $1050 / $1800 | $4550 | $3185 | Scale Factor Overclock (50s, $15000 at max tier) |
 
 Damage types per tower: Gemini / GPT / Zethos / DeepSeek / Copilot / Qwen / MiniMax / Brandon / Rohan / Shashank / Owen = Energy,
 Brad / Ronil / Grok / Cohere = Explosive, Claude = Sharp, Llama / Mistral = Kinetic, DALL-E / Sora / Perplexity / Kimi = Magic, Suno = Sonic,
@@ -412,7 +412,7 @@ Instant-hit laser bolts that ricochet and later chain through a crowd. Gains cam
 - **U1 Gemini 3.8 Flash** ($650): Interval 0.5, pierce 3, beams ricochet to up to 3 more enemies within 80 px.
 - **U2 Gemini 3.1 Pro** ($700): Spectrum Analysis: Gains camo detection. Hits permanently remove Camo and Regrow from non-boss enemies.
 - **U3 Gemini 4 Argon** ($1200): Prismatic Beam: Chains to up to 8 enemies; damage 2; x3 vs MOAB-class.
-- **Ability: Argon Singularity** (cooldown 30 s, unlocked for $15000 once fully upgraded): Pulls every non-boss enemy within 400 px into a vortex and holds it there for 6 s, then deals 500 damage to each. Bosses caught in it take 5,000.
+- **Ability: Argon Singularity** (cooldown 45 s, unlocked for $15000 once fully upgraded): Pulls every non-boss enemy within 250 px into a vortex and holds it there for 3 s, then deals 200 damage to each. Bosses caught in it take 2,000.
 
 #### Claude - Ink Weaver (Primary, $450)
 
@@ -428,7 +428,7 @@ Needle prose spikes. Sharp damage cannot hurt Lead-type enemies until the final 
 - **U1 Claude Sonnet 5.5** ($550): Pierce 8, interval 0.55.
 - **U2 Claude Opus 5.5** ($650): Context Snare: Hit enemies are MARKED (+1 damage taken) and SLOWED 15% for 4 s.
 - **U3 Claude Fable 5.1** ($1100): Pierce 20, damage 2, +3 damage vs Fortified / Lead-type / Ceramic-type, and can damage Lead.
-- **Ability: Opus Time-Lock** (cooldown 30 s, unlocked for $15000 once fully upgraded): FREEZES every non-boss enemy on the map for 12 s and slows every boss by 60% for 12 s. Frozen enemies take x2 damage.
+- **Ability: Opus Time-Lock** (cooldown 50 s, unlocked for $15000 once fully upgraded): FREEZES every non-boss enemy within 450 px for 6 s and slows bosses there by 40% for 6 s. Frozen enemies take x2 damage.
 
 #### GPT - Cosmic Strategist (Primary, $500)
 
@@ -444,7 +444,7 @@ Plasma orbs that gain splash, two orbiting moons, burning hits and an adaptive f
 - **U1 GPT-6 Luna** ($750): Splash radius 40; two orbiting moons (radius 60) deal 1 damage every 0.5 s on contact.
 - **U2 GPT-6 Astra** ($800): Solar Flare: Hits BURN for 1 damage/s over 3 s.
 - **U3 GPT-6.1 Sol** ($1300): Adaptive Plasma: Each shot checks its target: x2 vs MOAB-class, +2 vs Fortified, +2 vs Ceramic-type, SONIC-like knockback vs Lead-type.
-- **Ability: Astra Beam** (cooldown 35 s, unlocked for $15000 once fully upgraded): 12 s continuous beam on the strongest enemy: 1,500 damage/s, x2 vs MOAB-class (3,000/s), ignores Fortified.
+- **Ability: Astra Beam** (cooldown 45 s, unlocked for $15000 once fully upgraded): 8 s continuous beam on the strongest enemy: 150 damage/s, x2 vs MOAB-class (300/s), ignores Fortified.
 
 #### Zethos - The Quantum Architect (Primary, $650)
 
@@ -462,7 +462,7 @@ Precision quantum-energy projectiles that pierce the first enemies on the track,
 - **U2 Dimensional Fracture** ($650): Damage 4, interval 0.5 s, range 47 units, pierce 5. Each impact fractures into quantum fragments: 60% splash damage within 7 units.
 - **U3 Quantum Singularity** ($1200): Damage 6, interval 0.55 s, range 48 units, pierce 5. Singularity explosions: 45% splash within 6 units. Then bounces to up to 2 more enemies at 45% damage.
 - **U4 Zethos: Reality Engine** ($2500): Damage 7, interval 0.5 s, range 50 units, pierce 6. Every impact explodes for 35% damage within 6 units; bounces to up to 2 more enemies at 35% damage.
-- **Ability: Reality Collapse** (cooldown 55 s): For 6 s: double damage, double attack speed, +15 units range, projectiles bounce to up to 8 extra enemies and every impact explodes.
+- **Ability: Reality Collapse** (cooldown 55 s, unlocked for $15000 once fully upgraded): For 6 s: double damage, double attack speed, +15 units range, projectiles bounce to up to 8 extra enemies and every impact explodes.
 
 #### DeepSeek - Railgun Engineer (Military, $600)
 
@@ -478,7 +478,7 @@ Map-wide instant-hit sniper that ignores line-of-sight blockers. Volleys, a recu
 - **U1 DeepSeek V4.1 Flash** ($850): Parallel Processing: 3 shots per volley, pierce 3.
 - **U2 DeepSeek R1** ($900): Recursive Lock: Default targeting becomes Strongest. Each consecutive hit on the same target adds +1 damage (max +6); the bonus resets when the target changes.
 - **U3 DeepSeek V4 Pro** ($1500): Advanced Computation: Damage 6; x3 vs all Sorting Algorithm enemies and Linked Lists; x2 vs bosses.
-- **Ability: R1 Deep Reasoning Strike** (cooldown 25 s, unlocked for $15000 once fully upgraded): Instantly destroys the 25 strongest non-boss enemies (no children; each parent's cash is paid once) and strikes every boss for 15% of its max HP (Palantir 5%).
+- **Ability: R1 Deep Reasoning Strike** (cooldown 45 s, unlocked for $15000 once fully upgraded): Instantly destroys the 10 strongest non-boss enemies (no children; each parent's cash is paid once) and strikes every boss for 6% of its max HP (Palantir 2.5%).
 
 #### Copilot - Autonomous Engineer (Military, $350)
 
@@ -494,7 +494,7 @@ Code fragments with a tether that speeds up nearby towers. Later launches explos
 - **U1 Copilot Pro** ($350): Hotfix: Tether bonus becomes +20% attack speed and +1 pierce.
 - **U2 Microsoft 365 Copilot** ($600): Task Scheduler: Every 8 s launches an explosive drone at the densest cluster (damage 6, splash 70).
 - **U3 GitHub Copilot Enterprise** ($1000): Enterprise Network: All MILITARY towers anywhere on the map get +15% attack speed and +1 damage; the local tether becomes +30% speed and +2 pierce.
-- **Ability: Enterprise Auto-Refactor** (cooldown 45 s, unlocked for $15000 once fully upgraded): EVERY tower on the map attacks x3 faster for 20 s. Stacks with other speed boosts and ignores the tower-buff cap.
+- **Ability: Enterprise Auto-Refactor** (cooldown 60 s, unlocked for $15000 once fully upgraded): EVERY tower on the map attacks x2 faster for 10 s. Stacks with other speed boosts and ignores the tower-buff cap.
 
 #### DALL·E - Sketch Summoner (Magic, $550)
 
@@ -510,7 +510,7 @@ Sketch arrows, plus paint zones on the track that damage enemies; later illustra
 - **U1 DALL·E 3** ($500): Living Illustration: Every 5 s, 2 illustrated creatures walk backward along the track (contact damage 2, pierce 5 each).
 - **U2 DALL·E 3 HD** ($850): Masterpiece Explosion: Paint zones grow to radius 70 and apply ARMOR CRACK to non-boss enemies inside, downgrading armored enemies into weaker forms.
 - **U3 DALL·E 3 API** ($1400): Infinite Canvas: Zones every 3 s, 4 creatures per wave, arrow pierce 6.
-- **Ability: Outpainting Expansion** (cooldown 25 s, player-chosen location, unlocked for $15000 once fully upgraded): Paints a 30 s "extra track" zone (180 px) on the selected track segment: enemies inside crawl at 5% speed (bosses resist part of it) and take 120 magic damage every 0.5 s.
+- **Ability: Outpainting Expansion** (cooldown 45 s, player-chosen location, unlocked for $15000 once fully upgraded): Paints a 10 s "extra track" zone (130 px) on the selected track segment: enemies inside crawl at 35% speed (bosses resist part of it) and take 60 magic damage every 0.5 s.
 
 #### Sora - Time Director (Magic, $700)
 
@@ -526,7 +526,7 @@ Film-frame projectiles and a slowing field around the tower; later rewinds enemi
 - **U1 Sora Turbo** ($650): Fast Forward: Projectile speed x2, interval 0.7, slow becomes 55%.
 - **U2 Sora 2** ($1000): Scene Rewind: Every 8 s, KNOCKBACK 120 px on all non-boss enemies in range.
 - **U3 Sora 2 Pro** ($1800): Time Loop: Places 2 loop zones (radius 60) on the track in range; enemies inside take 2 damage every 0.4 s and are SLOWED 60%.
-- **Ability: Cinematic Rewind** (cooldown 45 s, unlocked for $15000 once fully upgraded): Every non-boss enemy on screen is thrown back along the track by 15 s of its own travel distance; bosses by 6 s.
+- **Ability: Cinematic Rewind** (cooldown 60 s, unlocked for $15000 once fully upgraded): Every non-boss enemy on screen is thrown back along the track by 6 s of its own travel distance; bosses by 2 s.
 
 #### Suno - Sonic Composer (Magic, $500)
 
@@ -542,7 +542,7 @@ Rhythmic sound projectiles (x2 vs Ceramic, knock Lead-type back); later bass-dro
 - **U1 Suno v6-Mini** ($500): Bass Drop: Every 3 s, a shockwave deals 2 damage to all enemies within 140 px.
 - **U2 Suno v6** ($800): Chord Strike: Every 4th attack is a chord (damage 6, pierce 10).
 - **U3 Suno v6-Wild** ($1350): Uncontrolled Symphony: Interval 0.4; every 1 s, 2 random sonic explosions (radius 50, damage 3) on enemies in range.
-- **Ability: Symphonic Bass Drop** (cooldown 35 s, unlocked for $15000 once fully upgraded): Every enemy on screen takes 300 + 400 x its speed multiplier damage (bosses capped at 6,000).
+- **Ability: Symphonic Bass Drop** (cooldown 45 s, unlocked for $15000 once fully upgraded): Every enemy on screen takes 100 + 150 x its speed multiplier damage (bosses capped at 1,500).
 
 #### Grok - Chaos Generator (Support, $650)
 
@@ -558,7 +558,7 @@ Thermal micro-missiles with splash that can hit Lead-type enemies; later burns, 
 - **U1 Grok 4.6** ($600): Ratio: Hits BURN for 1 damage/s over 4 s, and the burn spreads once to enemies within 40 px.
 - **U2 Grok 4.20 Reasoning** ($950): Paradox Trap: Unlocks Densest Cluster targeting; every 5 s fires a 6-missile volley (damage 3 each) at the densest cluster.
 - **U3 Grok 4.7** ($1600): Chaos Mode: Interval 0.6; missiles cycle between incendiary (burn), cluster (splits into 4) and heavy (x3 vs MOAB-class).
-- **Ability: Real-Time Override** (cooldown 40 s, unlocked for $15000 once fully upgraded): EVERY tower on the map deals +400% damage to MOAB-class enemies for 20 s.
+- **Ability: Real-Time Override** (cooldown 50 s, unlocked for $15000 once fully upgraded): Towers within 350 px deal +150% damage to MOAB-class enemies for 12 s.
 
 #### Perplexity - Intelligence Scanner (Support, $450)
 
@@ -574,7 +574,7 @@ Sonar that grants nearby towers camo detection and pings Camo enemies; later rev
 - **U1 Sonar Pro** ($450): Target Identification: All Camo enemies on the map can be targeted by every tower while this tower exists.
 - **U2 Sonar Reasoning Pro** ($750): Predictive Analysis: Enemies in range are MARKED (+20% damage taken); towers in range get +15% range. Towers within this radius are immune to Predictive Surveillance.
 - **U3 Sonar Deep Research** ($1250): End-of-round bonus becomes +$250.
-- **Ability: Deep Research Scrape** (cooldown 60 s, unlocked for $15000 once fully upgraded): Instantly gain cash equal to 100% of the current round's pop value so far (max $15,000).
+- **Ability: Deep Research Scrape** (cooldown 60 s, unlocked for $15000 once fully upgraded): Instantly gain cash equal to 35% of the current round's pop value so far (max $3,000).
 
 #### Qwen - Modular Drone Factory (Titans, $750)
 
@@ -590,7 +590,7 @@ Multi-threaded energy discs; later patrolling drones and a screen-wide burst tha
 - **U1 Qwen3.6 Max** ($1100): Pierce 8, 3 discs per attack.
 - **U2 Qwen3.7 Plus** ($1200): Drone Formation: 2 drones patrol other track segments anywhere on the map (interval 1.2, same disc stats).
 - **U3 Qwen3.8 Max** ($2000): Sovereign Processing: Damage 4; x3 vs enemies with max HP of 5 or more and vs Fortified MOAB-class.
-- **Ability: Cosmic Sovereign Burst** (cooldown 50 s, unlocked for $15000 once fully upgraded): Screen-wide wave deals 1,500 damage to every enemy, bosses included, and removes Fortified from all airships except Palantir (Palantir loses its current phase shield for 30 s).
+- **Ability: Cosmic Sovereign Burst** (cooldown 60 s, unlocked for $15000 once fully upgraded): Screen-wide wave deals 400 damage to every enemy, bosses included, and removes Fortified from all airships except Palantir (Palantir loses its current phase shield for 10 s).
 
 #### Llama - Primal Swarm (Titans, $700)
 
@@ -606,7 +606,7 @@ Every 2 s llamas charge along a track segment in range; later spectral packs tha
 - **U1 Llama 4 Maverick** ($1000): Pack Mentality: 3 charging creatures per cycle.
 - **U2 Muse Glimmer** ($1100): Illusion Pack: Spectral creatures gain camo detection, pierce 12.
 - **U3 Muse Wonder** ($1900): Mythical Stampede: Every 4 s, a kinetic shockwave across the full range (damage 8, KNOCKBACK 40 px, x2 vs MOAB-class).
-- **Ability: Open Titan Stampede** (cooldown 45 s, unlocked for $15000 once fully upgraded): A herd runs from exit to entrance along every route, dealing 600 damage to every enemy it touches. Bosses take 4,000 and are knocked back 250 px.
+- **Ability: Open Titan Stampede** (cooldown 60 s, unlocked for $15000 once fully upgraded): A herd runs from exit to entrance along every route, dealing 200 damage to every enemy it touches. Bosses take 1,500 and are knocked back 120 px.
 
 #### Mistral - Windblade Turbine (Titans, $650)
 
@@ -622,7 +622,7 @@ Spinning wind blades that knock fast enemies back; later gusts, a tornado and a 
 - **U1 Ministral 3 14B** ($650): Gust: Every 3 s, knocks back fast enemies 60 px and other non-boss enemies 25 px.
 - **U2 Mistral Small 4** ($1050): Cyclone: Every 8 s, a tornado sits on the track for 5 s, dealing 1 damage every 0.3 s.
 - **U3 Mistral Large 4** ($1750): Hurricane: A permanent vortex (radius 70) at the nearest track bend in range: 2 damage every 0.3 s, SLOW 30%, x2 vs MOAB-class.
-- **Ability: Stratosphere Tempest** (cooldown 40 s, player-chosen location, unlocked for $15000 once fully upgraded): For 30 s, a super-hurricane (180 px) on a player-chosen bend deals 150 damage every 0.2 s to airships and pushes MOAB-class enemies back 300 px.
+- **Ability: Stratosphere Tempest** (cooldown 50 s, player-chosen location, unlocked for $15000 once fully upgraded): For 10 s, a super-hurricane (150 px) on a player-chosen bend deals 60 damage every 0.5 s to airships and pushes MOAB-class enemies back 120 px.
 
 #### Cohere - Command Commander (Titans, $800)
 
@@ -638,7 +638,7 @@ Heavy artillery shells; later fragmentation, armour cracking, a supreme-command 
 - **U1 Command R+** ($800): Fragmentation: Impact releases 8 shrapnel (damage 1, pierce 2 each).
 - **U2 Command A** ($1300): Formation Breaker: Hits apply ARMOR CRACK and +50% damage taken for 5 s.
 - **U3 Command A+** ($2200): Supreme Command: Damage 10, splash 90, interval 1.1, x3 vs MOAB-class.
-- **Ability: Command Override** (cooldown 45 s, unlocked for $15000 once fully upgraded): The 30 nearest non-boss enemies (Bellarmine College Prep MOAB allowed; BFB, ZOMG, DDT and BAD excluded) reverse direction for 20 s and deal 400 damage/s to enemies they touch, then resume normally.
+- **Ability: Command Override** (cooldown 60 s, unlocked for $15000 once fully upgraded): The 12 nearest non-boss enemies (Bellarmine College Prep MOAB allowed; BFB, ZOMG, DDT and BAD excluded) reverse direction for 8 s and deal 100 damage/s to enemies they touch, then resume normally.
 
 #### GLM - Gravity Manipulator (Titans, $600)
 
@@ -654,7 +654,7 @@ Grid projectiles that slow; later laser-linked nodes on the track, a slowing mat
 - **U1 GLM 5.2** ($550): Gravity Well: Places 2 nodes on the track in range, linked by a laser line; enemies crossing it take 2 damage (each enemy at most every 0.3 s).
 - **U2 GLM 5.3 Flash** ($900): Matrix Web: 4 nodes forming a grid; enemies inside are SLOWED 30%.
 - **U3 GLM 5.3** ($1500): Grid Saturation: 6 nodes, line damage 5, x2 vs Fortified.
-- **Ability: Matrix Overload** (cooldown 50 s, unlocked for $15000 once fully upgraded): STUNS every non-boss enemy on the track for 12 s; bosses for 5 s.
+- **Ability: Matrix Overload** (cooldown 60 s, unlocked for $15000 once fully upgraded): STUNS every non-boss enemy on the track for 5 s; bosses for 1.5 s.
 
 #### Kimi - Dimensional Assassin (Titans, $700)
 
@@ -670,7 +670,7 @@ Crystalline shards that hit harder on the same target and remember every pop; la
 - **U1 Kimi K2.6** ($700): Memory Storage: +1 permanent damage per 100 enemies this tower has popped this game (max +5). The memory counter is shown in the info panel.
 - **U2 Kimi K3** ($1150): Context Chain: Consecutive-hit max becomes +8, and +1 pierce per stack.
 - **U3 Kimi K3.1 Pro** ($1950): Infinite Context: Memory cap becomes +12; every 10th attack fires a crystal burst (damage 15, splash 70).
-- **Ability: Infinite Context Burst** (cooldown 50 s, unlocked for $15000 once fully upgraded): Every enemy on screen, Fortified included, takes damage = memory stacks x 300 (3,600 at the 12-stack cap). Bosses take the full amount.
+- **Ability: Infinite Context Burst** (cooldown 60 s, unlocked for $15000 once fully upgraded): Every enemy on screen, Fortified included, takes damage = memory stacks x 80 (960 at the 12-stack cap). Bosses take half.
 
 #### MiniMax - Clone Generator (Titans, $650)
 
@@ -686,7 +686,7 @@ Data packets that bounce between enemies, gaining speed each bounce; later clone
 - **U1 MiniMax M2.7** ($1050): A clone copies the base attack; bounces become 6.
 - **U2 MiniMax M3** ($1050): Mass Replication: Each packet splits into 2 on its first hit.
 - **U3 MiniMax M3.1 Flash** ($1800): Infinite Multiplication: 3 clones; every 6 s, a synchronized barrage of 20 packets.
-- **Ability: Scale Factor Overclock** (cooldown 30 s, unlocked for $15000 once fully upgraded): Bounce count x8 and fire rate x6 for 25 s.
+- **Ability: Scale Factor Overclock** (cooldown 50 s, unlocked for $15000 once fully upgraded): Bounce count x3 and fire rate x2.5 for 10 s.
 
 ## 3. Enemies
 
@@ -1051,9 +1051,13 @@ The player attacks, an AI defender (`ai/DefenderAI`, shared with the balance bot
 | Hotfix | $600 | 45 s | 3:00 | Every unit on the track heals to full health. |
 | Zero-Day | $900 | 60 s | 4:00 | Jams the AI's 3 most expensive towers for 6 s. |
 
-| Difficulty Growth | AI | Funding | Start cash | Notes |
-|---|---|---|---|---|
-| O(1) | Novice | x0.9 | x1 | Builds casually: random placement, no ability micro, reacts to camo only after it gets through. 0.9x funding. |
-| O(N) | Competent | x1 | x1 | Efficient build, smart placement and ability micro, but it reacts to camo only once it sees some. |
-| O(N^2) | Expert | x1.55 | x1 | Builds detection the moment you can buy camo, saves greedily for $15,000 ability unlocks. 1.55x funding. |
-| O(N^N) | Superintelligence | x2 | x2 | Expert play without the greed (unlocks only on a wide tower base), 2x funding, double starting cash. Breaking it takes a real plan. |
+Each Difficulty Growth mode picks the AI and the match rules: the harder the mode, the more damage the AI's towers deal and
+the more integrity it has, and the less health the player's units have and the less compute the player earns (passive income,
+SCALE COMPUTE and leak bounties). O(N) is the neutral baseline.
+
+| Difficulty Growth | AI | AI tower damage | AI integrity | Your unit health | Your income | AI funding | AI start cash | Notes |
+|---|---|---|---|---|---|---|---|---|
+| O(1) | Novice | x0.9 | 80 | x1.1 | x1.1 | x0.9 | x1 | Builds casually: random placement, no ability micro, reacts to camo only after it gets through. 0.9x funding. |
+| O(N) | Competent | x1 | 100 | x1 | x1 | x1 | x1 | Efficient build, smart placement and ability micro, but it reacts to camo only once it sees some. |
+| O(N^2) | Expert | x1.1 | 125 | x0.95 | x0.95 | x1.3 | x1 | Builds detection the moment you can buy camo, saves greedily for $15,000 ability unlocks. 1.3x funding. |
+| O(N^N) | Superintelligence | x1.2 | 150 | x0.9 | x0.9 | x1.6 | x1 | Expert play without the greed (unlocks only on a wide tower base), 1.6x funding. Breaking it takes a real plan. |

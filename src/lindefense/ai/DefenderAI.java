@@ -154,7 +154,7 @@ public class DefenderAI {
     private static final TowerType[] UNLOCK_ORDER = {
         TowerType.DEEPSEEK, TowerType.QWEN, TowerType.COHERE, TowerType.GPT, TowerType.GEMINI, TowerType.CLAUDE, TowerType.SORA,
         TowerType.GLM, TowerType.GROK, TowerType.LLAMA, TowerType.KIMI, TowerType.MINIMAX, TowerType.SUNO, TowerType.MISTRAL,
-        TowerType.DALLE, TowerType.COPILOT, TowerType.PERPLEXITY,
+        TowerType.DALLE, TowerType.COPILOT, TowerType.PERPLEXITY, TowerType.ZETHOS,
     };
 
     private final Game g;
@@ -435,7 +435,7 @@ public class DefenderAI {
             if (t.isTemporary() || !t.isAbilityReady()) continue;
             switch (t.getType()) {
                 case PERPLEXITY:
-                    if (g.getRoundPopValue() * 0.2 >= 800) cast(t, null);
+                    if (g.getRoundPopValue() * t.getAbility().p("popValuePct") >= 800) cast(t, null);
                     continue;
                 case DEEPSEEK:
                     if (alive >= 6) cast(t, null);
@@ -450,10 +450,25 @@ public class DefenderAI {
                 int[] n = new int[1];
                 Vec spot = leadBoss != null && t.getType() == TowerType.MISTRAL ? leadBoss.getPosition() : densestSpot(n);
                 if (spot != null && (boss || n[0] >= 8)) cast(t, spot);
-            } else {
+            } else if (inReach(t)) {
                 cast(t, null);
             }
         }
+    }
+
+    /**
+     * Whether a self-centred ability with a reach ({@code radius}: Claude's Time-Lock, Gemini's Singularity) would catch
+     * a boss or at least 5 enemies right now; abilities without one always qualify.
+     */
+    private boolean inReach(Tower t) {
+        if (t.getType() != TowerType.CLAUDE && t.getType() != TowerType.GEMINI) return true;
+        double r = t.getAbility().p("radius");
+        int n = 0;
+        for (Enemy e : g.getEnemyManager().getEnemies()) {
+            if (e.isStored() || e.getPosition().dist(t.getPosition()) > r) continue;
+            if (e.isBoss() || ++n >= 5) return true;
+        }
+        return false;
     }
 
     private void cast(Tower t, Vec spot) {

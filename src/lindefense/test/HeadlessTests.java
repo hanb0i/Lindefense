@@ -747,12 +747,10 @@ public final class HeadlessTests {
     private static void abilityCooldowns() {
         Game g = newGame(0);
         Vec p = buildableNear(g, new Vec(400, 250), 200);
-        Tower st = forcePlace(g, TowerType.ZETHOS, p, 0);
-        check(!st.isAbilityReady(), "ability starts at 50% cooldown, not ready");
-        check(Math.abs(st.getAbilityCooldownRemaining() - 27.5) < 1e-9, "starting cooldown is 27.5 s (50% of 55)");
-        check(!g.activateAbility(st), "cannot activate while cooling down");
-        runSeconds(g, 27.6);
-        check(st.isAbilityReady(), "ready after the remaining 50%");
+        Tower st = forcePlace(g, TowerType.ZETHOS, p, TowerCatalog.ZETHOS_UPGRADES);
+        check(!st.isAbilityReady() && !g.activateAbility(st), "a maxed Zethos's ability is locked until bought");
+        g.addCash(TowerCatalog.ABILITY_UNLOCK_COST, null);
+        check(g.unlockAbility(st) && st.isAbilityReady(), "the bought ability is ready at once");
         check(g.activateAbility(st), "ability activates");
         check(!st.isAbilityReady(), "not ready after use");
         check(Math.abs(st.getAbilityCooldownRemaining() - 55) < 1e-9, "cooldown 55 s");
@@ -764,9 +762,11 @@ public final class HeadlessTests {
         check(st.isAbilityReady(), "ready again after cooldown");
         // cooldowns count in game time: 3x speed finishes three times sooner in real seconds
         Game fast = newGame(0);
-        Tower ft = forcePlace(fast, TowerType.ZETHOS, p, 0);
+        Tower ft = forcePlace(fast, TowerType.ZETHOS, p, TowerCatalog.ZETHOS_UPGRADES);
+        fast.addCash(TowerCatalog.ABILITY_UNLOCK_COST, null);
+        check(fast.unlockAbility(ft) && fast.activateAbility(ft), "fast-forward test: ability unlocked and used");
         fast.setSpeed(3);
-        for (int i = 0; i < 60 * 12; i++) fast.advance(1.0 / 60);   // 12 real seconds = 36 game seconds
+        for (int i = 0; i < 60 * 19; i++) fast.advance(1.0 / 60);   // 19 real seconds = 57 game seconds > the 55 s cooldown
         check(ft.isAbilityReady(), "ability cooldown speeds up with fast-forward");
         // every tower's ability can activate (with an enemy present where required)
         int i = 0;
@@ -955,8 +955,9 @@ public final class HeadlessTests {
         Enemy near = spawnAt(g, EnemyType.PRIMITIVE_VARIABLE, null, 1, g.getMap().getRoutes().get(1).getTotalLength() - 100);
         check(sc.enemySpeedMultiplier(near) > sc.enemySpeedMultiplier(far), "gravity speeds up enemies near core");
         g.setGlobalEnemySpeedMultiplier(0);
-        Tower t = forcePlace(g, TowerType.ZETHOS, buildableNear(g, new Vec(600, 200), 200), 0);
-        t.resetAbilityCooldown();
+        Tower t = forcePlace(g, TowerType.ZETHOS, buildableNear(g, new Vec(600, 200), 200), TowerCatalog.ZETHOS_UPGRADES);
+        g.addCash(TowerCatalog.ABILITY_UNLOCK_COST, null);
+        check(g.unlockAbility(t), "Zethos's ability unlocked for the collapse test");
         g.activateAbility(t);
         check(!t.isAbilityReady(), "cooldown started");
         sc.triggerCollapse(g);

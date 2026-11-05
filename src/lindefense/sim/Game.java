@@ -55,6 +55,7 @@ public final class Game {
     private State state = State.PLAYING;
     private double cash = START_CASH;
     private int lives = START_LIVES;
+    private int maxLives = START_LIVES;   // starting (and healing-cap) integrity: the difficulty's, or the reverse-mode profile's
     private final Difficulty difficulty;   // DIFFICULTY HOOK: chosen mode (see Difficulty)
     private final long seed;
     private double time;
@@ -86,6 +87,7 @@ public final class Game {
         this.seed = seed;
         this.cash = difficulty.startCash(START_CASH);
         this.lives = difficulty.startLives(START_LIVES);
+        this.maxLives = this.lives;
         this.map = map;
         this.rng = new Rng(seed);
         this.enemyManager = new EnemyManager(this);
@@ -252,7 +254,9 @@ public final class Game {
     public double getGlobalRateMultiplier() { return variance.fireRate(); }   // PATCH NOTES hook (1 when off)
     /** Range multiplier from run modifiers / news for every tower (1 when variance is off). */
     public double getGlobalRangeMultiplier() { return variance.range(); }
-    public double getGlobalDamageMultiplier() { return difficulty.towerDamage; }   // DIFFICULTY HOOK
+    public double getGlobalDamageMultiplier() {
+        return difficulty.towerDamage * (reverse != null ? reverse.getProfile().towerDamage : 1);   // DIFFICULTY HOOK, REVERSE HOOK
+    }
     public double getGlobalEnemySpeedMultiplier() { return globalEnemySpeedMultiplier; }
     public void setGlobalEnemySpeedMultiplier(double m) { globalEnemySpeedMultiplier = m; }
     /** Test/debug only: leaks still subtract lives but never trigger defeat. */
@@ -297,13 +301,13 @@ public final class Game {
     }
 
     /**
-     * Restores integrity (lives), never above the difficulty's starting maximum, and returns how many were actually
+     * Restores integrity (lives), never above the starting maximum ({@link #getMaxLives}), and returns how many were actually
      * restored. The game has no per-tower health, so healing heroes (Sage Aarav) top the player's lives back up:
      * this is the survival resource leaks take away.
      */
     public int restoreLives(int n) {
         if (state != State.PLAYING || n <= 0) return 0;
-        int max = difficulty.startLives(START_LIVES);
+        int max = maxLives;
         int before = lives;
         lives = Math.max(lives, Math.min(max, lives + n));   // never lowers integrity above the maximum (Synthetic Data)
         return lives - before;
@@ -314,8 +318,14 @@ public final class Game {
         if (state == State.PLAYING && n > 0) lives += n;
     }
 
-    /** The difficulty's starting (maximum) lives, the cap for {@link #restoreLives}. */
-    public int getMaxLives() { return difficulty.startLives(START_LIVES); }
+    /** The starting (maximum) lives, the cap for {@link #restoreLives}: the difficulty's, or the reverse-mode profile's integrity. */
+    public int getMaxLives() { return maxLives; }
+
+    /** Sets the starting and maximum lives before the match starts (reverse mode: the defender's integrity per difficulty). */
+    public void setStartingLives(int n) {
+        maxLives = Math.max(1, n);
+        lives = maxLives;
+    }
 
     public void loseLives(int n, Enemy leaker) {
         if (state != State.PLAYING || n <= 0) return;

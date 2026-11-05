@@ -756,7 +756,9 @@ public final class HeroStoreTests {
         Tower z = towerNearTrack(g, TowerType.ZETHOS, 4, 500);
         double range = z.effectiveRange(g), rate = z.effectiveRate(g);
         check(near(range, u(50)), "Reality Engine range 50 units");
-        z.resetAbilityCooldown();
+        check(z.isAbilityLocked() && !g.activateAbility(z), "Reality Collapse is locked until bought");
+        g.addCash(TowerCatalog.ABILITY_UNLOCK_COST, null);
+        check(g.unlockAbility(z), "Reality Collapse unlocks for $15,000 at the Reality Engine tier");
         check(g.activateAbility(z), "Reality Collapse activates");
         check(near(z.effectiveRange(g), u(65)) && near(z.effectiveRate(g), rate * 2), "range 50 -> 65 units, attack interval halved");
         tank(g, 500);

@@ -197,11 +197,16 @@ public final class DesignDocGenerator {
             w.println("| " + a.displayName + " | $" + a.cost + " | " + f(a.cooldown) + " s | " + lindefense.ai.ReverseMatch.clock(a.unlockAt) + " | " + a.description + " |");
         }
         w.println();
-        w.println("| Difficulty Growth | AI | Funding | Start cash | Notes |");
-        w.println("|---|---|---|---|---|");
+        w.println("Each Difficulty Growth mode picks the AI and the match rules: the harder the mode, the more damage the AI's towers deal and");
+        w.println("the more integrity it has, and the less health the player's units have and the less compute the player earns (passive income,");
+        w.println("SCALE COMPUTE and leak bounties). O(N) is the neutral baseline.");
+        w.println();
+        w.println("| Difficulty Growth | AI | AI tower damage | AI integrity | Your unit health | Your income | AI funding | AI start cash | Notes |");
+        w.println("|---|---|---|---|---|---|---|---|---|");
         for (Difficulty d : Difficulty.values()) {
             lindefense.ai.DefenderProfile pr = lindefense.ai.DefenderProfile.of(d);
-            w.println("| " + d.asciiLabel + " | " + pr.displayName + " | x" + f(pr.income) + " | x" + f(pr.startCash) + " | " + pr.description + " |");
+            w.println("| " + d.asciiLabel + " | " + pr.displayName + " | x" + f(pr.towerDamage) + " | " + pr.integrity + " | x" + f(pr.unitHp)
+                + " | x" + f(pr.attackerIncome) + " | x" + f(pr.income) + " | x" + f(pr.startCash) + " | " + pr.description + " |");
         }
     }
 
@@ -230,7 +235,7 @@ public final class DesignDocGenerator {
         w.println("| Buff stacking | same source tower type never stacks (highest wins); different types add. Caps: +100% attack speed, +10 pierce, +5 flat damage |");
         w.println("| Camo detection | built-in: Bellarmine Student + AI, Grok, Perplexity; gained at U2: Gemini, Llama; any tower within Perplexity's radius; every tower while a Perplexity U1+ exists |");
         w.println("| Heroes | only one copy of each hero may be placed |");
-        w.println("| Abilities | usable from placement, start at 50% cooldown, count down in game time (so they speed up with fast-forward) |");
+        w.println("| Abilities | locked until the tower has every upgrade and the $" + TowerCatalog.ABILITY_UNLOCK_COST + " unlock is bought; ready at once when bought; cooldowns count down in game time (so they speed up with fast-forward) |");
         w.println("| Knockback budget | per enemy, pushes from attacks are capped per second at 40% (bosses 25%) of the enemy's unslowed movement, so stacked pushers can never hold an enemy in place; ability blasts and scheduled events ignore the cap |");
         w.println("| Rewards | each body pays its own reward exactly once when destroyed; leaks pay nothing; no double payment on splits |");
         w.println("| Lives | leaked enemy removes its listed lives (a leaking Bucket Sort also leaks everything it stored); 0 lives = defeat |");
@@ -298,9 +303,9 @@ public final class DesignDocGenerator {
         w.println("## 2. Towers");
         w.println();
         w.println("The tower shop sells 18 towers. The 17 original towers have one base form and **exactly three** purchasable upgrades");
-        w.println("(tier 0-3). Each has an overpowered active ability that is **locked until the tower is fully upgraded and the player pays $"
+        w.println("(tier 0-3). Every shop tower has an overpowered active ability that is **locked until the tower is fully upgraded and the player pays $"
             + TowerCatalog.ABILITY_UNLOCK_COST + "** for it (U or the side-panel button); it is ready the moment it is bought. **Zethos** (Primary)");
-        w.println("has **four** upgrades and its Reality Collapse ability from placement; it is tuned to about twice the best of Gemini, Claude");
+        w.println("has **four** upgrades (its Reality Collapse unlocks after the fourth); it is tuned to about twice the best of Gemini, Claude");
         w.println("and GPT at each tier. The " + TowerType.heroes().length + " **heroes** are not in the tower shop: they are unlocked once in the **Hero Store** (permanent,");
         w.println("saved between sessions), deploy for free once per match (at most " + lindefense.tower.TowerManager.MAX_HEROES_PER_GAME + " different heroes per game) and level up");
         w.println("through three purchasable upgrades; they have no active abilities. Mr. Lindemann is the strongest hero and Spear Hanbo the");

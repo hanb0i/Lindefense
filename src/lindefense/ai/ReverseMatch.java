@@ -28,7 +28,11 @@ import lindefense.tower.TowerType;
  *   <li><b>Compute credits</b>: {@value #START_CREDITS} to start, passive income {@link #incomeRate()} that grows over
  *       the match (12/s at 0:00, ~87/s at 5:00, ~192/s at 10:00, ~327/s at 15:00), +{@value #COMPUTE_STEP}/s per SCALE
  *       COMPUTE purchase (price {@value #COMPUTE_BASE_PRICE} x {@value #COMPUTE_PRICE_GROWTH}^n, at most
- *       {@value #COMPUTE_MAX}), and {@value #LEAK_BONUS_PER_LIFE} credits per integrity point a leak takes.</li>
+ *       {@value #COMPUTE_MAX}), and {@value #LEAK_BONUS_PER_LIFE} credits per integrity point a leak takes; all income is
+ *       multiplied by the difficulty's {@link DefenderProfile#attackerIncome}.</li>
+ *   <li><b>Difficulty</b> ({@link DefenderProfile}): besides the AI's play and funding, each mode sets the defender's
+ *       tower damage and integrity and the attacker's unit health and income. Harder modes: harder-hitting towers, more
+ *       integrity, frailer units, less income.</li>
  *   <li><b>Units</b> ({@link AttackUnit}) unlock over time; modifiers add a surcharge; bought units queue in the
  *       uplink and enter the track start one every {@value #SPAWN_GAP} s, on a chosen lane or a random one. Normal
  *       enemy rules apply (splitting, boss children, Palantir phases and surveillance); Palantir's death does not end
@@ -40,8 +44,8 @@ import lindefense.tower.TowerType;
  *       (hero cap, one copy per hero, Hero Store unlocks in an in-memory collection, $15,000 ability unlocks).</li>
  * </ul>
  *
- * <p>The Game itself runs with {@link Difficulty#O1} rules (unchanged enemy and tower stats); the chosen Difficulty
- * Growth mode only selects the {@link DefenderProfile}.</p>
+ * <p>The Game itself runs with {@link Difficulty#O1} rules; the chosen Difficulty Growth mode selects the
+ * {@link DefenderProfile}, whose tower-damage, integrity, unit-health and income multipliers apply on top.</p>
  */
 public final class ReverseMatch {
     /** Length of one epoch (the defender's research towers pay out at every epoch end). */
@@ -155,6 +159,7 @@ public final class ReverseMatch {
         this.profile = profile;
         this.trackBonus = trackBonus(game.getMap());
         this.trackSpeed = trackSpeed(game.getMap());
+        game.setStartingLives(profile.integrity);
         if (profile.startCash > 1) game.addCash(Game.START_CASH * (profile.startCash - 1), null);
         DefenderAI.Options o = new DefenderAI.Options();
         o.plan = DefenderAI.Plan.REVERSE;
@@ -188,6 +193,8 @@ public final class ReverseMatch {
     public double getCreditsSpent() { return creditsSpent; }
     /** Credits earned from leaks so far. */
     public double getLeakBonus() { return leakBonus; }
+    /** HP scale of a unit of {@code type} sent now (the game's scale x the difficulty's unit-health multiplier). */
+    public double unitHpScale(lindefense.enemy.EnemyType type) { return game.getWaveHpScale(type) * profile.unitHp; }
     /** Total funding paid to the defender (not counting kill rewards). */
     public double getDefenderFunding() { return defenderFunding; }
     /** Game seconds since the match started. */
@@ -231,8 +238,11 @@ public final class ReverseMatch {
     /** True if the match ended with the defender holding. */
     public boolean defenderHeld() { return game.getState() == Game.State.VICTORY; }
 
-    /** Passive compute income per second right now: {@link #baseIncome()} x {@link #getTrackBonus()} plus SCALE COMPUTE. */
-    public double incomeRate() { return baseIncome() * trackBonus + COMPUTE_STEP * computeLevel; }
+    /**
+     * Passive compute income per second right now: {@link #baseIncome()} x {@link #getTrackBonus()} plus SCALE COMPUTE,
+     * times the difficulty's {@link DefenderProfile#attackerIncome}.
+     */
+    public double incomeRate() { return (baseIncome() * trackBonus + COMPUTE_STEP * computeLevel) * profile.attackerIncome; }
 
     /**
      * Long-track compute bonus for the attacker: towers get more time on long routes, so on maps whose mean route is
@@ -463,7 +473,7 @@ public final class ReverseMatch {
         if (elapsed >= HANDSHAKE) spawnTimer -= dt;
         while (spawnTimer <= 0 && !queue.isEmpty() && elapsed >= HANDSHAKE) {
             Pending p = queue.poll();
-            Enemy e = game.getEnemyManager().spawnScaled(p.unit.type, p.mods, p.route, 0, game.getWaveHpScale(p.unit.type), game.getWaveSpeedScale() * trackSpeed);
+            Enemy e = game.getEnemyManager().spawnScaled(p.unit.type, p.mods, p.route, 0, unitHpScale(p.unit.type), game.getWaveSpeedScale() * trackSpeed);
             if (e != null) unitsSpawned++;
             spawnTimer += SPAWN_GAP;
         }
@@ -498,12 +508,12 @@ public final class ReverseMatch {
         }
     }
 
-    /** Integrity was lost: the attacker earns {@value #LEAK_BONUS_PER_LIFE} credits per point. */
+    /** Integrity was lost: the attacker earns {@value #LEAK_BONUS_PER_LIFE} credits per point (times the difficulty's income multiplier). */
     public void onLeak(int lives, Enemy leaker) {
         if (lives <= 0) return;
         leaks++;
         livesTaken += lives;
-        double bonus = LEAK_BONUS_PER_LIFE * lives;
+        double bonus = LEAK_BONUS_PER_LIFE * lives * profile.attackerIncome;
         credits += bonus;
         creditsEarned += bonus;
         leakBonus += bonus;

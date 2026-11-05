@@ -535,10 +535,10 @@ public final class InjectionTests {
         Vec p = pal.getPosition();
         Tower gpt = place(g, TowerType.GPT, p.add(new Vec(-150, -150)), 3);
         Tower ds = place(g, TowerType.DEEPSEEK, p.add(new Vec(150, -150)), 3);
-        Tower zet = place(g, TowerType.ZETHOS, p.add(new Vec(-150, 170)), 0);
-        check(g.unlockAbility(gpt) && g.unlockAbility(ds), "abilities unlocked");
+        Tower zet = place(g, TowerType.ZETHOS, p.add(new Vec(-150, 170)), TowerCatalog.ZETHOS_UPGRADES);
+        g.addCash(3 * TowerCatalog.ABILITY_UNLOCK_COST, null);
+        check(g.unlockAbility(gpt) && g.unlockAbility(ds) && g.unlockAbility(zet), "abilities unlocked");
         Tower locked = place(g, TowerType.GEMINI, p.add(new Vec(170, 170)), 3);
-        zet.resetAbilityCooldown();
         hpTo(g, pal, 0.69);
         hpTo(g, pal, 0.41);
         check(g.getBanner() != null && g.getBanner().startsWith("KILL SWITCH"), "a warning shows before the kill switch (" + g.getBanner() + ")");
@@ -548,7 +548,7 @@ public final class InjectionTests {
         PalantirProtocols pr = pal.getProtocols();
         check(pal.getPhase() == 2 && pr.isKillSwitchUsed(), "System Takeover fires the kill switch");
         check(Math.abs(gpt.getAbilityCooldownRemaining() - gpt.getAbility().cooldown) < 1e-6, "GPT's unlocked ability restarts its full cooldown");
-        check(Math.abs(zet.getAbilityCooldownRemaining() - zet.getAbility().cooldown) < 1e-6, "Zethos's ability restarts its full cooldown");
+        check(Math.abs(zet.getAbilityCooldownRemaining() - zet.getAbility().cooldown) < 1e-6, "Zethos's unlocked ability restarts its full cooldown");
         check(ds.getAbilityCooldownRemaining() == 0, "DeepSeek (immune) keeps its ability ready");
         check(locked.isAbilityLocked() && locked.getAbilityCooldownRemaining() == 0, "a locked ability is untouched");
         check(pr.getKillSwitchResets() == 2, "two abilities reset (" + pr.getKillSwitchResets() + ")");

@@ -235,9 +235,11 @@ public final class BalanceTests {
 
     private static void cooldownsInGameTime() {
         Game g = newGame(DUEL_MAP);
-        Tower t = forcePlace(g, TowerType.ZETHOS, bestSpot(g, TowerType.ZETHOS), 0);
+        Tower t = forcePlace(g, TowerType.ZETHOS, bestSpot(g, TowerType.ZETHOS), TowerCatalog.ZETHOS_UPGRADES);
+        g.addCash(TowerCatalog.ABILITY_UNLOCK_COST, null);
+        check(g.unlockAbility(t) && g.activateAbility(t), "Zethos's bought ability fires");
         double start = t.getAbilityCooldownRemaining();
-        check(Math.abs(start - t.getAbility().cooldown * 0.5) < 1e-9, "starts at 50% cooldown");
+        check(Math.abs(start - t.getAbility().cooldown) < 1e-9, "a used ability starts its full cooldown");
         g.setSpeed(3);
         for (int i = 0; i < 6; i++) g.advance(1.0 / 6);   // one real second at 3x = three game seconds
         check(Math.abs(start - t.getAbilityCooldownRemaining() - g.getTime()) < 1e-6, "cooldown drops by elapsed game time (" + g.getTime() + " s)");

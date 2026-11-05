@@ -61,8 +61,8 @@ public final class PrimaryTowers {
                 s -> { s.seesCamo = true; s.hit.stripsCamoRegrow = true; })
             .upgrade(1200, "Prismatic Beam", "Chains to up to 8 enemies; damage 2; x3 vs MOAB-class.",
                 s -> { s.chainHops = 7; s.hit.damage = 2; s.hit.multVsBoss = 3; })
-            .ability(AbilityBuilder.of("Argon Singularity", 30, "Pulls every non-boss enemy within 400 px into a vortex and holds it there for 6 s, then deals 500 damage to each. Bosses caught in it take 5,000.")
-                .p("radius", 400).p("holdTime", 6).p("damage", 500).p("bossDamage", 5000).p("pullSpeed", 300))
+            .ability(AbilityBuilder.of("Argon Singularity", 45, "Pulls every non-boss enemy within 250 px into a vortex and holds it there for 3 s, then deals 200 damage to each. Bosses caught in it take 2,000.")
+                .p("radius", 250).p("holdTime", 3).p("damage", 200).p("bossDamage", 2000).p("pullSpeed", 300))
             .build();
     }
 
@@ -79,8 +79,8 @@ public final class PrimaryTowers {
                 s -> { s.hit.markFlat = 1; s.hit.markDuration = 4; s.hit.slowFraction = 0.15; s.hit.slowDuration = 4; })
             .upgrade(1100, null, "Pierce 20, damage 2, +3 damage vs Fortified / Lead-type / Ceramic-type, and can damage Lead.",
                 s -> { s.pierce = 20; s.hit.damage = 2; s.hit.flatVsFortified = 3; s.hit.flatVsLead = 3; s.hit.flatVsCeramic = 3; s.hit.ignoresResistance = true; })
-            .ability(AbilityBuilder.of("Opus Time-Lock", 30, "FREEZES every non-boss enemy on the map for 12 s and slows every boss by 60% for 12 s. Frozen enemies take x2 damage.")
-                .p("radius", 3000).p("freezeTime", 12).p("bossSlow", 0.6).p("bossSlowTime", 12))
+            .ability(AbilityBuilder.of("Opus Time-Lock", 50, "FREEZES every non-boss enemy within 450 px for 6 s and slows bosses there by 40% for 6 s. Frozen enemies take x2 damage.")
+                .p("radius", 450).p("freezeTime", 6).p("bossSlow", 0.4).p("bossSlowTime", 6))
             .build();
     }
 
@@ -97,8 +97,8 @@ public final class PrimaryTowers {
                 s -> { s.hit.dotDps = 1; s.hit.dotDuration = 3; })
             .upgrade(1300, "Adaptive Plasma", "Each shot checks its target: x2 vs MOAB-class, +2 vs Fortified, +2 vs Ceramic-type, SONIC-like knockback vs Lead-type.",
                 s -> { s.hit.multVsBoss = 2; s.hit.flatVsFortified = 2; s.hit.flatVsCeramic = 2; s.hit.knockbackVsLead = 20; })
-            .ability(AbilityBuilder.of("Astra Beam", 35, "12 s continuous beam on the strongest enemy: 1,500 damage/s, x2 vs MOAB-class (3,000/s), ignores Fortified.")
-                .p("duration", 12).p("dps", 1500).p("bossMult", 2).p("tick", 0.25))
+            .ability(AbilityBuilder.of("Astra Beam", 45, "8 s continuous beam on the strongest enemy: 150 damage/s, x2 vs MOAB-class (300/s), ignores Fortified.")
+                .p("duration", 8).p("dps", 150).p("bossMult", 2).p("tick", 0.25))
             .build();
     }
 }
