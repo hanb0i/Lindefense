@@ -16,6 +16,9 @@ without touching game logic.
 5. [Maps](#5-maps)
 6. [Wave table](#6-wave-table)
 7. [Difficulty Growth](#7-difficulty-growth)
+8. [Prompt injection and Palantir's protocols](#8-prompt-injection-and-palantirs-protocols)
+9. [Patch Notes and Breaking News](#9-patch-notes-and-breaking-news)
+10. [Adversarial Training (reverse mode)](#10-adversarial-training-reverse-mode)
 
 ## 1. Global rules
 
@@ -709,6 +712,7 @@ Baseline values (wave 1). HP and speed are multiplied by the wave scales in sect
 | Radix Sort | 8 | 1.5x | $14 | 6 | 18 | - | - | layers 8-7 plain; layers 6 and below are armoured phases (Lead-type: Sharp cannot hurt it) |
 | Bucket Sort | 6 | 1.4x | $10 | 5 | 19 | - | - | every 1 s stores non-boss enemies with base HP <= 5 within 30 px (max 6); releases them on death; leaks them if it leaks |
 | TimSort | 10 | 1.6x | $16 | 8 | 19 | 1 x Merge Sort + 1 x Insertion Sort | Ceramic-type | fast + splits into Merge Sort and Insertion Sort |
+| Palantir Hologram | 1000 | 0.36x | $0 | 0 | 64 | - | - | - |
 
 Splitting rules: children spawn at the parent's track distance (each 6 px behind the previous), on the parent's route, with the
 parent's HP/speed scale. Camo and Regrow are inherited; Fortified is inherited only from boss parents. Child chains are acyclic
@@ -807,138 +811,123 @@ scales applied to that wave. "Total incl. splits" counts every body that will ex
 | 27 | 5 x Quick Sort @2.5s from +0s<br>15 x Singly Linked List @0.4s from +5s | 20 | 30 | 1 | 1 | 3 | - | Quick Sort partitions. |
 | 28 | 4 x Heap Sort @3s from +0s<br>12 x Bubble Sort [Fortified] @1s from +3s | 16 | 16 | 1 | 1 | 3 | - | Heap Sort (Lead-type, shields allies) and Fortified introduced. |
 | 29 | 10 x Counting Sort @1s from +0s<br>10 x Doubly Linked List [Camo] @0.8s from +6s<br>8 x Shell Sort @1.2s from +10s | 28 | 68 | 1 | 1 | 3 | - | Counting Sort releases four Primitives. |
-| 30 | 10 x Merge Sort @1.2s from +0s<br>10 x Selection Sort @0.8s from +4s<br>6 x Quick Sort @1.5s from +8s<br>10 x Bubble Sort [Regrow] @1s from +12s | 36 | 68 | 1 | 1 | 3 | - | Splitter rush. |
+| 30 | 9 x Merge Sort @1.2s from +0s<br>10 x Selection Sort @0.8s from +4s<br>6 x Quick Sort @1.5s from +8s<br>10 x Bubble Sort [Regrow] @1s from +12s<br>1 x Merge Sort [Prompt Injection] @12s from +6s | 36 | 68 | 1 | 1 | 3 | - | Splitter rush. Prompt Injection: an enemy holding an IGNORE PREVIOUS INSTRUCTIONS sign hijacks nearby towers (Claude, Copilot, DeepSeek, Perplexity and Mr. Lindemann are immune). |
 | 31 | 5 x Radix Sort @2.5s from +0s<br>20 x Dynamic Array @0.5s from +2s | 25 | 65 | 1 | 1 | 3 | - | Radix Sort: digit armour changes every two layers. |
 | 32 | 4 x Bucket Sort @3s from +0s<br>30 x Primitive Variable @0.3s from +2s<br>15 x Static Array @0.5s from +5s | 49 | 64 | 1 | 1 | 3 | - | Bucket Sort stores weaker enemies. |
 | 33 | 15 x Insertion Sort [Camo] @0.7s from +0s<br>10 x Shell Sort [Camo] @1s from +5s | 25 | 25 | 1 | 1 | 3 | - | Camo sorters. |
-| 34 | 4 x TimSort @3s from +0s<br>8 x Merge Sort @1.2s from +4s | 12 | 44 | 1 | 1 | 3 | - | TimSort: fast hybrid splitter. |
+| 34 | 4 x TimSort @3s from +0s<br>7 x Merge Sort @1.2s from +4s<br>1 x Merge Sort [Prompt Injection] @9.6s from +8.8s | 12 | 44 | 1 | 1 | 3 | - | TimSort: fast hybrid splitter. |
 | 35 | 6 x Heap Sort @2s from +0s<br>8 x Quick Sort @1.5s from +3s<br>12 x Counting Sort @0.8s from +8s | 26 | 90 | 1 | 1 | 3 | - |  |
 | 36 | 20 x Doubly Linked List @0.5s from +0s<br>20 x Singly Linked List [Camo] @0.4s from +4s<br>10 x Shell Sort [Fortified] @1.2s from +8s | 50 | 50 | 1 | 1 | 3 | - | Speed test. |
 | 37 | 8 x Radix Sort @1.5s from +0s<br>5 x Bucket Sort @2s from +5s<br>12 x Selection Sort @0.8s from +8s | 25 | 25 | 1 | 1 | 3 | - |  |
-| 38 | 10 x Quick Sort [Fortified] @1.5s from +0s<br>10 x Merge Sort [Regrow] @1s from +4s<br>12 x Insertion Sort @0.8s from +10s | 32 | 72 | 1 | 1 | 3 | - |  |
+| 38 | 10 x Quick Sort [Fortified] @1.5s from +0s<br>10 x Merge Sort [Regrow] @1s from +4s<br>11 x Insertion Sort @0.8s from +10s<br>1 x Insertion Sort [Prompt Injection] @9.6s from +14.8s | 32 | 72 | 1 | 1 | 3 | - |  |
 | 39 | 6 x TimSort @2s from +0s<br>6 x Heap Sort [Camo] @2s from +5s<br>15 x Bubble Sort [Regrow] @0.8s from +2s<br>25 x Dynamic Array [Camo] @0.4s from +8s | 52 | 126 | 1 | 1 | 3 | - | Everything so far, at once. |
 | 40 | 1 x Bellarmine College Prep @1s from +5s<br>8 x Quick Sort @1.5s from +10s<br>10 x Shell Sort @1s from +20s | 19 | 47 | 1 | 1 | 3 | 1 x MOAB | BOSS: Bellarmine College Prep (MOAB). Heavy armour; releases 4 Quick Sorts. |
 | 41 | 15 x Merge Sort @0.8s from +0s<br>12 x Selection Sort [Camo] @0.8s from +5s<br>15 x Counting Sort @0.6s from +10s | 42 | 132 | 1 | 1 | 3 | - |  |
-| 42 | 8 x Heap Sort [Fortified] @1.5s from +0s<br>15 x Insertion Sort @0.6s from +4s | 23 | 23 | 1 | 1 | 3 | - | Fortified Heaps. |
+| 42 | 8 x Heap Sort [Fortified] @1.5s from +0s<br>14 x Insertion Sort @0.6s from +4s<br>1 x Insertion Sort [Prompt Injection] @9s from +8.5s | 23 | 23 | 1 | 1 | 3 | - | Fortified Heaps. |
 | 43 | 10 x Radix Sort @1.2s from +0s<br>10 x Quick Sort @1.2s from +6s<br>25 x Singly Linked List [Camo] @0.3s from +10s | 45 | 65 | 1 | 1 | 3 | - |  |
 | 44 | 8 x Bucket Sort @1.5s from +0s<br>40 x Primitive Variable @0.2s from +2s<br>30 x Static Array @0.3s from +4s<br>20 x Dynamic Array @0.4s from +8s | 98 | 168 | 1 | 1 | 3 | - | Bucket swarm. |
 | 45 | 2 x Bellarmine College Prep @8s from +5s<br>6 x TimSort @2s from +15s | 8 | 56 | 1 | 1 | 3 | 2 x MOAB | Two MOABs. |
-| 46 | 8 x TimSort [Camo] @1.5s from +0s<br>12 x Merge Sort [Camo] @1s from +4s | 20 | 76 | 1 | 1 | 3 | - | Camo splitters. |
+| 46 | 8 x TimSort [Camo] @1.5s from +0s<br>11 x Merge Sort [Camo] @1s from +4s<br>1 x Merge Sort [Camo+Prompt Injection] @12s from +10s | 20 | 76 | 1 | 1 | 3 | - | Camo splitters. |
 | 47 | 15 x Quick Sort [Regrow] @1s from +0s<br>15 x Shell Sort [Regrow] @0.8s from +5s<br>15 x Doubly Linked List [Regrow] @0.6s from +10s | 45 | 75 | 1 | 1 | 3 | - | Regrow rush. |
 | 48 | 10 x Heap Sort @1.2s from +0s<br>8 x Radix Sort [Fortified] @1.5s from +6s<br>20 x Bubble Sort @0.6s from +3s | 38 | 38 | 1 | 1 | 3 | - |  |
 | 49 | 20 x Selection Sort [Camo] @0.6s from +0s<br>20 x Insertion Sort [Camo] @0.6s from +3s<br>12 x Shell Sort [Camo+Fortified] @1s from +10s | 52 | 52 | 1 | 1 | 3 | - | Camo + Fortified Shells. |
-| 50 | 3 x Bellarmine College Prep @6s from +3s<br>12 x Quick Sort [Fortified] @1.2s from +10s<br>8 x TimSort @1.5s from +20s | 23 | 115 | 1 | 1 | 3 | 3 x MOAB | Three MOABs. On The Singularity Core the Event Horizon collapses 15 s in. |
+| 50 | 3 x Bellarmine College Prep @6s from +3s<br>11 x Quick Sort [Fortified] @1.2s from +10s<br>8 x TimSort @1.5s from +20s<br>1 x Quick Sort [Fortified+Prompt Injection] @14.4s from +17.2s | 23 | 115 | 1 | 1 | 3 | 3 x MOAB | Three MOABs. On The Singularity Core the Event Horizon collapses 15 s in. |
 | 51 | 10 x Bucket Sort [Regrow] @1.2s from +0s<br>20 x Counting Sort @0.5s from +3s<br>30 x Dynamic Array [Regrow] @0.4s from +6s | 60 | 200 | 1 | 1 | 3 | - |  |
-| 52 | 12 x TimSort @1.2s from +0s<br>15 x Merge Sort [Fortified] @0.8s from +5s | 27 | 105 | 1 | 1 | 3 | - |  |
+| 52 | 12 x TimSort @1.2s from +0s<br>14 x Merge Sort [Fortified] @0.8s from +5s<br>1 x Merge Sort [Fortified+Prompt Injection] @12s from +11s | 27 | 105 | 1 | 1 | 3 | - |  |
 | 53 | 2 x Bellarmine College Prep [Fortified] @8s from +4s<br>10 x Heap Sort [Camo] @1.2s from +10s<br>10 x Radix Sort @1s from +14s | 22 | 46 | 1 | 1 | 3 | 2 x MOAB | Fortified MOABs. |
-| 54 | 40 x Singly Linked List [Camo] @0.25s from +0s<br>25 x Doubly Linked List [Camo] @0.4s from +5s<br>15 x Shell Sort [Camo] @0.8s from +10s | 80 | 80 | 1 | 1 | 3 | - | Camo speed rush. |
+| 54 | 39 x Singly Linked List [Camo] @0.25s from +0s<br>25 x Doubly Linked List [Camo] @0.4s from +5s<br>15 x Shell Sort [Camo] @0.8s from +10s<br>1 x Singly Linked List [Camo+Prompt Injection] @10s from +5s | 80 | 80 | 1 | 1 | 3 | - | Camo speed rush. |
 | 55 | 20 x Quick Sort @0.8s from +0s<br>8 x Bucket Sort [Fortified] @1.5s from +6s<br>15 x Selection Sort [Regrow] @0.7s from +12s | 43 | 83 | 1 | 1 | 3 | - |  |
-| 56 | 3 x Bellarmine College Prep [Camo] @6s from +3s<br>20 x Insertion Sort [Camo] @0.5s from +10s<br>8 x TimSort [Camo] @1.2s from +16s | 31 | 99 | 1 | 1 | 3 | 3 x MOAB | Camo MOABs: detection is mandatory. |
+| 56 | 3 x Bellarmine College Prep [Camo] @6s from +3s<br>19 x Insertion Sort [Camo] @0.5s from +10s<br>8 x TimSort [Camo] @1.2s from +16s<br>1 x Insertion Sort [Camo+Prompt Injection] @10s from +15s | 31 | 99 | 1 | 1 | 3 | 3 x MOAB | Camo MOABs: detection is mandatory. |
 | 57 | 15 x Radix Sort @0.8s from +0s<br>12 x Heap Sort [Fortified] @1s from +5s<br>25 x Counting Sort @0.4s from +10s | 52 | 152 | 1 | 1 | 3 | - |  |
-| 58 | 15 x TimSort [Regrow] @1s from +0s<br>20 x Merge Sort [Regrow] @0.6s from +4s<br>15 x Quick Sort [Regrow] @0.8s from +10s | 50 | 180 | 1 | 1 | 3 | - | Regrow splitters. |
+| 58 | 15 x TimSort [Regrow] @1s from +0s<br>19 x Merge Sort [Regrow] @0.6s from +4s<br>15 x Quick Sort [Regrow] @0.8s from +10s<br>1 x Merge Sort [Regrow+Prompt Injection] @12s from +10s | 50 | 180 | 1 | 1 | 3 | - | Regrow splitters. |
 | 59 | 4 x Bellarmine College Prep [Fortified] @5s from +2s<br>10 x Bucket Sort @1.2s from +10s<br>20 x Shell Sort [Fortified] @0.6s from +15s<br>20 x Doubly Linked List @0.4s from +20s | 54 | 102 | 1 | 1 | 3 | 4 x MOAB | Four Fortified MOABs. |
 | 60 | 1 x SW Resource Consultant @1s from +5s<br>10 x Quick Sort @1s from +15s<br>8 x Heap Sort @1.5s from +25s | 19 | 78 | 1 | 1 | 3 | 1 x BFB | BOSS: SW Resource Consultant (BFB). Weak hits halved; releases 3 MOABs. |
 | 61 | 15 x TimSort @0.9s from +0s<br>12 x Radix Sort [Fortified] @1s from +6s | 27 | 87 | 1.01 | 1 | 4 | - |  |
-| 62 | 4 x Bellarmine College Prep @4s from +3s<br>25 x Merge Sort @0.5s from +10s<br>25 x Insertion Sort [Camo] @0.4s from +14s | 54 | 152 | 1.01 | 1 | 4 | 4 x MOAB |  |
+| 62 | 4 x Bellarmine College Prep @4s from +3s<br>24 x Merge Sort @0.5s from +10s<br>25 x Insertion Sort [Camo] @0.4s from +14s<br>1 x Merge Sort [Prompt Injection] @12.5s from +16.25s | 54 | 152 | 1.01 | 1 | 4 | 4 x MOAB |  |
 | 63 | 12 x Bucket Sort [Regrow] @1s from +0s<br>25 x Selection Sort [Regrow] @0.5s from +3s<br>30 x Counting Sort @0.3s from +8s | 67 | 187 | 1.02 | 1 | 4 | - |  |
-| 64 | 15 x Heap Sort [Camo] @0.8s from +0s<br>20 x Quick Sort [Camo] @0.7s from +5s<br>40 x Singly Linked List [Camo] @0.2s from +12s | 75 | 115 | 1.02 | 1 | 4 | - | Camo heavy. |
+| 64 | 15 x Heap Sort [Camo] @0.8s from +0s<br>20 x Quick Sort [Camo] @0.7s from +5s<br>39 x Singly Linked List [Camo] @0.2s from +12s<br>1 x Singly Linked List [Camo+Prompt Injection] @8s from +16s | 75 | 115 | 1.02 | 1 | 4 | - | Camo heavy. |
 | 65 | 4 x Bellarmine College Prep [Fortified] @4s from +2s<br>12 x TimSort [Fortified] @1s from +12s<br>25 x Shell Sort @0.5s from +20s | 41 | 137 | 1.03 | 1 | 4 | 4 x MOAB |  |
-| 66 | 20 x Radix Sort @0.6s from +0s<br>12 x Bucket Sort [Fortified] @1s from +8s | 32 | 32 | 1.03 | 1 | 4 | - |  |
+| 66 | 19 x Radix Sort @0.6s from +0s<br>12 x Bucket Sort [Fortified] @1s from +8s<br>1 x Radix Sort [Prompt Injection] @12s from +6s | 32 | 32 | 1.03 | 1 | 4 | - |  |
 | 67 | 40 x Doubly Linked List [Camo+Regrow] @0.3s from +0s<br>20 x Shell Sort [Camo+Regrow] @0.6s from +6s<br>20 x Insertion Sort [Camo+Regrow] @0.6s from +12s | 80 | 80 | 1.04 | 1 | 4 | - | Camo Regrow speedsters. |
-| 68 | 1 x SW Resource Consultant [Fortified] @1s from +4s<br>2 x Bellarmine College Prep @6s from +20s<br>20 x Quick Sort @0.7s from +10s | 23 | 126 | 1.04 | 1 | 4 | 1 x BFB, 2 x MOAB | Fortified BFB. |
+| 68 | 1 x SW Resource Consultant [Fortified] @1s from +4s<br>2 x Bellarmine College Prep @6s from +20s<br>19 x Quick Sort @0.7s from +10s<br>1 x Quick Sort [Prompt Injection] @14s from +17s | 23 | 126 | 1.04 | 1 | 4 | 1 x BFB, 2 x MOAB | Fortified BFB. |
 | 69 | 20 x TimSort [Camo] @0.8s from +0s<br>30 x Merge Sort [Fortified] @0.5s from +5s<br>12 x Heap Sort @1s from +12s | 62 | 202 | 1.05 | 1 | 4 | - |  |
-| 70 | 4 x Bellarmine College Prep @3.5s from +2s<br>12 x Bucket Sort [Camo] @1s from +10s<br>30 x Counting Sort [Regrow] @0.3s from +14s<br>12 x Radix Sort [Camo] @0.8s from +20s | 58 | 226 | 1.05 | 1 | 4 | 4 x MOAB | Four MOABs. |
-| 71 | 30 x Quick Sort [Regrow] @0.5s from +0s<br>30 x Selection Sort [Camo] @0.4s from +4s | 60 | 120 | 1.06 | 1 | 4 | - |  |
-| 72 | 1 x SW Resource Consultant @12s from +3s<br>25 x TimSort @0.8s from +15s | 26 | 165 | 1.06 | 1 | 4 | 1 x BFB | BFB with a TimSort escort. |
-| 73 | 20 x Heap Sort [Fortified] @0.7s from +0s<br>20 x Radix Sort [Fortified] @0.7s from +5s<br>25 x Shell Sort [Camo] @0.5s from +10s | 65 | 65 | 1.07 | 1 | 4 | - | Fortified armour wall. |
-| 74 | 60 x Singly Linked List [Camo] @0.15s from +0s<br>40 x Doubly Linked List [Camo+Regrow] @0.3s from +6s<br>30 x Insertion Sort [Camo] @0.4s from +12s | 130 | 130 | 1.07 | 1 | 4 | - | Camo blitz. |
-| 75 | 4 x Bellarmine College Prep [Fortified] @3.5s from +2s<br>1 x SW Resource Consultant @1s from +25s<br>20 x TimSort [Fortified] @0.8s from +12s | 25 | 192 | 1.08 | 1 | 4 | 4 x MOAB, 1 x BFB |  |
-| 76 | 15 x Bucket Sort [Regrow] @0.8s from +0s<br>30 x Merge Sort [Camo+Regrow] @0.4s from +4s<br>25 x Quick Sort [Camo] @0.6s from +10s | 70 | 180 | 1.08 | 1 | 4 | - |  |
-| 77 | 25 x Radix Sort @0.5s from +0s<br>20 x Heap Sort [Camo] @0.7s from +6s<br>40 x Counting Sort @0.25s from +12s | 85 | 245 | 1.09 | 1 | 4 | - |  |
-| 78 | 1 x SW Resource Consultant [Fortified] @10s from +3s<br>4 x Bellarmine College Prep [Camo] @4s from +20s<br>30 x Shell Sort [Fortified] @0.5s from +10s | 35 | 122 | 1.09 | 1 | 4 | 1 x BFB, 4 x MOAB | Fortified BFB with camo MOAB escort. |
-| 79 | 30 x TimSort @0.5s from +0s<br>30 x Quick Sort [Fortified] @0.5s from +5s<br>30 x Selection Sort [Regrow] @0.4s from +10s<br>30 x Bubble Sort [Regrow] @0.4s from +15s | 120 | 300 | 1.1 | 1 | 4 | - | Sorter flood. |
+| 70 | 4 x Bellarmine College Prep @3.5s from +2s<br>12 x Bucket Sort [Camo] @1s from +10s<br>28 x Counting Sort [Regrow] @0.3s from +14s<br>12 x Radix Sort [Camo] @0.8s from +20s<br>2 x Counting Sort [Regrow+Prompt Injection] @4.5s from +16.25s | 58 | 226 | 1.05 | 1 | 4 | 4 x MOAB | Four MOABs. |
+| 71 | 28 x Quick Sort [Regrow] @0.5s from +0s<br>30 x Selection Sort [Camo] @0.4s from +4s<br>2 x Quick Sort [Regrow+Prompt Injection] @7.5s from +3.75s | 60 | 120 | 1.06 | 1 | 4 | - |  |
+| 72 | 1 x SW Resource Consultant @12s from +3s<br>23 x TimSort @0.8s from +15s<br>2 x TimSort [Prompt Injection] @10s from +20s | 26 | 165 | 1.06 | 1 | 4 | 1 x BFB | BFB with a TimSort escort. |
+| 73 | 20 x Heap Sort [Fortified] @0.7s from +0s<br>20 x Radix Sort [Fortified] @0.7s from +5s<br>23 x Shell Sort [Camo] @0.5s from +10s<br>2 x Shell Sort [Camo+Prompt Injection] @6.25s from +13.13s | 65 | 65 | 1.07 | 1 | 4 | - | Fortified armour wall. |
+| 74 | 58 x Singly Linked List [Camo] @0.15s from +0s<br>40 x Doubly Linked List [Camo+Regrow] @0.3s from +6s<br>30 x Insertion Sort [Camo] @0.4s from +12s<br>2 x Singly Linked List [Camo+Prompt Injection] @4.5s from +2.25s | 130 | 130 | 1.07 | 1 | 4 | - | Camo blitz. |
+| 75 | 4 x Bellarmine College Prep [Fortified] @3.5s from +2s<br>1 x SW Resource Consultant @1s from +25s<br>18 x TimSort [Fortified] @0.8s from +12s<br>2 x TimSort [Fortified+Prompt Injection] @8s from +16s | 25 | 192 | 1.08 | 1 | 4 | 4 x MOAB, 1 x BFB |  |
+| 76 | 15 x Bucket Sort [Regrow] @0.8s from +0s<br>28 x Merge Sort [Camo+Regrow] @0.4s from +4s<br>25 x Quick Sort [Camo] @0.6s from +10s<br>2 x Merge Sort [Camo+Regrow+Prompt Injection] @6s from +7s | 70 | 180 | 1.08 | 1 | 4 | - |  |
+| 77 | 25 x Radix Sort @0.5s from +0s<br>20 x Heap Sort [Camo] @0.7s from +6s<br>38 x Counting Sort @0.25s from +12s<br>2 x Counting Sort [Prompt Injection] @5s from +14.5s | 85 | 245 | 1.09 | 1 | 4 | - |  |
+| 78 | 1 x SW Resource Consultant [Fortified] @10s from +3s<br>4 x Bellarmine College Prep [Camo] @4s from +20s<br>28 x Shell Sort [Fortified] @0.5s from +10s<br>2 x Shell Sort [Fortified+Prompt Injection] @7.5s from +13.75s | 35 | 122 | 1.09 | 1 | 4 | 1 x BFB, 4 x MOAB | Fortified BFB with camo MOAB escort. |
+| 79 | 28 x TimSort @0.5s from +0s<br>30 x Quick Sort [Fortified] @0.5s from +5s<br>30 x Selection Sort [Regrow] @0.4s from +10s<br>30 x Bubble Sort [Regrow] @0.4s from +15s<br>2 x TimSort [Prompt Injection] @7.5s from +3.75s | 120 | 300 | 1.1 | 1 | 4 | - | Sorter flood. |
 | 80 | 1 x 3Com @1s from +5s<br>15 x TimSort @1s from +30s | 16 | 196 | 1.1 | 1 | 4 | 1 x ZOMG | BOSS: 3Com (ZOMG). Releases 3 BFBs, each releasing 3 MOABs. |
-| 81 | 5 x Bellarmine College Prep [Fortified] @3s from +2s<br>30 x Quick Sort [Fortified] @0.5s from +10s | 35 | 155 | 1.11 | 1.02 | 1.6 | 5 x MOAB |  |
-| 82 | 1 x SW Resource Consultant [Fortified] @8s from +3s<br>25 x TimSort @0.6s from +15s | 26 | 165 | 1.12 | 1.03 | 1.6 | 1 x BFB |  |
-| 83 | 40 x TimSort [Fortified] @0.4s from +0s<br>25 x Heap Sort [Fortified] @0.6s from +6s | 65 | 225 | 1.13 | 1.05 | 1.6 | - | Fortified TimSort flood. |
-| 84 | 5 x Bellarmine College Prep [Fortified] @2.5s from +2s<br>1 x SW Resource Consultant @10s from +15s<br>25 x Radix Sort [Fortified] @0.6s from +20s | 31 | 130 | 1.14 | 1.06 | 1.6 | 5 x MOAB, 1 x BFB |  |
-| 85 | 50 x Quick Sort [Fortified] @0.3s from +0s<br>40 x Merge Sort [Fortified] @0.4s from +5s<br>15 x Bucket Sort [Fortified] @0.8s from +12s | 105 | 285 | 1.15 | 1.08 | 1.6 | - | Fortified Quick Sort swarm. |
-| 86 | 1 x SW Resource Consultant [Fortified] @7s from +2s<br>30 x TimSort [Fortified] @0.5s from +10s | 31 | 190 | 1.16 | 1.09 | 1.6 | 1 x BFB |  |
-| 87 | 5 x Bellarmine College Prep [Fortified] @2s from +2s<br>30 x Shell Sort [Camo+Fortified] @0.4s from +8s<br>30 x Insertion Sort [Camo+Fortified] @0.4s from +12s | 65 | 125 | 1.17 | 1.11 | 1.6 | 5 x MOAB |  |
-| 88 | 1 x SW Resource Consultant [Fortified] @1s from +5s<br>3 x Bellarmine College Prep [Fortified] @4s from +20s<br>30 x Quick Sort [Fortified] @0.4s from +15s | 34 | 169 | 1.18 | 1.12 | 1.6 | 1 x BFB, 3 x MOAB | Fortified BFB with a MOAB escort. |
-| 89 | 1 x SW Resource Consultant [Fortified] @6s from +2s<br>40 x TimSort [Fortified] @0.4s from +10s<br>30 x Heap Sort [Camo+Fortified] @0.5s from +14s | 71 | 270 | 1.19 | 1.14 | 1.6 | 1 x BFB |  |
+| 81 | 5 x Bellarmine College Prep [Fortified] @3s from +2s<br>28 x Quick Sort [Fortified] @0.5s from +10s<br>2 x Quick Sort [Fortified+Prompt Injection] @7.5s from +13.75s | 35 | 155 | 1.11 | 1.02 | 1.6 | 5 x MOAB |  |
+| 82 | 1 x SW Resource Consultant [Fortified] @8s from +3s<br>23 x TimSort @0.6s from +15s<br>2 x TimSort [Prompt Injection] @7.5s from +18.75s | 26 | 165 | 1.12 | 1.03 | 1.6 | 1 x BFB |  |
+| 83 | 38 x TimSort [Fortified] @0.4s from +0s<br>25 x Heap Sort [Fortified] @0.6s from +6s<br>2 x TimSort [Fortified+Prompt Injection] @8s from +4s | 65 | 225 | 1.13 | 1.05 | 1.6 | - | Fortified TimSort flood. |
+| 84 | 5 x Bellarmine College Prep [Fortified] @2.5s from +2s<br>1 x SW Resource Consultant @10s from +15s<br>23 x Radix Sort [Fortified] @0.6s from +20s<br>2 x Radix Sort [Fortified+Prompt Injection] @7.5s from +23.75s | 31 | 130 | 1.14 | 1.06 | 1.6 | 5 x MOAB, 1 x BFB |  |
+| 85 | 47 x Quick Sort [Fortified] @0.3s from +0s<br>40 x Merge Sort [Fortified] @0.4s from +5s<br>15 x Bucket Sort [Fortified] @0.8s from +12s<br>3 x Quick Sort [Fortified+Prompt Injection] @5s from +2.5s | 105 | 285 | 1.15 | 1.08 | 1.6 | - | Fortified Quick Sort swarm. |
+| 86 | 1 x SW Resource Consultant [Fortified] @7s from +2s<br>27 x TimSort [Fortified] @0.5s from +10s<br>3 x TimSort [Fortified+Prompt Injection] @5s from +12.5s | 31 | 190 | 1.16 | 1.09 | 1.6 | 1 x BFB |  |
+| 87 | 5 x Bellarmine College Prep [Fortified] @2s from +2s<br>27 x Shell Sort [Camo+Fortified] @0.4s from +8s<br>30 x Insertion Sort [Camo+Fortified] @0.4s from +12s<br>3 x Shell Sort [Camo+Fortified+Prompt Injection] @4s from +10s | 65 | 125 | 1.17 | 1.11 | 1.6 | 5 x MOAB |  |
+| 88 | 1 x SW Resource Consultant [Fortified] @1s from +5s<br>3 x Bellarmine College Prep [Fortified] @4s from +20s<br>27 x Quick Sort [Fortified] @0.4s from +15s<br>3 x Quick Sort [Fortified+Prompt Injection] @4s from +17s | 34 | 169 | 1.18 | 1.12 | 1.6 | 1 x BFB, 3 x MOAB | Fortified BFB with a MOAB escort. |
+| 89 | 1 x SW Resource Consultant [Fortified] @6s from +2s<br>37 x TimSort [Fortified] @0.4s from +10s<br>30 x Heap Sort [Camo+Fortified] @0.5s from +14s<br>3 x TimSort [Fortified+Prompt Injection] @5.33s from +12.67s | 71 | 270 | 1.19 | 1.14 | 1.6 | 1 x BFB |  |
 | 90 | 2 x Lockheed Martin @8s from +5s<br>4 x Bellarmine College Prep @4s from +15s<br>40 x Singly Linked List [Camo] @0.2s from +10s | 46 | 118 | 1.2 | 1.15 | 1.6 | 2 x DDT, 4 x MOAB | BOSS: Lockheed Martin (DDT). Camo, fast, Lead-type. Detection is required. |
-| 91 | 1 x Lockheed Martin @5s from +3s<br>1 x SW Resource Consultant [Fortified] @8s from +15s<br>30 x TimSort [Camo+Fortified] @0.5s from +10s | 32 | 203 | 1.21 | 1.17 | 1.6 | 1 x DDT, 1 x BFB | DDT pack with Fortified BFBs. |
-| 92 | 1 x SW Resource Consultant @1s from +3s<br>3 x Bellarmine College Prep [Fortified] @2.5s from +25s<br>30 x Radix Sort [Camo+Fortified] @0.5s from +10s | 34 | 109 | 1.22 | 1.18 | 1.6 | 1 x BFB, 3 x MOAB | BFB with a Fortified MOAB wall. |
-| 93 | 1 x Lockheed Martin [Fortified] @4s from +2s<br>50 x Quick Sort [Camo+Fortified] @0.3s from +10s<br>40 x Shell Sort [Camo+Fortified] @0.4s from +15s | 91 | 203 | 1.23 | 1.2 | 1.6 | 1 x DDT | Fortified DDTs and camo-fortified sorters. |
-| 94 | 1 x SW Resource Consultant @6s from +2s<br>50 x TimSort [Fortified] @0.35s from +10s<br>20 x Bucket Sort [Fortified] @0.6s from +20s | 71 | 310 | 1.24 | 1.21 | 1.6 | 1 x BFB |  |
+| 91 | 1 x Lockheed Martin @5s from +3s<br>1 x SW Resource Consultant [Fortified] @8s from +15s<br>27 x TimSort [Camo+Fortified] @0.5s from +10s<br>3 x TimSort [Camo+Fortified+Prompt Injection] @5s from +12.5s | 32 | 203 | 1.21 | 1.17 | 1.6 | 1 x DDT, 1 x BFB | DDT pack with Fortified BFBs. |
+| 92 | 1 x SW Resource Consultant @1s from +3s<br>3 x Bellarmine College Prep [Fortified] @2.5s from +25s<br>27 x Radix Sort [Camo+Fortified] @0.5s from +10s<br>3 x Radix Sort [Camo+Fortified+Prompt Injection] @5s from +12.5s | 34 | 109 | 1.22 | 1.18 | 1.6 | 1 x BFB, 3 x MOAB | BFB with a Fortified MOAB wall. |
+| 93 | 1 x Lockheed Martin [Fortified] @4s from +2s<br>47 x Quick Sort [Camo+Fortified] @0.3s from +10s<br>40 x Shell Sort [Camo+Fortified] @0.4s from +15s<br>3 x Quick Sort [Camo+Fortified+Prompt Injection] @5s from +12.5s | 91 | 203 | 1.23 | 1.2 | 1.6 | 1 x DDT | Fortified DDTs and camo-fortified sorters. |
+| 94 | 1 x SW Resource Consultant @6s from +2s<br>47 x TimSort [Fortified] @0.35s from +10s<br>20 x Bucket Sort [Fortified] @0.6s from +20s<br>3 x TimSort [Fortified+Prompt Injection] @5.83s from +12.92s | 71 | 310 | 1.24 | 1.21 | 1.6 | 1 x BFB |  |
 | 95 | 1 x SW Resource Consultant [Fortified] @1s from +3s<br>1 x Lockheed Martin @5s from +25s<br>3 x Bellarmine College Prep [Fortified] @2s from +15s | 5 | 92 | 1.25 | 1.23 | 1.6 | 1 x BFB, 1 x DDT, 3 x MOAB | Fortified BFB with DDT escort. |
-| 96 | 2 x Lockheed Martin [Regrow] @3s from +2s<br>60 x Doubly Linked List [Camo+Regrow] @0.2s from +10s<br>50 x Insertion Sort [Camo+Regrow] @0.3s from +14s | 112 | 136 | 1.26 | 1.24 | 1.6 | 2 x DDT | Regrow DDTs and a camo-regrow blitz. |
-| 97 | 1 x SW Resource Consultant @12s from +2s<br>2 x Bellarmine College Prep [Fortified] @3s from +20s<br>40 x TimSort [Camo+Fortified] @0.4s from +12s | 43 | 266 | 1.27 | 1.26 | 1.6 | 1 x BFB, 2 x MOAB | BFB with a Fortified MOAB escort. |
-| 98 | 1 x Lockheed Martin [Fortified] @3s from +2s<br>3 x Bellarmine College Prep [Fortified] @2s from +10s<br>40 x Heap Sort [Camo+Fortified] @0.4s from +15s<br>30 x Radix Sort [Camo+Fortified] @0.4s from +20s | 74 | 122 | 1.28 | 1.27 | 1.6 | 1 x DDT, 3 x MOAB | DDT and MOAB flood under heavy armour. |
-| 99 | 1 x SW Resource Consultant [Fortified] @12s from +2s<br>3 x Bellarmine College Prep [Fortified] @6s from +25s<br>1 x Lockheed Martin @4s from +40s<br>50 x TimSort [Fortified] @0.3s from +10s | 55 | 342 | 1.29 | 1.29 | 1.6 | 1 x BFB, 3 x MOAB, 1 x DDT | Final rehearsal: BFB, MOAB and DDT classes together before the BAD. |
+| 96 | 2 x Lockheed Martin [Regrow] @3s from +2s<br>57 x Doubly Linked List [Camo+Regrow] @0.2s from +10s<br>50 x Insertion Sort [Camo+Regrow] @0.3s from +14s<br>3 x Doubly Linked List [Camo+Regrow+Prompt Injection] @4s from +12s | 112 | 136 | 1.26 | 1.24 | 1.6 | 2 x DDT | Regrow DDTs and a camo-regrow blitz. |
+| 97 | 1 x SW Resource Consultant @12s from +2s<br>2 x Bellarmine College Prep [Fortified] @3s from +20s<br>37 x TimSort [Camo+Fortified] @0.4s from +12s<br>3 x TimSort [Camo+Fortified+Prompt Injection] @5.33s from +14.67s | 43 | 266 | 1.27 | 1.26 | 1.6 | 1 x BFB, 2 x MOAB | BFB with a Fortified MOAB escort. |
+| 98 | 1 x Lockheed Martin [Fortified] @3s from +2s<br>3 x Bellarmine College Prep [Fortified] @2s from +10s<br>37 x Heap Sort [Camo+Fortified] @0.4s from +15s<br>30 x Radix Sort [Camo+Fortified] @0.4s from +20s<br>3 x Heap Sort [Camo+Fortified+Prompt Injection] @5.33s from +17.67s | 74 | 122 | 1.28 | 1.27 | 1.6 | 1 x DDT, 3 x MOAB | DDT and MOAB flood under heavy armour. |
+| 99 | 1 x SW Resource Consultant [Fortified] @12s from +2s<br>3 x Bellarmine College Prep [Fortified] @6s from +25s<br>1 x Lockheed Martin @4s from +40s<br>47 x TimSort [Fortified] @0.3s from +10s<br>3 x TimSort [Fortified+Prompt Injection] @5s from +12.5s | 55 | 342 | 1.29 | 1.29 | 1.6 | 1 x BFB, 3 x MOAB, 1 x DDT | Final rehearsal: BFB, MOAB and DDT classes together before the BAD. |
 | 100 | 1 x Palantir @1s from +8s<br>4 x Lockheed Martin @6s from +30s<br>8 x Bellarmine College Prep [Fortified] @4s from +45s | 13 | 157 | 1.3 | 1.3 | 1.6 | 1 x BAD, 4 x DDT, 8 x MOAB | FINAL BOSS: Palantir (BAD). Three phases, Predictive Surveillance. Victory when its body is destroyed. |
 
-Modifier set used in the campaign: Camo (first wave 24), Regrow (first wave 14), Fortified (first wave 28)
+Modifier set used in the campaign: Camo (first wave 24), Regrow (first wave 14), Fortified (first wave 28), Prompt Injection (first wave 30)
 
 ## 7. Difficulty Growth
 
 Four selectable modes (`lindefense.sim.Difficulty`; pick on the map-select screen or `-Dlindefense.difficulty=O1|ON|ON2|ONN`).
 All knobs are relative multipliers on top of the base game. Ramped knobs use `base + (final - base) * growth(wave)` where
-growth is 0 (O(1)), `w/100` (O(N)), `(w/100)^2` (O(N^2)) or `(e^(6w/100) - 1)/(e^6 - 1)` (O(N^N)).
+growth is 0 (O(1)), `w/100` (O(N)) or `(w/100)^2` (O(N^2) and O(N^N)).
 
 | Knob | O(1) | O(N) | O(N^2) | O(N^N) |
 |---|---|---|---|---|
 | Subtitle | Constant (current) | Linear (Normal) | Quadratic (Hard) | Super-exponential (Impossible) |
-| Growth curve | flat | linear | quadratic | superexp |
-| Enemy HP x (wave 1 -> 100) | 1 -> 1 | 1.1 -> 1.5 | 1.25 -> 3.1 | 1.3 -> 3.3 |
-| Enemy count x (wave 1 -> 100) | 1 -> 1 | 1.1 -> 1.4 | 1.25 -> 2.4 | 1.3 -> 2.5 |
-| Tower damage x (flat) | 1 | 0.92 | 0.84 | 0.75 |
-| Income x (kill rewards + wave bonus, flat) | 1 | 0.8 | 0.56 | 0.5 |
-| Elite chance per spawn (wave 1 -> 100) | - | - | 3% -> 80% | 5% -> 80% |
-| Elite extra modifiers | - | - | 2 of Camo/Regrow/Fortified | 2 of Camo/Regrow/Fortified |
-| Elite promotion to tougher type | - | - | 50% of elites | 50% of elites |
-| Starting cash x / lives x | 1 / 1 | 1 / 1 | 1 / 1 | 2 / 1 |
-| Extra bosses | - | - | - | 10 groups (below) |
+| Growth curve | flat | linear | quadratic | quadratic |
+| Enemy HP x (wave 1 -> 100) | 1 -> 1 | 1.1 -> 1.5 | 1.1 -> 1.85 | 1.25 -> 3.1 |
+| Enemy count x (wave 1 -> 100) | 1 -> 1 | 1.1 -> 1.4 | 1.1 -> 1.6 | 1.25 -> 2.4 |
+| Tower damage x (flat) | 1 | 0.92 | 0.9 | 0.84 |
+| Income x (kill rewards + wave bonus, flat) | 1 | 0.8 | 0.72 | 0.56 |
+| Elite chance per spawn (wave 1 -> 100) | - | - | 2% -> 22% | 3% -> 80% |
+| Elite extra modifiers | - | - | 1 of Camo/Regrow/Fortified | 2 of Camo/Regrow/Fortified |
+| Elite promotion to tougher type | - | - | 20% of elites | 50% of elites |
+| Palantir HP extra | x1 | x1.03 | x1 | x1.06 |
+| Starting cash x / lives x | 1 / 1 | 1 / 1 | 1 / 1 | 1 / 1 |
 
 Elites: each non-boss spawn is an elite with the chance above (deterministic from game seed + wave + group). Elites are split into their own
 spawn group with extra random modifiers and, for some, a promotion to a tougher type (e.g. Quick Sort -> Heap Sort). Enemy counts are
 rounded stochastically (deterministic per seed, minimum 1) and spawn intervals shrink by `1 + 0.5 (countMult - 1)`. Bosses already in the wave are never multiplied.
-Palantir does not receive the ramped HP multiplier: its HP is multiplied by `towerDamage x (1 + 0.03 x tier)` so the final fight takes about as long as in O(1) (a DPS check, not a wall).
+Palantir does not receive the ramped HP multiplier: its HP is multiplied by `towerDamage x palantirExtra` (row above) so the final fight takes about as long as in O(1) (a DPS check, not a wall).
 Kill rewards and the wave bonus are both scaled by the income multiplier (research-tower income is not). Any mode can be tried with `-Dlindefense.difficulty=O1|ON|ON2|ONN`.
 
-**Balance-bot calibration** (AutoPlayer after the economy rebalance; maps in catalog order: Silicon Circuit, Legacy Monolith, Hallucination Canyon, Singularity Core;
-V = victory with lives left, D = defeat on that wave; seeds 1234 / 1235 / 1236).
-The bot is `tools.AutoPlayer`: a wave-gated build plan (cheap early defence, Perplexity income, camo detection before the first camo wave, DeepSeek / Brad / Qwen as the
-boss-damage core), one copy per hero, focus-fire targeting on boss waves, every ability fired when it matters (DALL-E Outpainting and Mistral Stratosphere Tempest at the
-densest track spot). Re-run it with `-Dbot.difficulty=...` after any stat change (`-Dbot.seeds=N` runs N consecutive seeds, `-Dbot.maxTowers=20` and `-Dbot.random=true` are the handicaps).
+**Balance-bot calibration (beta 2.02)**: `tools.AutoPlayer` (wave-gated build plan, Perplexity income, camo detection before camo waves,
+boss-damage core, focus fire on boss waves, abilities when they matter) on the four original maps (Silicon Circuit, Legacy Monolith,
+Hallucination Canyon, Singularity Core) x seeds 1234-1236, with prompt injection and Palantir's phase abilities active and Patch Notes off.
+Re-run with `-Dbot.difficulty=O1|ON|ON2|ONN -Dbot.seed=1234 -Dbot.seeds=3` after any stat change (`-Dbot.variance=random` adds Patch Notes).
 
-| Mode | Near-optimal bot | Wins (12 runs) |
+| Mode | Wins (12 runs) | Where the losses happen |
 |---|---|---|
-| O(1) | V100 V96 V92 / V100 V100 V100 / V100 V100 V100 / V100 V100 V100 | 12 |
-| O(N) | V96 V100 V92 / V100 V100 V100 / V100 V100 V98 / V99 V98 V100 | 12 |
-| O(N^2) | V75 V69 V22 / V99 V98 V98 / V97 V86 V36 / D99 V27 D59 | 10 (also 9 on seeds 50-52 and 9 on seeds 70-72) |
-| O(N^N) | D99 D99 D99 / V100 V100 V98 / D99 D94 D98 / D98 V0 D99 | 4 |
+| O(1) | 12 | - |
+| O(N) | 11 | one Palantir fight on Singularity Core (wave 100) |
+| O(N^2) | 9 (8 on seeds 2000-2002) | all at Palantir on wave 100 (Silicon 1, Singularity Core 2) |
+| O(N^N) | 3 (Legacy Monolith) | waves 59-79 on the other maps |
 
-O(N^N) over a 20-seed batch (seeds 2000-2019): wins per map Silicon 6 / 20 (lives left 0, 48, 25, 77, 35, 83), Legacy 20 / 20 (93-100), Canyon 4 / 20 (0, 24, 0, 5),
-Core 3 / 20 (26, 12, 0), i.e. 33 of 80; it is beatable on every map. Losses are almost all on wave 98-99 (the last boss rehearsals), with a few at the wave-60 BFB (59), 67-91.
-The Legacy Monolith is the easy map (one long serpentine route, every tower covers it) and wins every mode with 90+ lives. Each 6-seed result above can be reproduced
-with the commands in the README.
-
-| Mode | 20-tower cap | Random-placement casual bot |
-|---|---|---|
-| O(1) | 3 of 12 won (Legacy only; the rest die on waves 94-99) | loses on waves 38-77 (12 of 12 lost) |
-| O(N) | 3 of 12 won (Legacy only) | loses on waves 32-77 |
-| O(N^2) | 0 of 12 won (dies on waves 59-99) | loses on waves 9-59 |
-| O(N^N) | 0 of 12 won | loses on waves 11-59 |
-
-The casual bot (random spots that merely touch the track, a broad build, no Perplexity, no ability use, no focus-fire) loses mid-game in every mode, so there is a real skill curve.
-The 20-tower cap wins the base game on Legacy only now that bosses keep their full, never-decreasing HP (it won 10 of 12 when late boss HP was discounted to a few percent).
-
-Knobs raised beyond the original Difficulty numbers (harder only): O(N^2) enemy HP 1.25 -> 3.1 (was 1.2 -> 2.2), tower damage 0.84 (was 0.86), income 0.56 (was 0.60), count 1.25 -> 2.4 (was 1.2 -> 2.3),
-elite chance 3% -> 80% (was 60%), 2 modifiers (was 1), promotion 50% (was 35%); O(N^N) enemy HP 1.3 -> 3.3 (was 1.3 -> 3.0), elite chance 5% -> 80% (was 60%), promotion 50% (unchanged), count 1.3 -> 2.5 (was 2.4).
-O(N^N) keeps double starting cash (it needs the opening) and its tower damage 0.75 and income 0.5. The O(N^N) extra-boss schedule was thinned: single extra MOABs on 25 / 30 / 35 / 45 / 50 / 55 / 65, one BFB on 70, two Fortified MOABs on 75 and 85, none after wave 85
-so the opening stays playable and the wall is the last waves.
+Beta 2.02 tuning: O(N^N) now uses exactly the numbers O(N^2) had in beta 2.01 (enemy HP 1.25 -> 3.1, count 1.25 -> 2.4, tower damage 0.84,
+income 0.56, elites 3% -> 80% with 2 modifiers and 50% promotion, the quadratic curve); its old extra-boss schedule and double starting cash are gone.
+O(N^2) was eased to sit between O(N) and O(N^N): enemy HP 1.10 -> 1.85, count 1.10 -> 1.6, tower damage 0.90, income 0.72, elites 2% -> 22%
+with 1 modifier and 20% promotion, and Palantir's HP extra 1.00, so its final fight is about as long as on O(N) while everything before it is harder.
+The Legacy Monolith is the easy map (one long serpentine route that every tower covers) and wins every mode.
 
 **Economy before / after (O(1))**
 
@@ -953,23 +942,118 @@ so the opening stays playable and the wall is the last waves.
 | Bot with the new roster (4 maps) | died on waves 11 / 71 / 39 / 14 | wins all four with 92-100 lives |
 
 Boss HP: the base HP of each boss is its debut-wave value (MOAB wave 40, BFB 60, ZOMG 80, DDT 90, BAD 100) and campaign HP is base x the single HP scale, so it never
-decreases and grows after wave 80. The BFB base (7,500) is set by the tower spec's duel targets: a fully upgraded Brad alone (about 6,150 damage in one pass)
-beats a MOAB at every campaign HP (wave 40-100) but leaves 18-36% of a BFB from wave 60 to 99, and no other fully upgraded non-hero tower deals more than 59% of one (DeepSeek the closest).
-Those duels are run in `BalanceTests` at base HP and at the HP met in the waves. Roles: MOAB general damage, BFB sustained damage against 40% armour and weak-hit halving,
-ZOMG late firepower (its three BFB children), DDT detection and speed control (camo, 2.6x speed, Lead), BAD everything (Palantir 65,000 at wave 100, six times the next boss).
+decreases and grows after wave 80. `BalanceTests` keeps every fully upgraded hero and tower from soloing a BFB at the HP it has on wave 99, so towers stay
+necessary. Roles: MOAB general damage, BFB sustained damage against 40% armour, ZOMG late firepower (its three BFB children), DDT detection and speed control
+(camo, 2.6x speed, Lead), BAD everything (Palantir 65,000 at wave 100 on O(1), with a signature ability per phase; see section 8).
 
-**Extra bosses, O(N^N)** (added to the wave's normal groups; they split normally, Palantir is never duplicated):
+## 8. Prompt injection and Palantir's protocols
 
-| Wave | Boss | Count | Modifiers | Start / interval |
+**Prompt injection** (`sim/PromptInjection`, schedule in `wave/InjectionSchedule`): an injector carries the sign "IGNORE PREVIOUS INSTRUCTIONS". It broadcasts when a tower comes within 150 px and every 9 s after, hijacking the 2 nearest non-immune towers for 3 s. A hijacked tower stops attacking and zaps a neighbour within 170 px offline for 1.5 s, 2 times per hijack. Chains are one hop and every outage is followed by a short protection window.
+
+| Immune tower | Why |
+|---|---|
+| Mr. Lindemann | The CS teacher: he wrote the lesson on prompt injection, so it never fools him. |
+| Claude | Constitutional AI: trained to refuse instructions smuggled into its input. |
+| DeepSeek | Chain-of-thought reasoning: it thinks the injected prompt through and catches the trick. |
+| Copilot | Security Copilot: its firewall also shields every tower in its tether radius. |
+| Perplexity | Source verification: it checks where an instruction came from before obeying it. |
+
+Injectors per wave at O(1) (taken from the wave's largest non-boss group; harder Difficulty Growth scales the count): w30, w34, w38, w42, w46, w50, w52, w54, w56, w58, w62, w64, w66, w68, w70 x2, w71 x2, w72 x2, w73 x2, w74 x2, w75 x2, w76 x2, w77 x2, w78 x2, w79 x2, w81 x2, w82 x2, w83 x2, w84 x2, w85 x3, w86 x3, w87 x3, w88 x3, w89 x3, w91 x3, w92 x3, w93 x3, w94 x3, w95 x3, w96 x3, w97 x3, w98 x3, w99 x3.
+
+**Palantir's phase abilities** (`enemy/PalantirProtocols`):
+
+| Phase | Ability | Numbers |
+|---|---|---|
+| 1 | Panopticon | a 380 px beam turns once every 10 s (from 3 s); towers it crosses are blinded 2 s; Perplexity U2 radius protects |
+| 2 | Prompt Broadcast | from 3 s, every 12 s: hijacks the 3 most expensive non-immune towers (+1 per 30 towers, max 6) for 3 s; 2 hologram decoys with 2% of its HP draw non-immune towers |
+| 3 | System Takeover | one-time kill switch (warning at 42% HP) restarts unlocked ability cooldowns; grabs the game window (shrinks it to 72%); while the window stays under 85% of its size Palantir is sealed: 30% damage taken, slow regeneration. SETTINGS > DISPLAY > WINDOW EFFECTS turns the grab off |
+
+## 9. Patch Notes and Breaking News
+
+Off in tools and tests, on for players (`-Dlindefense.variance=off` disables it). Drafts before waves [1, 20, 40, 60, 80]: 3 random cards, keep 1 for the run. News: from wave 6, 22% chance per wave, lasting that wave. All rolls come from the run seed, so a seed replays the same offers and news.
+
+| Patch note | Upside | Downside |
+|---|---|---|
+| Open Source | Towers and upgrades cost 15% less | Sell refund 70% -> 50% |
+| Overfitting | +40% damage vs bosses | -15% damage vs non-boss enemies |
+| Distributed Training | Income +20% (kills and wave bonus) | Enemies spawn 20% closer together |
+| Quantization | Towers fire 20% faster | Towers deal 10% less damage |
+| Data Drought | New shop towers arrive with their first upgrade free | Income -15% (kills and wave bonus) |
+| Context Window Expansion | Tower range +15% | Ability unlocks cost 20% more; Ability cooldowns +20% |
+| Synthetic Data | +1 integrity per wave cleared (can exceed the maximum) | Enemies have 10% more HP |
+| Venture Capital | +$3,400 credits now | Income -10% (kills and wave bonus) |
+| Attention Is All You Need | Towers deal 20% more damage | Tower range -15% |
+| Edge Deployment | Towers cost 25% less | Upgrades cost 15% more |
+| Chain of Thought | Ability cooldowns -35% | Towers fire 8% slower |
+| Red Teaming | +30% damage vs Camo, Regrow and Fortified enemies | -10% damage vs unmodified enemies |
+| Batch Inference | Wave-clear bonus +75% | Kills pay 12% less |
+| Jailbreak | Ability unlocks cost 40% less; Ability cooldowns -20% | Enemies move 8% faster |
+| Gradient Clipping | Enemies move 12% slower | Towers deal 10% less damage |
+| Compute Futures | Banked credits earn 5% interest per wave cleared (max $1,000) | Towers and upgrades cost 6% more |
+| Constitutional AI | Leaks cost 30% fewer lives (min 1) | Towers deal 8% less damage |
+| Model Collapse | Enemies have 10% less HP | No wave-clear bonus |
+
+| Breaking News | From wave | Boss waves | Multi-lane maps only | Effect |
 |---|---|---|---|---|
-| 25 | Bellarmine College Prep (MOAB) | 1 | - | +12s / 1s |
-| 30 | Bellarmine College Prep (MOAB) | 1 | - | +14s / 1s |
-| 35 | Bellarmine College Prep (MOAB) | 1 | - | +10s / 1s |
-| 45 | Bellarmine College Prep (MOAB) | 1 | - | +10s / 1s |
-| 50 | Bellarmine College Prep (MOAB) | 1 | - | +12s / 1s |
-| 55 | Bellarmine College Prep (MOAB) | 1 | - | +14s / 1s |
-| 65 | Bellarmine College Prep (MOAB) | 1 | - | +15s / 1s |
-| 70 | SW Resource Consultant (BFB) | 1 | - | +15s / 1s |
-| 75 | Bellarmine College Prep (MOAB) | 2 | F | +8s / 4s |
-| 85 | Bellarmine College Prep (MOAB) | 2 | F | +12s / 4s |
+| GPU shortage | 6 | yes | no | Upgrades cost 25% more |
+| Viral meme | 35 | no | no | Every non-boss enemy is Camo |
+| Server outage | 6 | no | yes | One lane is closed: enemies crowd the others |
+| Solar flare | 25 | yes | no | Every ability cooldown resets when the wave starts |
+| Funding round | 6 | yes | no | +$1,160 credits now |
+| DDoS attack | 6 | no | no | Enemies move 30% faster |
+| Bug bounty | 6 | yes | no | Kills pay 50% more |
+| Datacenter heatwave | 6 | no | no | Towers fire 15% slower |
+| Overclock | 6 | yes | no | Towers fire 20% faster |
+| Hype cycle | 10 | no | no | Kills pay 30% more; 30% more enemies |
+| Acqui-hire | 6 | yes | no | Sell refund 70% -> 95% |
+| Data breach | 15 | no | no | Enemies have 20% more HP |
+| Latency spike | 6 | no | no | Tower range -10% |
+| Weights leaked | 6 | yes | no | Upgrades cost 20% less |
 
+## 10. Adversarial Training (reverse mode)
+
+The player attacks, an AI defender (`ai/DefenderAI`, shared with the balance bot) builds. Match: 15 epochs of 60 s (+60 s overtime for units already sent), 15 s setup. Start with 250 compute credits; each integrity point a leak costs pays 8; SCALE COMPUTE adds +4/s (from $300, x1.45 each, max 8). Queue: 150 units, one every 0.15 s.
+
+| Unit | Price | Unlocks at |
+|---|---|---|
+| Primitive Variable | $10 | 0:00 |
+| Static Array | $22 | 0:00 |
+| Dynamic Array | $38 | 0:00 |
+| Singly Linked List | $34 | 1:00 |
+| Doubly Linked List | $42 | 1:00 |
+| Bubble Sort | $30 | 1:00 |
+| Selection Sort | $38 | 2:00 |
+| Insertion Sort | $38 | 2:00 |
+| Shell Sort | $52 | 2:00 |
+| Merge Sort | $72 | 3:00 |
+| Quick Sort | $92 | 3:00 |
+| Counting Sort | $60 | 3:00 |
+| Heap Sort | $84 | 4:00 |
+| Radix Sort | $96 | 4:00 |
+| Bucket Sort | $88 | 4:00 |
+| TimSort | $190 | 5:00 |
+| Bellarmine College Prep | $1600 | 5:00 |
+| SW Resource Consultant | $6500 | 7:00 |
+| Lockheed Martin | $3600 | 9:00 |
+| 3Com | $21000 | 10:00 |
+| Palantir | $42000 | 12:00 |
+
+| Modifier | Price factor | Unlocks at |
+|---|---|---|
+| Camo | x1.5 | 3:00 |
+| Regrow | x1.3 | 1:30 |
+| Fortified | x2 | 4:00 |
+| Prompt Injection | x1.6 | 6:00 |
+
+| Exploit | Cost | Cooldown | Unlocks at | Effect |
+|---|---|---|---|---|
+| Overclock | $300 | 40 s | 2:00 | All units on the track move 50% faster for 6 s. |
+| Hotfix | $600 | 45 s | 3:00 | Every unit on the track heals to full health. |
+| Zero-Day | $900 | 60 s | 4:00 | Jams the AI's 3 most expensive towers for 6 s. |
+
+| Difficulty Growth | AI | Funding | Start cash | Notes |
+|---|---|---|---|---|
+| O(1) | Novice | x0.9 | x1 | Builds casually: random placement, no ability micro, reacts to camo only after it gets through. 0.9x funding. |
+| O(N) | Competent | x1 | x1 | Efficient build, smart placement and ability micro, but it reacts to camo only once it sees some. |
+| O(N^2) | Expert | x1.55 | x1 | Builds detection the moment you can buy camo, saves greedily for $15,000 ability unlocks. 1.55x funding. |
+| O(N^N) | Superintelligence | x2 | x2 | Expert play without the greed (unlocks only on a wide tower base), 2x funding, double starting cash. Breaking it takes a real plan. |

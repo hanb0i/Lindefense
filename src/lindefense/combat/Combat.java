@@ -61,8 +61,12 @@ public class Combat {
 
     /** Returns up to {@code n} valid targets for the tower, ordered by its priority. */
     public List<Enemy> acquireTargets(Tower t, int n) {
+        Comparator<Enemy> priority = t.getBehavior().priorityComparator(t);
+        // PALANTIR: its holographic decoys draw fire; towers immune to prompt injection see through them
+        Comparator<Enemy> taunt = t.isInjectionImmune() ? null : game.getInjection().tauntComparator();
+        if (taunt != null) priority = priority == null ? taunt : taunt.thenComparing(priority);
         return acquireTargetsFrom(t.getPosition(), t.effectiveRange(game), t.canSeeCamo(), t.getStats().ignoresLos,
-            t.getTargeting(), n, t.getBehavior().priorityComparator(t));
+            t.getTargeting(), n, priority);
     }
 
     /**
@@ -547,6 +551,7 @@ public class Combat {
             }
             if (h.pctMaxHp > 0) dmg += Math.min(h.pctCap, h.pctMaxHp * e.getMaxHp());
             dmg = dmg * c.finalMult + c.finalFlat;
+            dmg *= game.getVariance().damageAgainst(e);   // PATCH NOTES / BREAKING NEWS damage hook (1 when off)
         }
 
         double dealt = 0;

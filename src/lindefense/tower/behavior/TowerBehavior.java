@@ -96,6 +96,7 @@ public abstract class TowerBehavior {
         if (s.auraRangeBonus > 0) dst.addAuraBuff(BuffStat.RANGE, src.getType(), s.auraRangeBonus);
         if (s.auraDetection) dst.grantDetection();
         if (s.auraSurveillanceImmunity) dst.grantSurveillanceImmunity();
+        if (s.auraInjectionImmunity) dst.grantInjectionFirewall();
     }
 
     /** Flat range added before range multipliers (Zethos Reality Collapse +15 map units). */

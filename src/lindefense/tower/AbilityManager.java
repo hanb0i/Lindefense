@@ -36,6 +36,8 @@ public class AbilityManager {
         if (a.needsTarget && target == null) return false;
         if (!t.getBehavior().activateAbility(game, t, a.needsTarget ? target : null)) return false;
         t.startAbilityCooldown();
+        double cd = game.getVariance().abilityCooldown();   // PATCH NOTES: longer / shorter cooldowns
+        if (cd != 1) t.reduceAbilityCooldown(1 - cd);
         game.getEvents().add(VisualEvent.ability(t.getPosition(), Math.max(40, Math.min(300, t.effectiveRange(game))), t.getType().primaryRgb));
         game.getEvents().add(VisualEvent.text(t.getPosition(), a.name + "!", t.getType().primaryRgb));
         return true;

@@ -56,18 +56,20 @@ import lindefense.ui.sprites.Thick;
 public final class MapArt extends GObject {
     private static final long serialVersionUID = 1L;
     private static final double W = GameMap.WIDTH, H = GameMap.HEIGHT, HW = GameMap.TRACK_HALF_WIDTH;
-    private static final double MAX_SCALE = 2.5;
+    /**
+     * Total pixels the bitmap cache may hold (about 48 M px = 190 MB of RGB). A 4x map for a 6K screen is 17 M px, a
+     * map-select thumbnail well under 1 M px, so a full-size map plus every thumbnail always fits.
+     */
+    public static final long CACHE_PIXEL_BUDGET = 48_000_000L;
 
-    /** LRU of rendered bitmaps keyed by map name and pixel scale. */
-    private static final Map<String, BufferedImage> CACHE = new LinkedHashMap<String, BufferedImage>(8, 0.75f, true) {
-        private static final long serialVersionUID = 1L;
-        @Override protected boolean removeEldestEntry(Map.Entry<String, BufferedImage> e) { return size() > 6; }
-    };
+    /** LRU of rendered bitmaps keyed by map name and pixel scale, trimmed to {@link #CACHE_PIXEL_BUDGET}. */
+    private static final LinkedHashMap<String, BufferedImage> CACHE = new LinkedHashMap<>(8, 0.75f, true);
 
     private final GameMap map;
     private final double dw, dh;
     private transient BufferedImage img;
     private double imgScale = -1;
+    private boolean imgVignette;
 
     /** Full-size map art at the world origin. */
     public MapArt(GameMap map) { this(map, 0, 0, W, H); }
@@ -84,10 +86,10 @@ public final class MapArt extends GObject {
         Graphics2D g2 = (Graphics2D) g.create();
         try {
             AffineTransform t = g2.getTransform();
-            double dev = Math.sqrt(Math.abs(t.getDeterminant()));
-            double s = Math.min(MAX_SCALE, Math.max(0.125, Math.ceil(dev * dw / W * 8) / 8.0));
-            if (img == null || s != imgScale) { img = bitmap(map, s); imgScale = s; }
-            g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+            GraphicsSettings.Quality q = GraphicsSettings.get().quality();
+            double s = q.mapScale(Math.sqrt(Math.abs(t.getDeterminant())) * dw / W);
+            if (img == null || s != imgScale || q.vignette != imgVignette) { img = bitmap(map, s, q.vignette); imgScale = s; imgVignette = q.vignette; }
+            g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, q.interpolation());
             AffineTransform at = new AffineTransform();
             at.translate(getX(), getY());
             at.scale(dw / img.getWidth(), dh / img.getHeight());
@@ -97,8 +99,8 @@ public final class MapArt extends GObject {
         }
     }
 
-    private static BufferedImage bitmap(GameMap map, double s) {
-        String key = map.getName() + "@" + s;
+    private static synchronized BufferedImage bitmap(GameMap map, double s, boolean vignette) {
+        String key = map.getName() + "@" + s + (vignette ? "+v" : "");
         BufferedImage b = CACHE.get(key);
         if (b != null) return b;
         b = new BufferedImage((int) Math.ceil(W * s), (int) Math.ceil(H * s), BufferedImage.TYPE_INT_RGB);
@@ -108,11 +110,33 @@ public final class MapArt extends GObject {
             g.scale(s, s);
             g.clip(new Rectangle2D.Double(0, 0, W, H));
             render(g, map);
+            if (vignette) VignetteOverlay.paint(g, W, H);   // HIGH preset: baked in once, free per frame
         } finally {
             g.dispose();
         }
         CACHE.put(key, b);
+        trimCache(key);
         return b;
+    }
+
+    /** Drops least recently used bitmaps (never {@code keep}) until the cache fits its pixel budget. */
+    private static void trimCache(String keep) {
+        long total = 0;
+        for (BufferedImage im : CACHE.values()) total += (long) im.getWidth() * im.getHeight();
+        java.util.Iterator<Map.Entry<String, BufferedImage>> it = CACHE.entrySet().iterator();
+        while (total > CACHE_PIXEL_BUDGET && it.hasNext()) {
+            Map.Entry<String, BufferedImage> e = it.next();
+            if (e.getKey().equals(keep)) continue;
+            total -= (long) e.getValue().getWidth() * e.getValue().getHeight();
+            it.remove();
+        }
+    }
+
+    /** Pixels currently held by the bitmap cache (tests). */
+    public static synchronized long cachedPixels() {
+        long total = 0;
+        for (BufferedImage im : CACHE.values()) total += (long) im.getWidth() * im.getHeight();
+        return total;
     }
 
     /** Paints the full map art in world coordinates. */

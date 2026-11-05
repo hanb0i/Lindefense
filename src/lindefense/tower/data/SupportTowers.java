@@ -42,6 +42,7 @@ public final class SupportTowers {
             .tiers("Sonar", "Sonar Pro", "Sonar Reasoning Pro", "Sonar Deep Research")
             .attack(AttackKind.CUSTOM, DamageType.MAGIC, 180, 2.0, 1, 1)
             .base(s -> { s.seesCamo = true; s.auraRange = 180; s.auraDetection = true; s.incomePerWave = 40; s.set("pulseDamage", 1); })
+            .injectionImmune("Source verification: it checks where an instruction came from before obeying it.")
             .upgrade(450, "Target Identification", "All Camo enemies on the map can be targeted by every tower while this tower exists.",
                 s -> { s.set("revealAllCamo", 1); })
             .upgrade(750, "Predictive Analysis", "Enemies in range are MARKED (+20% damage taken); towers in range get +15% range. Towers within this radius are immune to Predictive Surveillance.",

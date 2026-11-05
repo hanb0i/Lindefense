@@ -37,12 +37,12 @@ final class DemoDriver {
         this.out = new File(dir);
         out.mkdirs();
         // index -> time (seconds) of each scripted step
-        double[] times = new double[41];
+        double[] times = new double[42];
         double[][] sched = { { 0, 2.6 }, { 1, 2.8 }, { 2, 3.8 }, { 3, 4.0 }, { 4, 10.0 }, { 5, 11.5 }, { 6, 13.0 }, { 7, 13.5 }, { 8, 15.0 }, { 9, 15.5 },
             { 10, 17.0 }, { 11, 19.5 }, { 12, 28.0 }, { 13, 10.2 }, { 14, 10.4 }, { 15, 0.5 }, { 16, 1.6 }, { 17, 1.9 }, { 18, 2.2 }, { 19, 2.5 },
             { 20, 10.5 }, { 21, 10.7 }, { 22, 10.9 }, { 23, 11.1 }, { 24, 11.3 }, { 25, 19.7 }, { 26, 20.0 }, { 27, 20.1 }, { 28, 20.4 }, { 29, 20.7 },
             { 30, 20.8 }, { 31, 23.4 }, { 32, 23.6 }, { 33, 23.7 }, { 34, 25.8 }, { 35, 11.35 },
-            { 36, 26.0 }, { 37, 26.2 }, { 38, 26.5 }, { 39, 26.9 }, { 40, 27.3 } };
+            { 36, 26.0 }, { 37, 26.2 }, { 38, 26.5 }, { 39, 26.9 }, { 40, 27.3 }, { 41, 27.6 } };
         for (double[] sc : sched) times[(int) sc[0]] = sc[1];
         for (int i = 0; i < times.length; i++) steps.add(new double[] { times[i], i });
         steps.sort((a, b) -> Double.compare(a[0], b[0]));
@@ -89,6 +89,18 @@ final class DemoDriver {
                 boolean started = app.getGame() != null;
                 results.add((popup && closed && started ? "PASS" : "FAIL") + " DEPLOY opens the map briefing, Esc closes it, its DEPLOY starts the match (popup " + popup + ", closed " + closed + ", started " + started + ")");
                 Game g = app.getGame();
+                // PATCH NOTES: a real match opens with the launch draft; snapshot it, ship card 2 with the keyboard, then the
+                // rest of the scripted run (which jumps waves) answers later drafts automatically
+                GameScreen gd = app.getGameScreen();
+                gd.frame(0.05);
+                boolean draft = g.getVariance().isEnabled() && g.getVariance().isDraftPending() && gd.isDraftOpen() && !g.getWaveManager().canStartNextWave();
+                snap("02c_patch_notes_draft");
+                lindefense.variance.PatchNote second = g.getVariance().getOffer().size() > 1 ? g.getVariance().getOffer().get(1) : null;
+                pressKey(java.awt.event.KeyEvent.VK_2);
+                gd.frame(0.05);
+                boolean shipped = second != null && g.getVariance().getActive().size() == 1 && g.getVariance().getActive().get(0) == second && !gd.isDraftOpen();
+                results.add((draft && shipped ? "PASS" : "FAIL") + " launch patch-notes draft blocks wave 1 and key 2 ships the second card (draft " + draft + ", shipped " + shipped + ")");
+                autoPick();
                 g.addCash(5000, null);
                 g.setHeroCollection(lindefense.sim.HeroCollection.inMemory()); for (TowerType h : TowerType.heroes()) g.getHeroCollection().unlock(h);   // tools never touch saved unlocks
                 placeViaClick(TowerType.GPT, new Vec(380, 300));
@@ -188,7 +200,7 @@ final class DemoDriver {
                 // placement ghost on the track (invalid)
                 app.getGameScreen().beginPlacing(TowerType.CLAUDE);
                 Vec wp = app.getGame().getMap().getRoutes().get(0).getWaypoints().get(2);
-                app.mouseMoved(pixelEvent(wp.x + Ui.WORLD_X, wp.y + Ui.WORLD_Y));
+                app.mouseMoved(worldEvent(wp));
                 app.getGameScreen().frame(0.01);
                 snap("03d_placing_invalid");
                 break;
@@ -200,7 +212,7 @@ final class DemoDriver {
                 for (int yy = 100; yy < 800; yy += 20) for (int xx = 100; xx < 1100; xx += 20) {
                     Vec v = new Vec(xx, yy);
                     if (g.getTowerManager().placementProblem(TowerType.CLAUDE, v) == null) {
-                        app.mouseMoved(pixelEvent(v.x + Ui.WORLD_X, v.y + Ui.WORLD_Y));
+                        app.mouseMoved(worldEvent(v));
                         break outer;
                     }
                 }
@@ -208,7 +220,7 @@ final class DemoDriver {
                 snap("03e_placing_valid");
                 app.getGameScreen().beginPlacing(null);
                 app.getGameScreen().selectTower(null);
-                app.mouseMoved(pixelEvent(700 + Ui.WORLD_X, 250 + Ui.WORLD_Y));
+                app.mouseMoved(worldEvent(new Vec(700, 250)));
                 break;
             }
             case 24: snap("03f_hover_nameplate"); app.mouseMoved(pixelEvent(5, 5)); break;
@@ -244,7 +256,7 @@ final class DemoDriver {
                 snap("08_victory");
                 break;
             }
-            case 32: app.startGame(0); break;
+            case 32: app.startGame(0); autoPick(); break;
             case 33: {
                 Game g = app.getGame();
                 lindefense.enemy.Enemy e = g.getEnemyManager().spawn(EnemyType.STATIC_ARRAY, null, 0, 100);
@@ -276,6 +288,7 @@ final class DemoDriver {
             }
             case 39: { snap("10e_pause_menu_large"); resize(1600, 1028); break; }
             case 40: menuQuitFlow(); break;
+            case 41: reverseFlow(); break;
             case 12: {
                 for (String r : results) System.out.println(r);
                 System.out.println("DEMO DONE");
@@ -288,9 +301,16 @@ final class DemoDriver {
 
     private void check(boolean ok, String what) { results.add((ok ? "PASS " : "FAIL ") + what); }
 
+    /** PATCH NOTES: the scripted run jumps waves, so the current match answers its drafts itself (first card). */
+    private void autoPick() {
+        Game g = app.getGame();
+        if (g != null) g.getVariance().setPicker(lindefense.variance.RunVariance.Picker.FIRST);
+    }
+
     /** MENU -> RESTART -> confirm: a fresh game on the same map and difficulty (wave, cash, lives, towers reset). */
     private void menuRestartFlow() {
         app.startGame(0);
+        autoPick();
         GameScreen gs = app.getGameScreen();
         Game g0 = app.getGame();
         g0.addCash(3000, null);
@@ -407,6 +427,49 @@ final class DemoDriver {
         return new MouseEvent(app.getGCanvas(), MouseEvent.MOUSE_PRESSED, System.currentTimeMillis(), 0, px, py, 1, false, MouseEvent.BUTTON1);
     }
 
+    /** A mouse event at the pixel where world point {@code w} is drawn. */
+    private MouseEvent worldEvent(Vec w) {
+        double[] l = app.getGameScreen().worldToLogical(w);
+        return pixelEvent(l[0], l[1]);
+    }
+
+    /**
+     * Adversarial Training through the real UI: from map select (where QUIT LEVEL left us), DEPLOY opens the briefing,
+     * ATTACK INSTEAD switches it to the reverse briefing, ATTACK starts the match, a unit card click queues a unit, and
+     * Esc still toggles the pause menu.
+     */
+    private void reverseFlow() {
+        if (app.getMapSelect() == null) { results.add("FAIL reverse mode: map select not showing after QUIT LEVEL"); return; }
+        double[] dc = MapSelectScreen.deployCenter(0);
+        clickLogical(dc[0], dc[1]);
+        double[] mc = MapSelectScreen.briefingModeCenter();
+        clickLogical(mc[0], mc[1]);
+        boolean reverseBriefing = app.getMapSelect() != null && app.getMapSelect().isReverseBriefing();
+        app.getMapSelect().frame(0.05);
+        snap("11_reverse_briefing");
+        double[] bc = MapSelectScreen.briefingDeployCenter();
+        clickLogical(bc[0], bc[1]);
+        Game g = app.getGame();
+        boolean started = g != null && g.isReverse();
+        boolean sent = false;
+        if (started) {
+            for (int i = 0; i < 3; i++) app.getGameScreen().frame(0.02);
+            int before = g.getReverse().getQueued();
+            double[] cc = AttackPanel.cardCenter(0);   // Primitive Variable, unlocked from the start
+            clickLogical(cc[0], cc[1]);
+            sent = g.getReverse().getQueued() > before;
+            for (int i = 0; i < 3; i++) app.getGameScreen().frame(0.02);
+            snap("11b_reverse_match");
+        }
+        results.add((reverseBriefing && started && sent ? "PASS" : "FAIL") + " Adversarial Training: ATTACK INSTEAD briefing, ATTACK starts a reverse match, a card click queues a unit (briefing "
+            + reverseBriefing + ", started " + started + ", sent " + sent + ")");
+        if (!started) return;
+        pressKey(java.awt.event.KeyEvent.VK_ESCAPE);
+        boolean open = app.getGameScreen().isMenuOpen();
+        pressKey(java.awt.event.KeyEvent.VK_ESCAPE);
+        results.add((open && !app.getGameScreen().isMenuOpen() ? "PASS" : "FAIL") + " Esc toggles the pause menu in reverse mode");
+    }
+
     /** Sends a key press through the program's real key routing. */
     private void pressKey(int code) {
         app.keyPressed(new java.awt.event.KeyEvent(app.getGCanvas(), java.awt.event.KeyEvent.KEY_PRESSED, 0, 0, code, java.awt.event.KeyEvent.CHAR_UNDEFINED));
@@ -421,7 +484,8 @@ final class DemoDriver {
 
     private void placeViaClick(TowerType type, Vec world) {
         app.getGameScreen().beginPlacing(type);
-        clickLogical(world.x + Ui.WORLD_X, world.y + Ui.WORLD_Y);
+        double[] l = app.getGameScreen().worldToLogical(world);   // the playfield may be shifted (boss dock, patch-notes strip)
+        clickLogical(l[0], l[1]);
         app.getGameScreen().beginPlacing(null);
     }
 

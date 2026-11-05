@@ -318,7 +318,7 @@ public class EnemyManager {
         for (Enemy s : e.getStoredEnemies()) { lives += s.getType().lives; s.markLeaked(); }
         e.markLeaked();
         totalLeaked++;
-        game.loseLives(lives, e);
+        game.loseLives(game.getVariance().leakLives(lives), e);   // PATCH NOTES: Constitutional AI
     }
 
     /** Destroys the enemy's body: pays its reward and releases children / stored enemies. */

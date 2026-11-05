@@ -54,6 +54,11 @@ public final class MenuScreen extends GCompound {
     private final List<UIButton> settingsChips = new ArrayList<>();
     private AudioToggle[] settingsToggles;
     private Slider[] settingsSliders;
+    /** SETTINGS > WINDOW EFFECTS on/off chip (Palantir's window grab). */
+    private UIButton windowChip;
+    /** SETTINGS > DISPLAY: graphics preset and frame-rate chips, and the line describing the preset. */
+    private UIButton qualityChip, fpsChip;
+    private GLabel displayHint;
     private double feedbackTime;
     private double t;
     private double introT;
@@ -287,12 +292,12 @@ public final class MenuScreen extends GCompound {
         String[][] sections = {
             { "GOAL", "Survive all 100 waves and destroy Palantir, the BAD-class final boss, on Wave 100. You start with $650 and 100 lives." },
             { "BUILDING", "Pick a faction tab (or press B for all towers), click a tower, then click a free spot beside the track. Each tower has three upgrades named after its model lineup (Zethos has four) and several targeting priorities. Once a tower has every upgrade, buy its overpowered ability for $15,000 (U or the side panel); Zethos has Reality Collapse from the start." },
-            { "HERO STORE", "Press HEROES (or K) in game. Buy a hero once to unlock it permanently: Brad Lindemann, Brandon, Rohan, Ronil, Shashank or Owen. Unlocked heroes deploy free, once per match, and each has an active ability (ability bar along the bottom). New here? Try TUTORIAL; look anything up in CATALOG." },
+            { "HERO STORE", "Press HEROES (or K) in game. Buy a hero once to unlock it for good: 18 heroes, up to Mr. Lindemann, the strongest. Unlocked heroes deploy free, once per match, at most 3 per game, and level up with three upgrades. New here? Try TUTORIAL; look anything up in CATALOG." },
             { "ECONOMY", "Enemies pay cash when destroyed; every wave pays a bonus. Perplexity earns research income. Selling refunds 70% of everything spent on a tower." },
             { "ENEMIES", "Data structures and sorting algorithms, each with a mechanic: Bubble Sort swaps places, Heap Sort shields allies and is Lead-type (Sharp damage cannot hurt it), Merge/Quick/Counting/TimSort split, Bucket Sort stores weaker enemies, Radix Sort turns Lead-type in its armoured phases, Shell Sort gap-jumps." },
-            { "MODIFIERS", "Camo enemies need detection: built into Grok and Perplexity, gained by Gemini and Llama at their second upgrade, and shared by Perplexity with every tower in its radius. Regrow enemies heal. Fortified enemies have double HP (Qwen strips it)." },
-            { "BOSSES", "Bellarmine College Prep (MOAB, wave 40), SW Resource Consultant (BFB, 60), 3Com (ZOMG, 80), Lockheed Martin (DDT, 90) and Palantir (BAD, 100), whose Predictive Surveillance disrupts your strongest towers - telegraphed for 3 s, blocked for towers inside Perplexity's Predictive Analysis radius." },
-            { "CONTROLS", "Space: next wave.  1/2/3: speed.  P: pause.  B: all towers.  Esc / right-click: cancel (Esc with nothing selected opens the pause menu).  U: upgrade.  S: sell.  A: ability.  T: targeting.  K: Hero Store.  H: in-game help.  M: music on/off.  N: sound on/off." },
+            { "MODIFIERS", "Camo needs detection (Grok, Perplexity and its radius, Gemini / Llama U2). Regrow heals. Fortified has double HP. Prompt Injection hijacks nearby towers; Claude, Copilot, DeepSeek, Perplexity and Mr. Lindemann are immune." },
+            { "BOSSES", "Bellarmine College Prep (MOAB, wave 40), SW Resource Consultant (BFB, 60), 3Com (ZOMG, 80), Lockheed Martin (DDT, 90) and Palantir (BAD, 100): Predictive Surveillance plus one trick per phase - Panopticon sweep, Prompt Broadcast with decoys, a System Takeover that grabs your window." },
+            { "CONTROLS", "Space: next wave.  1/2/3: speed.  P: pause.  Esc: pause menu.  Right-click: cancel.  B: all towers.  U: upgrade / buy ability.  S: sell.  A: ability.  T: targeting.  K: Hero Store.  H: help.  M / N: music / sound." },
         };
         Font hf = menuFont(Font.BOLD, 18), bf = Cyber.body(Font.PLAIN, 14);
         for (String[] s : sections) {
@@ -334,7 +339,7 @@ public final class MenuScreen extends GCompound {
 
     // ------------------------------------------------------------------ settings / admin code
     private void buildSettings() {
-        double w = 720, h = 740, x = (Ui.W - w) / 2, y = 130;
+        double w = 720, h = 880, x = (Ui.W - w) / 2, y = 60;
         settings.add(Ui.rect(0, 0, Ui.W, Ui.H, Ui.withAlpha(new Color(0x02030a), 170), Ui.withAlpha(new Color(0x02030a), 0)));
         settings.add(new Cyber.Chamfer(x, y, w, h, 18).fill(new Color(7, 10, 22, 248)).border(CYAN).glow(1).ticks(true));
         GLabel title = Ui.label("SETTINGS", 0, 0, menuFont(Font.BOLD, 32), CYAN);
@@ -342,6 +347,7 @@ public final class MenuScreen extends GCompound {
         settings.add(title);
         double lx = x + 40, ty = y + 100;
         ty = buildAudioSettings(lx, ty, w - 80);
+        ty = buildDisplaySettings(lx, ty, w - 80);
         settings.add(Ui.label("ADMIN CODE", lx, ty, menuFont(Font.BOLD, 20), new Color(0x9b7bff)));
         Font body = Cyber.body(Font.PLAIN, 14);
         for (String l : Ui.wrap("Enter the admin code to unlock the cheat checklist. Each option can be switched on and off on its own and applies to matches started from PLAY.", body, w - 80)) {
@@ -400,6 +406,72 @@ public final class MenuScreen extends GCompound {
         double divY = ry + 2 * rh + 10 + 22;
         settings.add(Ui.rect(lx, divY, cw, 1, Ui.withAlpha(CYAN, 70), Ui.withAlpha(CYAN, 0)));
         return divY + 40;
+    }
+
+    /**
+     * SETTINGS > DISPLAY: one row of chips (graphics quality preset, frame-rate cap, Palantir's window effects) and a
+     * line describing the chosen preset. Each chip cycles its value on click. Returns the baseline y of the next section.
+     */
+    private double buildDisplaySettings(double lx, double ty, double cw) {
+        settings.add(Ui.label("DISPLAY", lx, ty, menuFont(Font.BOLD, 20), CYAN));
+        double cy = ty + 14, ch = 38, gap = 12, chipW = (cw - 2 * gap) / 3;
+        qualityChip = new UIButton(lx, cy, chipW, ch, "", Cyber.mono(Font.BOLD, 13), this::cycleQuality);
+        fpsChip = new UIButton(lx + chipW + gap, cy, chipW, ch, "", Cyber.mono(Font.BOLD, 13), this::cycleFps);
+        windowChip = new UIButton(lx + 2 * (chipW + gap), cy, chipW, ch, "", Cyber.mono(Font.BOLD, 13), this::toggleWindowEffects);
+        for (UIButton b : new UIButton[] { qualityChip, fpsChip, windowChip }) { settings.add(b); settingsChips.add(b); }
+        Font body = Cyber.body(Font.PLAIN, 14);
+        displayHint = Ui.label("", lx, cy + ch + 24, body, Ui.TEXT);
+        settings.add(displayHint);
+        settings.add(Ui.label("Window effects: Palantir's final phase grabs and shrinks this window; drag it back to break its seal.",
+            lx, cy + ch + 46, Cyber.body(Font.PLAIN, 13), Cyber.MUTED));
+        syncWindowChip();
+        syncDisplayChips();
+        double divY = cy + ch + 66;
+        settings.add(Ui.rect(lx, divY, cw, 1, Ui.withAlpha(CYAN, 70), Ui.withAlpha(CYAN, 0)));
+        return divY + 40;
+    }
+
+    /** QUALITY chip: LOW -> MEDIUM -> HIGH -> LOW; takes effect on the next frame. */
+    private void cycleQuality() {
+        GraphicsSettings gs = GraphicsSettings.get();
+        gs.setQuality(gs.quality().next());
+        lindefense.audio.AudioManager.sfx(lindefense.audio.Sfx.UI_SELECT);   // AUDIO HOOK
+        syncDisplayChips();
+    }
+
+    /** MAX FPS chip: 30 -> 60 -> 120 -> 30; the frame timer picks it up on its next tick. */
+    private void cycleFps() {
+        GraphicsSettings gs = GraphicsSettings.get();
+        gs.setMaxFps(gs.nextFps());
+        lindefense.audio.AudioManager.sfx(lindefense.audio.Sfx.UI_SELECT);   // AUDIO HOOK
+        syncDisplayChips();
+    }
+
+    private void syncDisplayChips() {
+        GraphicsSettings gs = GraphicsSettings.get();
+        GraphicsSettings.Quality q = gs.quality();
+        qualityChip.setText("QUALITY: " + q.label.toUpperCase());
+        qualityChip.setSelected(q == GraphicsSettings.Quality.HIGH);
+        qualityChip.setAccent(q == GraphicsSettings.Quality.HIGH ? CYAN : q == GraphicsSettings.Quality.MEDIUM ? Cyber.YELLOW : Cyber.DIM);
+        fpsChip.setText("MAX FPS: " + gs.getMaxFps());
+        fpsChip.setSelected(gs.getMaxFps() > GraphicsSettings.DEFAULT_FPS);
+        fpsChip.setAccent(gs.getMaxFps() >= GraphicsSettings.DEFAULT_FPS ? CYAN : Cyber.DIM);
+        displayHint.setLabel(q == GraphicsSettings.Quality.HIGH ? "High: sharpest on 4K / 5K screens, with glow, vignette and screen shake."
+            : q == GraphicsSettings.Quality.MEDIUM ? "Medium: the original look, with automatic detail in big fights."
+            : "Low: fastest. Lighter bitmaps and reduced detail everywhere.");
+    }
+
+    private void toggleWindowEffects() {
+        boolean on = WindowEffects.toggle();
+        lindefense.audio.AudioManager.sfx(on ? lindefense.audio.Sfx.UI_SELECT : lindefense.audio.Sfx.UI_CLICK);   // AUDIO HOOK
+        syncWindowChip();
+    }
+
+    private void syncWindowChip() {
+        boolean on = WindowEffects.isEnabled();
+        windowChip.setText("WINDOW EFFECTS: " + (on ? "ON" : "OFF"));
+        windowChip.setSelected(on);
+        windowChip.setAccent(on ? Cyber.MAGENTA : Cyber.DIM);
     }
 
     private void toggleSettings() {

@@ -117,6 +117,14 @@ public final class ShopLayout {
 
     public static boolean affordable(double cash, TowerType t) { return cash >= TowerCatalog.get(t).baseCost; }
 
+    /** True if the match can pay for the tower at its current price (PATCH NOTES discounts / surcharges included). */
+    public static boolean affordable(lindefense.sim.Game game, TowerType t) { return game.getCash() >= lindefense.tower.Shop.priceOf(game, t); }
+
+    /** Cash still missing to buy the tower at its current match price (0 if affordable). */
+    public static int shortfall(lindefense.sim.Game game, TowerType t) {
+        return (int) Math.max(0, Math.ceil(lindefense.tower.Shop.priceOf(game, t) - game.getCash()));
+    }
+
     /** Cash still missing to buy the tower (0 if affordable). */
     public static int shortfall(double cash, TowerType t) {
         return (int) Math.max(0, Math.ceil(TowerCatalog.get(t).baseCost - cash));

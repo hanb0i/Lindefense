@@ -108,6 +108,6 @@ public final class Ui {
      * wave manager spawns), not the base O(1) count. Used by the bottom strip's next-wave preview.
      */
     public static int shapedUnits(lindefense.sim.Game game, int wave) {
-        return game.getDifficulty().shape(lindefense.wave.WaveData.get(wave), game.getSeed()).totalSpawns();
+        return game.getVariance().shapeWave(game.getDifficulty().shape(lindefense.wave.WaveData.get(wave), game.getSeed())).totalSpawns();   // + PATCH NOTES / NEWS
     }
 }

@@ -23,6 +23,8 @@ import lindefense.tower.Tower;
  *   <li>Counters: Perplexity (Sonar Reasoning Pro, U2) makes towers in its radius immune;
  *       upgrading, or selling and re-placing a tower also clears it.</li>
  * </ol>
+ * <p>Each phase also has a signature ability (Panopticon, Prompt Broadcast, System Takeover), implemented in
+ * {@link PalantirProtocols}.</p>
  */
 public class Boss extends Enemy {
     public static final double TELEGRAPH_TIME = 3.0;
@@ -40,10 +42,24 @@ public class Boss extends Enemy {
     private boolean entranceAnnounced;
     private int pendingPhaseEvent = -1;
     private double shieldOffRemaining;
+    /** Palantir's per-phase signature abilities (null for every other boss). */
+    private final PalantirProtocols protocols;
 
     public Boss(EnemyType type, EnumSet<Modifier> modifiers, Path route, int routeIndex, double distance,
                 double hpScale, double speedScale) {
         super(type, modifiers, route, routeIndex, distance, hpScale, speedScale);
+        protocols = type == EnemyType.PALANTIR ? new PalantirProtocols() : null;
+    }
+
+    /** Palantir's phase abilities (Panopticon, Prompt Broadcast, System Takeover); null for other bosses. */
+    public PalantirProtocols getProtocols() { return protocols; }
+
+    /** True while Palantir is sealed by its System Takeover window grab (reduced damage, regeneration). */
+    public boolean isSealed() { return protocols != null && protocols.isSealed(); }
+
+    /** While sealed, Palantir takes only {@link PalantirProtocols#SEAL_DAMAGE_MULT} of every hit. */
+    @Override public double takeDamage(double amount, double now) {
+        return super.takeDamage(isSealed() ? amount * PalantirProtocols.SEAL_DAMAGE_MULT : amount, now);
     }
 
     public boolean isPalantir() { return getType() == EnemyType.PALANTIR; }
@@ -103,8 +119,10 @@ public class Boss extends Enemy {
         if (newPhase >= 0) {
             pendingPhaseEvent = newPhase;
             game.onPalantirPhase(this, newPhase);
+            if (protocols != null) protocols.onPhase(game, this, newPhase);   // PHASE ABILITIES
         }
         if (!isPalantir()) return;
+        protocols.update(game, this, dt);   // PHASE ABILITIES: Panopticon / Prompt Broadcast / System Takeover
 
         if (telegraphRemaining > 0) {
             telegraphRemaining -= dt;

@@ -59,7 +59,11 @@ public enum EnemyType {
     LOCKHEED_MARTIN("Lockheed Martin", 1000, 2.6, 700, 50, 30, Mechanic.NONE,
         "DDT-class. Camo, very fast, Lead-type, armour 40%. Releases 4 camo Quick Sorts."),
     PALANTIR("Palantir", 50000, 0.28, 10000, 100, 64, Mechanic.PALANTIR,
-        "BAD-class final boss. Three defensive phases and Predictive Surveillance.");
+        "BAD-class final boss. Three defensive phases, each with a signature ability (Panopticon, Prompt Broadcast, System Takeover), and Predictive Surveillance."),
+
+    // ---------------- Summons (never in a wave) ----------------
+    PALANTIR_HOLOGRAM("Palantir Hologram", 1000, 0.36, 0, 0, 64, Mechanic.NONE,
+        "A holographic decoy that Palantir projects in phase 2. Low HP, pays nothing and costs no lives, but towers target it first while it exists (the ones immune to prompt injection see through it).");
 
     public final String displayName;
     public final int baseHp;
@@ -164,6 +168,9 @@ public enum EnemyType {
 
     public boolean isFast() { return speed >= 1.8; }
 
-    /** The 16 player-facing standard enemies plus bosses (no split-children). */
-    public boolean isSpawnableSpecies() { return this != MERGE_RUN && this != QUICK_PARTITION; }
+    /** The 16 player-facing standard enemies plus bosses (no split-children, no Palantir holograms). */
+    public boolean isSpawnableSpecies() { return this != MERGE_RUN && this != QUICK_PARTITION && this != PALANTIR_HOLOGRAM; }
+
+    /** Palantir's holographic decoy (phase 2): spawned by the boss itself, targeted first by towers that fall for it. */
+    public boolean isHologram() { return this == PALANTIR_HOLOGRAM; }
 }

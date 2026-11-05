@@ -119,9 +119,12 @@ public abstract class GameMap {
     // Helpers
     // ------------------------------------------------------------------
 
-    /** Random route index for spawning. */
+    /** Random route index for spawning (BREAKING NEWS: a Server Outage closes one lane for the wave). */
     public int pickRoute(Game game) {
-        return game.getRng().nextInt(routes.size());
+        int closed = game.getVariance().closedRoute(routes.size());
+        if (closed < 0) return game.getRng().nextInt(routes.size());
+        int r = game.getRng().nextInt(routes.size() - 1);
+        return r >= closed ? r + 1 : r;
     }
 
     protected void addDecoration(Decoration d) { decorations.add(d); }

@@ -71,6 +71,14 @@ public class TowerStats {
     public boolean auraDetection = false;
     /** Towers in the aura are immune to Predictive Surveillance. */
     public boolean auraSurveillanceImmunity = false;
+    /** Towers in the aura resist prompt injection (Copilot's firewall). */
+    public boolean auraInjectionImmunity = false;
+
+    // ---- prompt injection (see lindefense.sim.PromptInjection) ----
+    /** The tower is smart enough in cybersecurity to ignore injected instructions: it can never be hijacked or disabled. */
+    public boolean injectionImmune = false;
+    /** Why it is immune, shown in the info panel and catalog ("Constitutional AI ..."); null when not immune. */
+    public String injectionImmuneReason = null;
 
     // ---- enemy field around the tower (Sora slow, Brad discipline, Perplexity analysis) ----
     /** Field radius; 0 = use the tower's range. */
@@ -120,6 +128,7 @@ public class TowerStats {
         s.seesCamo = seesCamo; s.ignoresLos = ignoresLos;
         s.auraRange = auraRange; s.auraRate = auraRate; s.auraDamage = auraDamage; s.auraPierce = auraPierce;
         s.auraRangeBonus = auraRangeBonus; s.auraDetection = auraDetection; s.auraSurveillanceImmunity = auraSurveillanceImmunity;
+        s.auraInjectionImmunity = auraInjectionImmunity; s.injectionImmune = injectionImmune; s.injectionImmuneReason = injectionImmuneReason;
         s.fieldRadius = fieldRadius; s.auraEnemySlow = auraEnemySlow; s.fieldMarkFlat = fieldMarkFlat;
         s.fieldMarkPct = fieldMarkPct; s.fieldAffectsBosses = fieldAffectsBosses;
         s.incomePerWave = incomePerWave; s.summonInterval = summonInterval; s.summonCount = summonCount;

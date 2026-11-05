@@ -49,7 +49,7 @@ public final class DifficultyTests {
             o1IsIdentical();
             multipliersApplied();
             shapingIsDeterministic();
-            extraBossesScheduled();
+            bossesAndTuning();
             palantirAndVictory();
             stressLateWavesOnImpossible();
         } catch (Throwable t) {
@@ -181,7 +181,7 @@ public final class DifficultyTests {
         }
         check(Math.abs(Difficulty.ON.growth(50) - 0.5) < 1e-9, "O(N) is linear");
         check(Math.abs(Difficulty.ON2.growth(50) - 0.25) < 1e-9, "O(N^2) is quadratic");
-        check(Difficulty.ONN.growth(50) < Difficulty.ON2.growth(50), "O(N^N) back-loaded");
+        check(Difficulty.ONN.growth(50) == Difficulty.ON2.growth(50), "O(N^N) ramps on the same quadratic curve as O(N^2)");
         check(Difficulty.parse("O(N^2)") == Difficulty.ON2 && Difficulty.parse("onn") == Difficulty.ONN && Difficulty.parse("O1") == Difficulty.O1
             && Difficulty.parse("O(N²)") == Difficulty.ON2 && Difficulty.parse("zzz") == null, "difficulty parsing");
     }
@@ -248,41 +248,37 @@ public final class DifficultyTests {
         check(a.getWaveManager().getRemainingToSpawn() == a.getWaveManager().getCurrentDef().totalSpawns(), "live wave spawn total matches the shaped definition");
     }
 
-    private static void extraBossesScheduled() {
-        section("extra bosses");
-        check(Difficulty.O1.getExtraBosses().isEmpty() && Difficulty.ON.getExtraBosses().isEmpty() && Difficulty.ON2.getExtraBosses().isEmpty(),
-            "only O(N^N) has extra bosses");
-        check(Difficulty.ONN.getExtraBosses().size() >= 10, "O(N^N) has a boss schedule");
-        for (Difficulty.ExtraBoss b : Difficulty.ONN.getExtraBosses()) {
-            WaveDef base = WaveData.get(b.wave), shaped = Difficulty.ONN.shape(base, 42);
-            check(b.type.isBoss() && b.type != EnemyType.PALANTIR, "extra boss at wave " + b.wave + " is a non-final boss");
-            check(shaped.countOf(b.type) >= base.countOf(b.type) + b.count, "wave " + b.wave + " gained " + b.count + " x " + b.type);
+    /**
+     * No mode adds bosses to a wave (shaping only scales and promotes non-boss groups); boss children still split and
+     * inherit modifiers on the hardest mode; and the beta 2.02 tuning: O(N^N) uses exactly the numbers O(N^2) had
+     * before, and O(N^2) now sits between O(N) and O(N^N) on every knob.
+     */
+    private static void bossesAndTuning() {
+        section("bosses and tuning");
+        for (Difficulty d : Difficulty.values()) {
+            for (WaveDef base : WaveData.all()) {
+                WaveDef shaped = d.shape(base, 42);
+                int b0 = 0, b1 = 0;
+                for (SpawnGroup g : base.groups) if (g.type.isBoss()) b0 += g.count;
+                for (SpawnGroup g : shaped.groups) if (g.type.isBoss()) b1 += g.count;
+                if (b0 != b1) { check(false, d + " wave " + base.number + " changed its boss count " + b0 + " -> " + b1); break; }
+            }
         }
-        // a wave with no scheduled boss does not gain any
-        WaveDef w26 = Difficulty.ONN.shape(WaveData.get(26), 42);
-        check(!w26.containsBoss(), "no bosses on unscheduled wave 26");
-
-        // Live: wave 25 gets one extra MOAB which still splits into 4 Quick Sorts
+        check(true, "no mode adds or removes bosses");
+        // Live on O(N^N): a MOAB still splits into 4 Quick Sorts that inherit its HP scale
         Game g = game(Difficulty.ONN, 0);
         g.setGlobalEnemySpeedMultiplier(0);
-        toWave(g, 24);
-        g.getWaveManager().endWave();
-        g.startNextWave();
-        for (int i = 0; i < 60 * 40; i++) g.step(Game.DT);
-        check(g.getEnemyManager().countOfType(EnemyType.BELLARMINE_COLLEGE_PREP) == 1, "extra MOAB spawned on wave 25, got " + g.getEnemyManager().countOfType(EnemyType.BELLARMINE_COLLEGE_PREP));
-        Enemy moab = null;
-        for (Enemy e : g.getEnemyManager().getEnemies()) if (e.getType() == EnemyType.BELLARMINE_COLLEGE_PREP) moab = e;
-        check(moab instanceof Boss, "extra boss is a Boss instance");
-        if (moab != null) {
-            int qs = g.getEnemyManager().countOfType(EnemyType.QUICK_SORT);
-            double hpScale = moab.getHpScale();
-            kill(g, moab);
-            g.getEnemyManager().update(0);
-            check(g.getEnemyManager().countOfType(EnemyType.QUICK_SORT) == qs + 4, "extra MOAB splits into 4 Quick Sorts");
-            check(g.getEnemyManager().countOfType(EnemyType.BELLARMINE_COLLEGE_PREP) == 0, "MOAB removed after the split");
-            for (Enemy e : g.getEnemyManager().getEnemies()) if (e.getType() == EnemyType.QUICK_SORT) { check(e.getHpScale() == hpScale, "children inherit the parent's HP scale"); break; }
-        }
-        // Fortified extra BFB (wave 85) splits into 3 fortified MOAB children
+        toWave(g, 45);
+        Enemy moab = g.getEnemyManager().spawn(EnemyType.BELLARMINE_COLLEGE_PREP, null, 0, 0);
+        g.getEnemyManager().update(0);
+        check(moab instanceof Boss, "a MOAB is a Boss instance");
+        int qs = g.getEnemyManager().countOfType(EnemyType.QUICK_SORT);
+        double hpScale = moab.getHpScale();
+        kill(g, moab);
+        g.getEnemyManager().update(0);
+        check(g.getEnemyManager().countOfType(EnemyType.QUICK_SORT) == qs + 4, "a MOAB splits into 4 Quick Sorts on O(N^N)");
+        for (Enemy e : g.getEnemyManager().getEnemies()) if (e.getType() == EnemyType.QUICK_SORT) { check(e.getHpScale() == hpScale, "children inherit the parent's HP scale"); break; }
+        // a Fortified BFB splits into 3 Fortified MOABs
         Game f = game(Difficulty.ONN, 1);
         f.setGlobalEnemySpeedMultiplier(0);
         Enemy bfb = f.getEnemyManager().spawn(EnemyType.SW_RESOURCE_CONSULTANT, EnumSet.of(Modifier.FORTIFIED), 0, 0);
@@ -291,6 +287,16 @@ public final class DifficultyTests {
         f.getEnemyManager().update(0);
         check(f.getEnemyManager().countOfType(EnemyType.BELLARMINE_COLLEGE_PREP) == 3, "BFB splits into 3 MOABs on O(N^N)");
         for (Enemy e : f.getEnemyManager().getEnemies()) if (e.getType() == EnemyType.BELLARMINE_COLLEGE_PREP) check(e.isFortified(), "Fortified inherited by boss children");
+
+        // beta 2.02: O(N^N) = the previous O(N^2)
+        Difficulty n = Difficulty.ONN;
+        check(n.curve == Difficulty.Curve.QUADRATIC && n.hpBase == 1.25 && n.hpFinal == 3.10 && n.countBase == 1.25 && n.countFinal == 2.40
+            && n.towerDamage == 0.84 && n.income == 0.56 && n.eliteBase == 0.03 && n.eliteFinal == 0.80 && n.eliteMods == 2 && n.promoteChance == 0.50
+            && n.startCashMult == 1 && n.startLivesMult == 1 && n.palantirExtra == 1.06, "O(N^N) uses exactly the previous O(N^2) numbers");
+        Difficulty m = Difficulty.ON2, l = Difficulty.ON;
+        check(l.hpFinal < m.hpFinal && m.hpFinal < n.hpFinal && l.countFinal < m.countFinal && m.countFinal < n.countFinal, "O(N^2) enemy HP and count sit between O(N) and O(N^N)");
+        check(l.towerDamage > m.towerDamage && m.towerDamage > n.towerDamage && l.income > m.income && m.income > n.income, "O(N^2) tower damage and income sit between O(N) and O(N^N)");
+        check(m.eliteFinal > 0 && m.eliteFinal < n.eliteFinal && m.promoteChance < n.promoteChance, "O(N^2) has fewer, gentler elites than O(N^N)");
     }
 
     private static void palantirAndVictory() {

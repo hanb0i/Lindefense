@@ -44,6 +44,8 @@ public final class MapSelectScreen extends GCompound {
     private GCompound briefing;
     private final List<NeonButton> briefingButtons = new ArrayList<>();
     private int briefingMap = -1;
+    /** True while the open briefing is the reverse-mode (attacker) one. */
+    private boolean briefingReverse;
 
     public MapSelectScreen(LindefenseProgram app) {
         this.app = app;
@@ -77,7 +79,7 @@ public final class MapSelectScreen extends GCompound {
             int col = i % COLS, row = i / COLS;
             buildCard(app, m, i, 25 + col * (cardW + gap), top + row * (cardH + gap), cardW, cardH);
         }
-        NeonButton back = new NeonButton(25, 28, 130, 42, "BACK", MenuScreen.menuFont(Font.BOLD, 18), MenuScreen.CYAN, app::showMenu);
+        NeonButton back = new NeonButton(25, 28, 130, 42, "BACK", MenuScreen.menuFont(Font.BOLD, 18), MenuScreen.CYAN, () -> app.showMenu());
         buttons.add(back);
         add(back);
         // AUDIO: Sound / Music toggles beside BACK
@@ -230,6 +232,91 @@ public final class MapSelectScreen extends GCompound {
         briefingButtons.add(go);
         briefing.add(back);
         briefing.add(go);
+        addModeSwitch(idx, ax, aw, false);   // REVERSE HOOK
+        add(briefing);
+    }
+
+    // ------------------------------------------------------------------ reverse mode ("Adversarial Training")
+    /** True while the reverse-mode (attacker) briefing is showing. */
+    public boolean isReverseBriefing() { return briefing != null && briefingReverse; }
+
+    /** Logical centre of the briefing's ATTACK INSTEAD / DEFEND INSTEAD switch (for tools that click through the UI). */
+    public static double[] briefingModeCenter() {
+        double[] dep = briefingDeployRect();
+        return new double[] { BRIEF_X + BRIEF_PAD + BRIEF_ART_W / 2, dep[1] + dep[3] / 2 };
+    }
+
+    /** The switch between the normal and the reverse briefing, across the left column under the map legend. */
+    private void addModeSwitch(int idx, double ax, double aw, boolean reverse) {
+        double[] dep = briefingDeployRect();
+        NeonButton mode = reverse
+            ? new NeonButton(ax, dep[1], aw, dep[3], "DEFEND INSTEAD  //  NORMAL MODE", MenuScreen.menuFont(Font.BOLD, 18), MenuScreen.CYAN, () -> openBriefing(idx))
+            : new NeonButton(ax, dep[1], aw, dep[3], "ATTACK INSTEAD  //  ADVERSARIAL TRAINING", MenuScreen.menuFont(Font.BOLD, 18), MenuScreen.MAGENTA, () -> openReverseBriefing(idx));
+        briefingButtons.add(mode);
+        briefing.add(mode);
+    }
+
+    /**
+     * The reverse-mode briefing for map {@code idx}: the same preview, then the rules of Adversarial Training (you send,
+     * the AI defends), the defender AI the Difficulty Growth mode selects, and the map's lanes / long-track bonus. Its
+     * ATTACK (or Enter) starts the reverse match; DEFEND INSTEAD goes back to the normal briefing.
+     */
+    public void openReverseBriefing(int idx) {
+        closeBriefing();
+        GameMap m = maps.get(idx);
+        Color dc = MenuScreen.MAGENTA;
+        briefingMap = idx;
+        briefingReverse = true;
+        briefing = new GCompound();
+        briefing.add(Ui.rect(0, 0, Ui.W, Ui.H, Ui.c(0x02040a, 205), Ui.c(0x000000, 0)));
+        double px = BRIEF_X, py = BRIEF_Y, pw = BRIEF_W, ph = BRIEF_H;
+        briefing.add(new Cyber.Chamfer(px, py, pw, ph, 26).fill(new Color(14, 6, 24, 244)).border(dc).glow(1.1).lineWidth(2).ticks(true));
+        briefing.add(Ui.rect(px + 24, py + 12, 140, 3, MenuScreen.CYAN, MenuScreen.CYAN));
+        briefing.add(Ui.label(Cyber.spaced("// adversarial training  -  sector " + (idx + 1) + " of " + maps.size()), px + BRIEF_PAD, py + 40, Cyber.mono(Font.BOLD, 12), Ui.withAlpha(MenuScreen.CYAN, 230)));
+        double ax = px + BRIEF_PAD, ay = py + 60, aw = BRIEF_ART_W, ah = aw * GameMap.HEIGHT / GameMap.WIDTH, s = aw / GameMap.WIDTH;
+        briefing.add(new MapArt(m, ax, ay, aw, ah));
+        briefing.add(Ui.rect(ax, ay, aw, ah, null, Ui.withAlpha(dc, 170)));
+        for (Path r : m.getRoutes()) {
+            briefing.add(Ui.oval(ax + r.getStart().x * s - 5, ay + r.getStart().y * s - 5, 10, 10, MenuScreen.MAGENTA, MenuScreen.MAGENTA));
+            briefing.add(Ui.oval(ax + r.getEnd().x * s - 5, ay + r.getEnd().y * s - 5, 10, 10, Ui.RED, Ui.RED));
+        }
+        double ly = ay + ah + 30;
+        Font legendF = Cyber.mono(Font.BOLD, 12);
+        briefing.add(Ui.oval(ax, ly - 9, 10, 10, MenuScreen.MAGENTA, MenuScreen.MAGENTA));
+        GLabel entry = Ui.label("YOUR UPLINK", ax + 16, ly, legendF, Ui.TEXT);
+        briefing.add(entry);
+        double ex = ax + 16 + entry.getWidth() + 22;
+        briefing.add(Ui.oval(ex, ly - 9, 10, 10, Ui.RED, Ui.RED));
+        briefing.add(Ui.label("BREACH POINT", ex + 16, ly, legendF, Ui.TEXT));
+
+        double rx = ax + aw + 36, rw = px + pw - BRIEF_PAD - rx, ty = py + 92;
+        Font nameF = MenuScreen.menuFont(Font.BOLD, 30);
+        for (String line : Ui.wrap(m.getName().toUpperCase(), nameF, rw)) { briefing.add(Ui.label(line, rx, ty, nameF, Ui.TEXT)); ty += 34; }
+        ty += 2;
+        GLabel bl = Ui.label("REVERSE MODE  /  YOU ATTACK", rx + 8, ty, Cyber.display(Font.BOLD, 16), dc);
+        briefing.add(Ui.rect(rx, ty - 15, bl.getWidth() + 16, 22, Ui.withAlpha(dc, 35), Ui.withAlpha(dc, 160)));
+        briefing.add(bl);
+        ty += 40;
+        int mins = (int) (lindefense.ai.ReverseMatch.DURATION / 60);
+        ty = briefingSection("ADVERSARIAL TRAINING", "Roles reversed: you send the enemies, a defender AI builds and upgrades the towers. Spend compute credits on "
+            + "units, modifiers and exploits, and drop its integrity to 0 before the " + mins + ":00 training run ends.", MenuScreen.MAGENTA, rx, ty, rw);
+        lindefense.sim.Difficulty d = lindefense.sim.Difficulty.getSelected();
+        lindefense.ai.DefenderProfile prof = lindefense.ai.DefenderProfile.of(d);
+        ty = briefingSection("DEFENDER AI: " + prof.displayName, DifficultySelector.display(d, Cyber.body(Font.PLAIN, 16)) + "  -  " + prof.description, MenuScreen.YELLOW, rx, ty, rw);
+        double tb = lindefense.ai.ReverseMatch.trackBonus(m), sp = lindefense.ai.ReverseMatch.trackSpeed(m);
+        int lanes = m.getRoutes().size();
+        String up = lanes + (lanes == 1 ? " lane." : " lanes: pick one per send or spread them.") + (tb > 1 || sp > 1
+            ? " Long track: your units move x" + Ui.fmt(Math.round(sp * 100) / 100.0) + " faster and compute flows x" + Ui.fmt(Math.round(tb * 100) / 100.0) + "." : " Standard track.");
+        briefingSection("UPLINK", up, MenuScreen.CYAN, rx, ty, rw);
+
+        double[] dep = briefingDeployRect();
+        NeonButton back = new NeonButton(rx, dep[1], 150, dep[3], "BACK", MenuScreen.menuFont(Font.BOLD, 18), MenuScreen.CYAN, this::closeBriefing);
+        NeonButton go = new NeonButton(dep[0], dep[1], dep[2], dep[3], "ATTACK", MenuScreen.menuFont(Font.BOLD, 22), dc, () -> app.startReverse(idx));
+        briefingButtons.add(back);
+        briefingButtons.add(go);
+        briefing.add(back);
+        briefing.add(go);
+        addModeSwitch(idx, ax, aw, true);
         add(briefing);
     }
 
@@ -249,6 +336,7 @@ public final class MapSelectScreen extends GCompound {
         briefing = null;
         briefingButtons.clear();
         briefingMap = -1;
+        briefingReverse = false;
     }
 
     /** Esc closes the briefing popup, or goes back to the main menu; Enter deploys from an open briefing. */
@@ -259,6 +347,7 @@ public final class MapSelectScreen extends GCompound {
             else app.showMenu();
         } else if (k == java.awt.event.KeyEvent.VK_ENTER && briefing != null) {
             int idx = briefingMap;
+            if (briefingReverse) { app.startReverse(idx); return; }   // REVERSE HOOK (startReverse plays the select sound)
             lindefense.audio.AudioManager.sfx(lindefense.audio.Sfx.UI_SELECT);   // AUDIO HOOK
             app.startGame(idx);
         }

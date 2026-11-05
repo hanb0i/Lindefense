@@ -1,6 +1,6 @@
 # Lindefense - The Last Line of Code
 
-**Version: beta 2.01**
+**Version: beta 2.02**
 
 ![Lindefense title card](docs/titlecard.png)
 
@@ -18,6 +18,26 @@ fit whatever size you drag it to.
 
 All tuning numbers (tower stats, upgrades, abilities, enemy stats, boss phases, every wave) are in
 data classes and documented in [DESIGN.md](DESIGN.md), which is generated from those classes.
+
+### What's new in beta 2.02
+
+- **Difficulty rebalance:** O(N^2) is easier (it now sits between O(N) and O(N^N)), and O(N^N) plays exactly like O(N^2) did in
+  beta 2.01. See [Difficulty Growth](#difficulty-growth).
+
+- **Adversarial Training (reverse mode):** play as the data structures. Spend compute credits to send enemies, bosses
+  and modifiers down the track while an AI defender (four skill levels, one per Difficulty Growth mode) builds, upgrades
+  and unlocks abilities against you. In the map briefing, click **ATTACK INSTEAD**. See [Adversarial Training](#adversarial-training-reverse-mode).
+- **Prompt-injection enemies:** from wave 30, some enemies carry an "IGNORE PREVIOUS INSTRUCTIONS" sign that hijacks
+  nearby towers, which then zap their neighbours offline. Claude, Copilot, DeepSeek, Perplexity and Mr. Lindemann are
+  immune, and Copilot's firewall protects the towers around it.
+- **Palantir fights back:** every phase has a signature ability (Panopticon sweep, Prompt Broadcast with hologram decoys,
+  System Takeover). In the last phase it **grabs your game window** and shrinks it; drag the window back to break its
+  seal (SETTINGS > DISPLAY can turn window effects off).
+- **Patch Notes and Breaking News:** at the start and after waves 19 / 39 / 59 / 79 you pick 1 of 3 random patch notes
+  (each with an upside and a downside), and from wave 6 random news events shake up single waves. Every run has a
+  short **seed** (pause menu and end screen); **REPLAY SEED** plays the same run again.
+- **Graphics:** SETTINGS > DISPLAY has **QUALITY** (Low / Medium / High; High renders the map and icons at your screen's
+  full pixel density up to 4x, with glow, a vignette and screen shake) and **MAX FPS** (30 / 60 / 120).
 
 ### What's new in beta 2.01
 
@@ -170,29 +190,25 @@ java  -cp build:lib/acm.jar lindefense.tools.AutoPlayer [maxWave] [mapIndex]   #
 
 Four modes named after Big-O classes, picked on the map-select screen (or `-Dlindefense.difficulty=O1|ON|ON2|ONN`; default **O(1)**, the
 unchanged original game). All knobs are relative multipliers on top of the base game and live in `lindefense.sim.Difficulty`.
-HP, enemy count and elite chance ramp with the mode's curve (flat, linear, quadratic, capped super-exponential); tower damage and income are flat.
+HP, enemy count and elite chance ramp with the mode's curve (flat, linear or quadratic); tower damage and income are flat.
 
 | Knob | O(1) Constant | O(N) Linear (Normal) | O(N^2) Quadratic (Hard) | O(N^N) Super-exponential (Impossible) |
 |---|---|---|---|---|
-| Enemy HP x (wave 1 -> 100) | 1 | 1.1 -> 1.5 | 1.25 -> 3.1 | 1.3 -> 3.3 |
-| Enemy count x (wave 1 -> 100) | 1 | 1.1 -> 1.4 | 1.25 -> 2.4 | 1.3 -> 2.5 |
-| Tower damage x | 1 | 0.92 | 0.84 | 0.75 |
-| Income x (kills + wave bonus) | 1 | 0.8 | 0.56 | 0.5 |
-| Starting cash x | 1 | 1 | 1 | 2 |
-| Elite chance per spawn | none | none | 3% -> 80% | 5% -> 80% |
-| Elite rules | - | - | +2 random modifiers, 50% promoted to a tougher type | +2 random modifiers, 50% promoted |
-| Extra bosses | none | none | none | 10 groups on waves 25-85 (MOABs, one BFB; see DESIGN.md section 7) |
-| Palantir | unchanged | HP x damage-compensation | same | same (+3% per tier) |
+| Enemy HP x (wave 1 -> 100) | 1 | 1.1 -> 1.5 | 1.1 -> 1.85 | 1.25 -> 3.1 |
+| Enemy count x (wave 1 -> 100) | 1 | 1.1 -> 1.4 | 1.1 -> 1.6 | 1.25 -> 2.4 |
+| Tower damage x | 1 | 0.92 | 0.90 | 0.84 |
+| Income x (kills + wave bonus) | 1 | 0.8 | 0.72 | 0.56 |
+| Elite chance per spawn | none | none | 2% -> 22% | 3% -> 80% |
+| Elite rules | - | - | +1 random modifier, 20% promoted to a tougher type | +2 random modifiers, 50% promoted |
+| Palantir HP | unchanged | x damage x 1.03 | x damage x 1.00 | x damage x 1.06 |
 
-Extra bosses (O(N^N) only): one MOAB each on 25, 30, 35, 45, 50, 55 and 65, a BFB on 70, two Fortified MOABs on 75 and 85. Palantir is never duplicated.
-The O(N^2) and O(N^N) numbers above are raised past the original Difficulty values (O(N^2) HP final 2.2 -> 3.1, damage 0.86 -> 0.84, income 0.6 -> 0.56, count 2.3 -> 2.4,
-elites 60% -> 80%; O(N^N) HP final 3.0 -> 3.3, count 2.4 -> 2.5, elites 60% -> 80%); O(N^N) keeps its double starting cash.
+Beta 2.02: **O(N^N) now plays exactly like O(N^2) did in beta 2.01** (its old extra bosses and double starting cash are gone), and **O(N^2) was eased** to sit
+between O(N) and O(N^N). More prompt injectors appear at higher modes (they ride the enemy-count multiplier).
 
-Balance-bot calibration (the near-optimal `AutoPlayer`): O(1) and O(N) are won on every map and seed; O(N^2) is won in 9-10 of 12 map x seed runs (the survivors keep 22-99 lives);
-O(N^N) is brutal but beatable: 4 of 12 on the standard seeds and 33 of 80 over a 20-seed batch, with at least 3 wins on every map and losses almost all on waves 98-99
-(The Legacy Monolith is the easy map and wins every mode). The 20-tower cap bot wins the base game only on Legacy and loses O(N^2) and O(N^N); the random-placement casual
-bot loses mid-game in every mode. Full tables are in DESIGN.md section 7; re-run `AutoPlayer` with `-Dbot.difficulty=...` (`-Dbot.seeds=N`, `-Dbot.maxTowers=20`,
-`-Dbot.random=true`) after any stat change.
+Balance-bot calibration (the near-optimal `AutoPlayer`, 4 original maps x seeds 1234-1236, prompt injection and Palantir's abilities on): O(1) wins 12 of 12,
+O(N) 11, O(N^2) 9 (8 on seeds 2000-2002; every loss is the wave-100 Palantir fight), O(N^N) 3 (Legacy Monolith; the other maps fall on waves 59-79).
+The Legacy Monolith is the easy map and wins every mode. Full tables are in DESIGN.md section 7; re-run `AutoPlayer` with `-Dbot.difficulty=...` (`-Dbot.seeds=N`)
+after any stat change.
 
 ## 3. Controls
 
@@ -214,6 +230,7 @@ bot loses mid-game in every mode. Full tables are in DESIGN.md section 7; re-run
 | `T` | Cycle targeting priority (First / Last / Strongest / Weakest / Closest) |
 | `K` / **HEROES** button | Open / close the Hero Store (buy heroes, deploy unlocked ones) |
 | `M` / `N` | Toggle **M**usic / sou**N**d (also speaker and note buttons on the main menu, map select and the pause menu) |
+| `1` `2` `3` during a Patch Notes draft | Pick that card (or click it); the next wave waits until you pick |
 | `H` / **? HELP** button | Open the in-game help overlay (full controls, modifiers, economy, bosses) |
 | **Auto** button | Auto-start the next wave 8 s after the current one is cleared |
 | **Menu** button | Pause and open the pause menu: **Resume**, **Restart** (same map and difficulty, asks to confirm), **Sound effects** and **Music** toggles with a **volume slider** beside each, **Quit level** (back to map select, asks to confirm) and **Main menu** |
@@ -321,11 +338,49 @@ ffmpeg -i input.mp4 -vn -t 90 -ar 22050 -ac 2 -c:a pcm_mulaw assets/music/menu.w
   Quick and Tim Sort); Explosive cannot pop Camo without detection; Magic hurts everything.
 - **Bosses** appear on waves 40 (MOAB), 60 (BFB), 80 (ZOMG), 90 (DDT) and 100 (BAD) with large
   health bars, armour, and children released on destruction.
+- **Prompt injection** (from wave 30, more often later and at harder Difficulty Growth): an injector broadcasts when a
+  tower comes within 150 px and every 9 s after, hijacking the 2 nearest towers that are not immune for 3 s. A hijacked
+  tower stops attacking and zaps a neighbour offline for 1.5 s. Chains are one hop, and a tower that was just knocked
+  out gets 4 s of protection. Immune: **Claude** (Constitutional AI), **Copilot** (Security Copilot; towers in its
+  150 px firewall are protected too), **DeepSeek**, **Perplexity** and **Mr. Lindemann**; the tower panel and the
+  catalog say so.
 - **Palantir** (Wave 100) has three phases (armour 60% / 35% / 10%, faster each phase, Lockheed
   escorts in phase 3) and **Predictive Surveillance**: every 30/20/14 s it analyses your
   highest-investment towers for 3 s (red reticles and analysis lines), then disrupts them for 8 s
   (-50% speed, -30% range, abilities locked). Counter it with Perplexity U2's radius (Predictive
-  Analysis), or by spreading your investment. Destroying Palantir wins the campaign.
+  Analysis), or by spreading your investment. Each phase also has a signature ability:
+  **Panopticon** (phase 1, a sweeping beam blinds the towers it crosses for 2 s; Perplexity U2 protects),
+  **Prompt Broadcast** (phase 2, hijacks your most expensive towers that are not immune and projects 2 hologram decoys
+  that only fool towers that are not immune) and **System Takeover** (phase 3: a one-time kill switch restarts your
+  unlocked abilities' cooldowns, and Palantir **grabs the game window**, shrinking it to 72%; while the window stays
+  under 85% of its size Palantir is **sealed**: it takes 30% damage and regenerates, so drag the window back).
+  The window grab only resizes and moves your window inside the screen, never goes full screen, restores the window
+  afterwards, and is off in SETTINGS > DISPLAY > WINDOW EFFECTS. Destroying Palantir wins the campaign.
+- **Patch Notes** (run modifiers): at the start of a match and after waves 19, 39, 59 and 79 the game offers 3 random
+  cards and you keep 1 for the rest of the run (18 cards, e.g. *Open Source*: towers 15% cheaper but sales refund 50%;
+  *Overfitting*: +40% vs bosses, -15% vs everything else). Stacking is capped so no combination can wreck a run.
+  **Breaking News**: from wave 6, each wave has a 22% chance of an event announced on the news ticker that lasts that
+  wave (GPU shortage, Viral meme: all Camo, DDoS: faster enemies, Bug bounty, Server outage: one lane closed, ...).
+  Every run has a short seed code (pause menu and end screen); **REPLAY SEED** on the end screen replays it, and
+  `-Dlindefense.seed=CODE` forces one. The tutorial plays without Patch Notes or news.
+
+## Adversarial Training (reverse mode)
+
+You are the attacker. Pick a map and a Difficulty Growth mode (it chooses the AI: **O(1)** Novice, **O(N)** Competent,
+**O(N²)** Expert, **O(Nᴺ)** Superintelligence), click DEPLOY, then **ATTACK INSTEAD** in the briefing.
+
+- **Goal:** break the AI's 100 integrity within 15:00 of game time (15 one-minute epochs; units already on the track get
+  up to a minute of overtime). If the AI survives, it wins.
+- **Compute credits:** you start with 250 and earn an income that grows every minute (12/s at the start, about 160/s at
+  10:00); **SCALE COMPUTE** (`C`) raises it. Every integrity point a leak costs the AI pays you 8.
+- **Units** unlock over time, from Primitive Variables at 0:00 to the five bosses (MOAB 5:00 ... Palantir 12:00).
+  Modifiers multiply the price: Regrow x1.3, Camo x1.5, Fortified x2, **Prompt Injection x1.6** (from 6:00; it hijacks
+  the AI's towers that are not immune).
+- **Exploits:** `Q` Overclock (your units +50% speed), `W` Hotfix (heal everything on the track), `E` Zero-Day (jam the
+  AI's 3 most expensive towers).
+- **Controls:** click a unit card to send it, `X` cycles the quantity (x1 / x5 / x10 / x25), `L` picks the lane,
+  `Space` repeats the last send. Long single-lane maps give your units a speed and income bonus (shown in the briefing).
+- The defender plays by the normal rules (3 heroes per game, $15,000 ability unlocks) and its moves appear in the feed.
 
 ## 5. Towers
 
@@ -405,9 +460,13 @@ src/lindefense/
   ui/sprites/towers/  tower art for every tower and tier (TowerArtFactory, *Art), TowerIcons (shop icons),
                ProjectileSprites (per-tower projectiles + beam/chain/hit/explosion effects); TowerGallery
   audio/    AudioManager (sound effects, music, switches), Sfx, Track, MusicDirector, Mixer, MusicStream
+  ai/       Adversarial Training: DefenderAI (the AI defender, shared with the balance bot), ReverseMatch (economy,
+            unlocks, queue, exploits, win/loss), AttackUnit, AttackAbility, DefenderProfile, AttackerBot
+  variance/ Patch Notes and Breaking News: PatchNote, BreakingNews, Knob / Mods (run modifiers), RunVariance, RunSeed
   test/     HeadlessTests plus GlobalRulesTests, EnginePrimitiveTests, the per-faction group tests, HeroStoreTests,
-            AbilityUnlockTests and VolumeTests - run without a window
-  tools/    DesignDocGenerator (DESIGN.md), AutoPlayer (balance bot), PerfBench (performance benchmark)
+            AbilityUnlockTests, VolumeTests, InjectionTests, VarianceTests, ReverseModeTests and GraphicsTests - run without a window
+  tools/    DesignDocGenerator (DESIGN.md), AutoPlayer (balance bot; -Dbot.variance=random plays with Patch Notes),
+            PerfBench (performance benchmark), ReverseProbe (reverse-mode balance probe)
 lib/acm.jar
 assets/fonts/                 bundled OFL fonts used by every UI label (see below)
 assets/sfx/                   sound effects (CC0) + CREDITS.md;  assets/music/  optional music tracks
@@ -440,7 +499,9 @@ and runs headless; the `ui` package renders it.
 `./test.sh` runs `lindefense.test.HeadlessTests`, which exercises the real game logic: purchase /
 upgrade / sell and the 70% refund, every upgrade path (three upgrades for shop towers and heroes, four for Zethos), the
 $15,000 ability unlocks and every unlocked ability, the Hero Store (prices, permanent unlocks, the 3-heroes-per-game cap,
-Mr. Lindemann strongest and Spear Hanbo second), the global tower rules (damage types, statuses, buff caps, camo, hero uniqueness), the sim primitives and every tower's data-table numbers, volume settings, rewards without
+Mr. Lindemann strongest and Spear Hanbo second), prompt injection and immunity, Palantir's phase abilities and window seal,
+every Patch Notes card and news event, run seeds, Adversarial Training (economy, AI defender, win / loss), graphics
+presets, the global tower rules (damage types, statuses, buff caps, camo, hero uniqueness), the sim primitives and every tower's data-table numbers, volume settings, rewards without
 duplicate-kill exploits, lives on leaks, every targeting priority, camo vs detection, Fortified and
 Regrow, every splitter's children, boss children, all 100 wave compositions (including Palantir on
 Wave 100), Palantir's phases and Predictive Surveillance, ability cooldowns, traversal of every

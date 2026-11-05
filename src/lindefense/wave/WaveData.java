@@ -14,7 +14,8 @@ import static lindefense.enemy.EnemyType.*;
  * of concurrent {@link SpawnGroup}s. Counts are enemies initially spawned;
  * children released by splitting or boss destruction are extra.
  *
- * <p>Modifier codes: C = Camo, R = Regrow, F = Fortified (combinable, e.g. "CF").</p>
+ * <p>Modifier codes: C = Camo, R = Regrow, F = Fortified, I = Prompt Injection (combinable, e.g. "CF"). Prompt
+ * Injection enemies are placed by {@link InjectionSchedule} from wave 30 on.</p>
  *
  * <p>Scaling (also centralised here): {@link #hpScale(int)}, {@link #speedScale(int)}
  * and {@link #rewardScale(int)} are applied to every enemy spawned in a wave.</p>
@@ -66,6 +67,7 @@ public final class WaveData {
         if (code.indexOf('C') >= 0) m.add(Modifier.CAMO);
         if (code.indexOf('R') >= 0) m.add(Modifier.REGROW);
         if (code.indexOf('F') >= 0) m.add(Modifier.FORTIFIED);
+        if (code.indexOf('I') >= 0) m.add(Modifier.INJECTION);
         return m;
     }
 
@@ -199,5 +201,6 @@ public final class WaveData {
             g(PALANTIR, 1, 1, 8), g(LOCKHEED_MARTIN, 4, 6.0, 30), g(BELLARMINE_COLLEGE_PREP, 8, "F", 4.0, 45));
 
         if (WAVES.size() != WAVE_COUNT) throw new IllegalStateException("Expected 100 waves, got " + WAVES.size());
+        for (int i = 0; i < WAVES.size(); i++) WAVES.set(i, InjectionSchedule.apply(WAVES.get(i)));   // PROMPT INJECTION from wave 30
     }
 }

@@ -88,6 +88,8 @@ public final class WorldView extends GCompound {
     private final GCompound effectLayer = new GCompound();
     private final GCompound overlay = new GCompound();
     private final WorldFx fx;
+    /** Prompt-injection signs, hijack beams, Palantir's phase abilities and the window-seal banner. */
+    private final IntrusionFx intrusionFx;
 
     private final Map<Tower, TowerSprite> towerSprites = new HashMap<>();
     private final Map<Enemy, EnemySprite> enemySprites = new HashMap<>();
@@ -110,6 +112,10 @@ public final class WorldView extends GCompound {
     private final List<GObject> shortFx = new ArrayList<>();
     private double time;
     private MapArt.Pulses pulses;
+    /** Graphics-quality extras (HIGH preset): projectile halos / explosion flashes and camera shake (the vignette is baked into MapArt). */
+    private final GlowLayer glow;
+    private final ScreenShake shake = new ScreenShake();
+    private int lastLives = -1;
     /** Abandoned Data Center: one list of track-section polygons per hazard, lit while it warns or is active. */
     private final List<List<GPolygon>> hazardFx = new ArrayList<>();
 
@@ -119,6 +125,7 @@ public final class WorldView extends GCompound {
         this.map = game.getMap();
         setLocation(0, 0);
         fx = new WorldFx(game);
+        intrusionFx = new IntrusionFx(game);
         buildBackground();
         add(background);
         add(mapFx);
@@ -127,8 +134,11 @@ public final class WorldView extends GCompound {
         add(enemyLayer);
         add(fx.top());
         add(hpLayer);
+        glow = new GlowLayer(game);
+        add(glow);
         add(projectileLayer);
         add(effectLayer);
+        add(intrusionFx.layer());
         add(overlay);
         buildOverlay();
     }
@@ -256,6 +266,14 @@ public final class WorldView extends GCompound {
         updateLod();
         fx.setLod(lod);
         fx.update(dt);
+        glow.setLod(lod);
+        glow.update(dt);
+        shake.update(dt);
+        int lives = game.getLives();
+        if (lastLives >= 0 && lives < lastLives) shake.kick(0.3);   // a leak jolts the camera
+        lastLives = lives;
+        intrusionFx.setLod(lod);
+        intrusionFx.update(dt);
         syncProjectiles();
         consumeEvents();
         stepEffects(dt);
@@ -370,6 +388,7 @@ public final class WorldView extends GCompound {
         if (want > lod) lod = want;
         else if (lod == 2 && load < LOD_FINE_LOAD * 0.8) lod = load >= LOD_DECOR_LOAD ? 1 : 0;
         else if (lod == 1 && load < LOD_DECOR_LOAD * 0.8) lod = 0;
+        lod = Math.max(lod, GraphicsSettings.get().quality().minLod);   // LOW never draws full detail
     }
 
     /** Current level of detail (0 = full detail). */
@@ -440,6 +459,13 @@ public final class WorldView extends GCompound {
         int cap = effectCap();
         for (VisualEvent ev : game.drainEvents()) {
             lindefense.audio.AudioManager.event(ev);   // AUDIO HOOK
+            // graphics-quality extras: light flashes and camera shake (both no-ops below the HIGH preset)
+            if (ev.kind == VisualEvent.Kind.EXPLOSION || ev.kind == VisualEvent.Kind.ABILITY) {
+                glow.flash(ev.a, ev.radius, ev.rgb);
+                if (ev.radius >= 70) shake.kick(ev.kind == VisualEvent.Kind.EXPLOSION ? 0.12 : 0.08);
+            } else if (ev.kind == VisualEvent.Kind.PHASE) {
+                shake.kick(0.5);
+            }
             if (effects.size() >= cap && ev.kind != VisualEvent.Kind.PHASE && ev.kind != VisualEvent.Kind.BANNER) continue;
             if (ev.kind == VisualEvent.Kind.BEAM || ev.kind == VisualEvent.Kind.CHAIN
                     || ev.kind == VisualEvent.Kind.HIT || ev.kind == VisualEvent.Kind.EXPLOSION) {
@@ -568,7 +594,7 @@ public final class WorldView extends GCompound {
         Vec mouse = screen.getMouseWorld();
         Tower hover = null;
         if (placing != null && mouse != null && insideWorld(mouse)) {
-            double r = TowerCatalog.get(placing).statsForTier(0).range * map.towerRangeMultiplier(game, null);
+            double r = TowerCatalog.get(placing).statsForTier(0).range * map.towerRangeMultiplier(game, null) * game.getGlobalRangeMultiplier();
             String problem = game.getTowerManager().placementProblem(placing, mouse);
             boolean ok = problem == null;
             Color col = ok ? Cyber.CYAN : Cyber.RED;
@@ -586,7 +612,7 @@ public final class WorldView extends GCompound {
                 ghostX1.setStartPoint(mouse.x - k, mouse.y - k); ghostX1.setEndPoint(mouse.x + k, mouse.y + k);
                 ghostX2.setStartPoint(mouse.x - k, mouse.y + k); ghostX2.setEndPoint(mouse.x + k, mouse.y - k);
             }
-            ghostPlate.set(ok ? placing.displayName : problem, ok ? Ui.money(TowerCatalog.get(placing).baseCost) : null, col);
+            ghostPlate.set(ok ? placing.displayName : problem, ok ? Ui.money(lindefense.tower.Shop.priceOf(game, placing)) : null, col);
             placePlate(ghostPlate, mouse, tr);
             ghostPlate.setVisible(true);
             rangeCircle.setVisible(false);
@@ -667,8 +693,14 @@ public final class WorldView extends GCompound {
 
     /** Reserves {@code dock} logical px under the HUD for the boss dock by shrinking the playfield uniformly. */
     public void setDock(double dock) {
-        viewDock = Math.max(0, Math.min(140, dock));
+        viewDock = Math.max(0, Math.min(170, dock));   // boss dock + the PATCH NOTES strip
         viewScale = (Ui.WORLD_H - viewDock) / Ui.WORLD_H;
+    }
+
+    /** Inverse of {@link #toWorld}: the logical point {x, y} where world point {@code w} is drawn (boss dock / strip aware). */
+    public double[] toLogical(Vec w) {
+        double offX = (Ui.WORLD_W - GameMap.WIDTH * viewScale) / 2;
+        return new double[] { Ui.WORLD_X + offX + w.x * viewScale, Ui.WORLD_Y + viewDock + w.y * viewScale };
     }
 
     /** Maps a logical point (screen layout space) into world coordinates, or null outside the playfield. */
@@ -684,6 +716,7 @@ public final class WorldView extends GCompound {
             Cyber.quality(g2);
             double offX = (Ui.WORLD_W - GameMap.WIDTH * viewScale) / 2;
             g2.translate(Ui.WORLD_X + offX, Ui.WORLD_Y + viewDock);
+            g2.translate(shake.offsetX(), shake.offsetY());   // HIGH preset camera shake (drawing only)
             g2.scale(viewScale, viewScale);
             g2.clipRect(0, 0, GameMap.WIDTH, GameMap.HEIGHT);
             int prevLod = Thick.setLevel(lod);

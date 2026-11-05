@@ -346,6 +346,7 @@ public final class HeroTowers {
                 s.set("holeRadius", u(14)).set("holeDuration", 2).set("holeDps", 30).set("holeSlow", 0.5).set("maxHoles", 2)
                     .set("warpInterval", 20).set("warpSeconds", 5);
             })
+            .injectionImmune("The CS teacher: he wrote the lesson on prompt injection, so it never fools him.")
             .upgrade(1200, null, "Damage 60 -> 90; singularities last 2 -> 3 s and crush 30 -> 50 per second; sees Camo.",
                 s -> { s.hit.damage = 90; s.seesCamo = true; s.set("holeDuration", 3).set("holeDps", 50); })
             .upgrade(2600, null, "Singularities grow 14 -> 18 units (up to 3 at once) and garbage-collect: a non-boss enemy inside one below 15% HP is deleted outright.",

@@ -27,7 +27,8 @@ import lindefense.sim.Game;
  * which is also where ACM delivers mouse and key events, so no locking is needed.</p>
  *
  * <h3>Frame loop</h3>
- * The timer fires about every {@value #FRAME_MS} ms (so at most ~60 frames per second are produced) and coalesces:
+ * The timer fires every {@code 1000 / maxFps} ms, where the cap (30, 60 or 120 frames per second, default 60) is set
+ * in SETTINGS > DISPLAY ({@link GraphicsSettings}) and applied on the next tick. It coalesces:
  * if a frame is still being painted when the next tick is due, ticks are merged instead of queuing up, and the
  * mouse and key events waiting on the event thread are handled between frames. Each frame advances the simulation in
  * fixed {@link lindefense.sim.Game#DT} steps (capped per frame by {@link GameScreen#MAX_SIM_STEPS_PER_FRAME}),
@@ -35,7 +36,6 @@ import lindefense.sim.Game;
  */
 public class LindefenseProgram extends GraphicsProgram {
     private static final long serialVersionUID = 1L;
-    private static final int FRAME_MS = 16;
 
     private final ScaledLayer root = new ScaledLayer();
     private MenuScreen menu;
@@ -45,6 +45,8 @@ public class LindefenseProgram extends GraphicsProgram {
     private long lastNanos;
     private Timer timer;
     private DemoDriver demo;
+    /** Palantir's System Takeover window grab (inert in the demo and in headless runs). */
+    private WindowGrab windowGrab;
 
     @Override public void init() {
         Rectangle b = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
@@ -98,13 +100,16 @@ public class LindefenseProgram extends GraphicsProgram {
         showMenu();
         String demoDir = System.getProperty("lindefense.demo");
         if (demoDir != null) demo = new DemoDriver(this, demoDir);
+        windowGrab = WindowGrab.create(win, demo != null);   // PALANTIR: fourth-wall window grab (never in the demo)
         lastNanos = System.nanoTime();
-        timer = new Timer(FRAME_MS, e -> frame());
+        timer = new Timer(GraphicsSettings.get().frameDelayMs(), e -> frame());   // SETTINGS > DISPLAY > MAX FPS
         timer.setCoalesce(true);
         timer.start();
     }
 
     private void frame() {
+        int delay = GraphicsSettings.get().frameDelayMs();
+        if (timer != null && timer.getDelay() != delay) timer.setDelay(delay);   // MAX FPS changed in SETTINGS
         long now = System.nanoTime();
         double dt = Math.min(0.1, (now - lastNanos) / 1e9);
         lastNanos = now;
@@ -117,6 +122,7 @@ public class LindefenseProgram extends GraphicsProgram {
         else if (menu != null && menu.isVisible()) menu.frame(dt);
         else if (mapSelect != null) mapSelect.frame(dt);
         if (demo != null) demo.frame(dt);
+        if (windowGrab != null) windowGrab.frame(dt, getGame());
         canvas.repaint();
     }
 
@@ -152,11 +158,41 @@ public class LindefenseProgram extends GraphicsProgram {
 
     public void startGame(int mapIndex) {
         lindefense.audio.AudioManager.sfx(lindefense.audio.Sfx.UI_SELECT);   // AUDIO HOOK
-        Game g = new Game(MapCatalog.create(mapIndex), System.nanoTime(), lindefense.sim.Difficulty.getSelected());   // DIFFICULTY HOOK
+        Game g = new Game(MapCatalog.create(mapIndex), lindefense.variance.RunSeed.next(), lindefense.sim.Difficulty.getSelected());   // DIFFICULTY HOOK
         g.setHeroCollection(lindefense.sim.HeroCollection.persistent());   // Hero Store unlocks persist across sessions
         g.setAdmin(lindefense.sim.AdminMode.isOn(lindefense.sim.AdminMode.Option.UNLOCK_HEROES),   // SETTINGS > ADMIN CODE checklist
             lindefense.sim.AdminMode.isOn(lindefense.sim.AdminMode.Option.INFINITE_MONEY),
             lindefense.sim.AdminMode.isOn(lindefense.sim.AdminMode.Option.INFINITE_HEALTH));
+        if (varianceForPlayers()) g.getVariance().enable();   // PATCH NOTES + BREAKING NEWS for real players
+        startGame(g);
+    }
+
+    /** System property that turns run variance off for real matches: {@code -Dlindefense.variance=off}. */
+    public static final String VARIANCE_PROPERTY = "lindefense.variance";
+
+    /** True unless {@link #VARIANCE_PROPERTY} is "off" / "false": patch notes and news are on for players by default. */
+    static boolean varianceForPlayers() {
+        String v = System.getProperty(VARIANCE_PROPERTY);
+        return v == null || !(v.equalsIgnoreCase("off") || v.equalsIgnoreCase("false"));
+    }
+
+    /** REPLAY SEED (end screen): a fresh match on the same map, difficulty and seed (same patch-note offers and news). */
+    public void replaySeed() {
+        if (gameScreen == null) return;
+        Game old = gameScreen.getGame();
+        startGame(Game.freshCopy(old, old.getSeed()));
+    }
+
+    /**
+     * ATTACK (reverse mode, "Adversarial Training", from the mission briefing): the player sends the enemies and a
+     * defender AI builds the towers on map {@code mapIndex}; the selected Difficulty Growth mode picks the AI. The AI's
+     * Hero Store collection is in memory (saved unlocks are never used or changed); the admin "infinite money" cheat
+     * gives the attacker unlimited compute credits instead.
+     */
+    public void startReverse(int mapIndex) {
+        lindefense.audio.AudioManager.sfx(lindefense.audio.Sfx.UI_SELECT);   // AUDIO HOOK
+        Game g = lindefense.ai.ReverseMatch.create(mapIndex, System.nanoTime(), lindefense.sim.Difficulty.getSelected());
+        g.getReverse().setUnlimitedCredits(lindefense.sim.AdminMode.isOn(lindefense.sim.AdminMode.Option.INFINITE_MONEY));
         startGame(g);
     }
 
@@ -166,7 +202,7 @@ public class LindefenseProgram extends GraphicsProgram {
      */
     public void startTutorial() {
         lindefense.audio.AudioManager.sfx(lindefense.audio.Sfx.UI_SELECT);   // AUDIO HOOK
-        Game g = new Game(MapCatalog.create(0), System.nanoTime(), lindefense.sim.Difficulty.O1);
+        Game g = new Game(MapCatalog.create(0), lindefense.variance.RunSeed.next(), lindefense.sim.Difficulty.O1);   // tutorial: no run variance
         startGame(g, true);
     }
 
@@ -181,7 +217,8 @@ public class LindefenseProgram extends GraphicsProgram {
     /** RESTART: throws the running level away and starts a fresh game on the same map and difficulty. */
     public void restartLevel() {
         if (gameScreen == null) return;
-        startGame(Game.freshCopy(gameScreen.getGame()));
+        Game old = gameScreen.getGame();
+        startGame(old.isReverse() ? lindefense.ai.ReverseMatch.restart(old) : Game.freshCopy(old));   // REVERSE HOOK
     }
 
     /** QUIT LEVEL: abandons the running level and returns to the map / difficulty select screen. */

@@ -54,7 +54,7 @@ public final class ConsistencyTests {
     }
 
     private static void globalDamageMultiplierEverywhere() {
-        check(Difficulty.ONN.towerDamage == 0.75, "O(N^N) tower damage is x0.75");
+        check(Difficulty.ONN.towerDamage == 0.84, "O(N^N) tower damage is x0.84");
         // reference: a direct tower hit
         ratio("direct hit", g -> {
             Tower t = towerNearTrack(g, TowerType.GPT, 0, 300);

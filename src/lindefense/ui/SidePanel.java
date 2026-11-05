@@ -162,7 +162,7 @@ public final class SidePanel extends GCompound {
                     Font nf = fitFont(label, Cyber.display(Font.BOLD, 17), c.w - 10, 10);
                     name = Ui.label(label, 0, c.y + c.h - 22, nf, Cyber.TEXT);
                     name.setLocation(c.x + (c.w - name.getWidth()) / 2, c.y + c.h - 22);
-                    price = Ui.label(Ui.money(d.baseCost), 0, c.y + c.h - 7, Cyber.mono(Font.BOLD, 14), Cyber.YELLOW);
+                    price = Ui.label(Ui.money(Shop.priceOf(game, t)), 0, c.y + c.h - 7, Cyber.mono(Font.BOLD, 14), Cyber.YELLOW);
                     price.setLocation(c.x + (c.w - price.getWidth()) / 2, c.y + c.h - 7);
                 } else {
                     double isz = c.h - 14;
@@ -170,7 +170,7 @@ public final class SidePanel extends GCompound {
                     double tx = c.x + isz + 12;
                     Font nf = fitFont(label, Cyber.display(Font.BOLD, 16), c.x + c.w - 4 - tx, 9);
                     name = Ui.label(label, tx, c.y + c.h / 2 - 2, nf, Cyber.TEXT);
-                    price = Ui.label(Ui.money(d.baseCost), tx, c.y + c.h - 8, Cyber.mono(Font.BOLD, 14), Cyber.YELLOW);
+                    price = Ui.label(Ui.money(Shop.priceOf(game, t)), tx, c.y + c.h - 8, Cyber.mono(Font.BOLD, 14), Cyber.YELLOW);
                 }
             } else {
                 double isz = Math.min(c.h - 20, 76);
@@ -184,7 +184,7 @@ public final class SidePanel extends GCompound {
                 name = Ui.label(t.displayName, tx, top + ns, nf, Cyber.TEXT);
                 Font sf = fitFont(d.subtitle, Cyber.body(Font.PLAIN, 12), c.x + c.w - 6 - tx, 9);
                 cardLayer.add(Ui.label(d.subtitle, tx, top + ns + 16, sf, Cyber.MUTED));
-                price = Ui.label(Ui.money(d.baseCost), tx, top + blockH - 2, Cyber.mono(Font.BOLD, ps), Cyber.YELLOW);
+                price = Ui.label(Ui.money(Shop.priceOf(game, t)), tx, top + blockH - 2, Cyber.mono(Font.BOLD, ps), Cyber.YELLOW);
             }
             cardLayer.add(icon); cardLayer.add(name); cardLayer.add(price);
             Card card = new Card(c, b, price, name, icon);
@@ -276,11 +276,14 @@ public final class SidePanel extends GCompound {
 
     public void requestRebuild() { builtKey = ""; }
 
+    /** Tower-price multiplier the shop cards were priced at (PATCH NOTES). */
+    private double shownPriceMult = 1;
+
     private void refreshAffordability() {
         double cash = game.getCash();
         for (Card c : cards) {
             boolean placed = c.cell.type.isHero() && game.getTowerManager().heroPlaced(c.cell.type);
-            boolean ok = ShopLayout.affordable(cash, c.cell.type) && !placed;
+            boolean ok = ShopLayout.affordable(game, c.cell.type) && !placed;
             if (c.badge != null && c.badge.isVisible() != placed) c.badge.setVisible(placed);
             c.button.setSelected(screen.getPlacing() == c.cell.type);
             c.button.setEnabled(ok);
@@ -293,6 +296,8 @@ public final class SidePanel extends GCompound {
     // ------------------------------------------------------------------ frame update
     public void update(double dt) {
         refresh -= dt;
+        double pm = game.getVariance().towerCostMultiplier();   // PATCH NOTES: shop prices changed, re-price the cards
+        if (pm != shownPriceMult) { shownPriceMult = pm; rebuildCards(); }
         refreshAffordability();
         boolean wantCompact = screen.getSelectedTower() != null || screen.getPlacing() != null || screen.getSelectedEnemy() != null;
         if (wantCompact != compactShop) { compactShop = wantCompact; rebuildCards(); }
@@ -331,8 +336,8 @@ public final class SidePanel extends GCompound {
         for (Card c : cards) if (c.button.hit(m[0], m[1])) { hover = c; break; }
         if (hover == null) { tip.setVisible(false); return; }
         TowerDef d = TowerCatalog.get(hover.cell.type);
-        int need = ShopLayout.shortfall(game.getCash(), hover.cell.type);
-        tipTitle.setLabel(hover.cell.type.displayName + "   " + Ui.money(d.baseCost));
+        int need = ShopLayout.shortfall(game, hover.cell.type);
+        tipTitle.setLabel(hover.cell.type.displayName + "   " + Ui.money(Shop.priceOf(game, hover.cell.type)));
         Cyber.setText(tipSub, d.subtitle + "  //  " + hover.cell.type.faction.label);
         String block = hover.cell.type.isHero() && game.getTowerManager().heroPlaced(hover.cell.type) ? Shop.unavailableReason(game, hover.cell.type) : null;
         Cyber.setText(tipStatus, block != null ? block.toUpperCase() : need > 0 ? "NEED " + Ui.money(need) + " MORE" : "CLICK, THEN PLACE ON THE MAP");
@@ -349,8 +354,10 @@ public final class SidePanel extends GCompound {
     private String selectionKey() {
         Tower t = screen.getSelectedTower();
         String base = "@" + (int) infoY + compactShop + ":";
-        if (t != null) return base + "T" + t.getId() + ":" + t.getTier() + ":" + (game.getCash() >= Shop.upgradeCost(t)) + ":" + t.getTargeting() + ":" + t.isAbilityReady() + ":" + t.isSurveilled()
-            + ":" + t.isAbilityLocked() + ":" + (game.getCash() >= TowerCatalog.ABILITY_UNLOCK_COST);
+        if (t != null) return base + "T" + t.getId() + ":" + t.getTier() + ":" + (game.getCash() >= Shop.upgradeCost(game, t)) + ":" + t.getTargeting() + ":" + t.isAbilityReady() + ":" + t.isSurveilled()
+            + ":" + t.isAbilityLocked() + ":" + (game.getCash() >= Shop.abilityUnlockCost(game))
+            + ":" + Shop.upgradeCost(game, t) + ":" + Shop.sellValue(game, t) + ":" + Shop.abilityUnlockCost(game)   // PATCH NOTES: prices can change mid-run
+            + ":" + IntrusionText.stateKey(t);
         if (screen.getPlacing() != null) return base + "P" + screen.getPlacing();
         if (screen.getSelectedEnemy() != null) return base + "E" + screen.getSelectedEnemy().getId();
         return base + "none";
@@ -519,7 +526,7 @@ public final class SidePanel extends GCompound {
     private void buildShopInfo(TowerType type) {
         TowerDef d = TowerCatalog.get(type);
         Color tc = Cyber.lerp(Ui.c(type.primaryRgb), Color.WHITE, 0.3);
-        header(type.displayName, tc, type.isHero() ? "HERO // DEPLOY" : Ui.money(d.baseCost), Cyber.YELLOW);
+        header(type.displayName, tc, type.isHero() ? "HERO // DEPLOY" : Ui.money(Shop.priceOf(game, type)), Cyber.YELLOW);
         y += 4;
         put(d.subtitle + "  //  " + type.faction.label.toUpperCase(), x0, y + 12, F_TXT, Ui.c(type.faction.rgb));
         y += 14;
@@ -542,12 +549,14 @@ public final class SidePanel extends GCompound {
         }
         String sup = supportText(s, s.seesCamo);
         if (!sup.isEmpty()) para(sup, F_TXT_S, Cyber.CYAN, 3);
+        String inj = IntrusionText.typeLine(type);   // PROMPT INJECTION immunity
+        if (inj != null) para(inj, F_TXT_S, Cyber.GREEN, 3);
         if (d.upgrades.length > 0) section("upgrade path");
         for (int i = 0; i < d.upgrades.length; i++) {
             UpgradeDef u = d.upgrades[i];
             y += 15;
             put((i + 1) + "  " + u.name, x0, y, Cyber.display(Font.BOLD, 14), Cyber.TEXT);
-            GLabel pr = put(Ui.money(u.cost), 0, y, Cyber.mono(Font.BOLD, 12), Cyber.YELLOW);
+            GLabel pr = put(Ui.money(Shop.upgradePrice(game, u)), 0, y, Cyber.mono(Font.BOLD, 12), Cyber.YELLOW);
             pr.setLocation(x0 + textW - pr.getWidth(), y);
         }
         if (d.ability != null) {
@@ -555,7 +564,7 @@ public final class SidePanel extends GCompound {
             section(locked ? "ability  //  unlock at max tier" : "ability");
             y += 16;
             put(d.ability.name, x0, y, Cyber.display(Font.BOLD, 15), Cyber.MAGENTA);
-            GLabel cd = locked ? put(Ui.money(TowerCatalog.ABILITY_UNLOCK_COST), 0, y, Cyber.mono(Font.BOLD, 12), Cyber.YELLOW)
+            GLabel cd = locked ? put(Ui.money(Shop.abilityUnlockCost(game)), 0, y, Cyber.mono(Font.BOLD, 12), Cyber.YELLOW)
                 : put((int) d.ability.cooldown + "s cooldown", 0, y, Cyber.mono(Font.BOLD, 11), Cyber.MUTED);
             cd.setLocation(x0 + textW - cd.getWidth(), y);
             para(d.ability.description + (locked ? " " + (int) d.ability.cooldown + "s cooldown." : ""), F_TXT_S, Cyber.MUTED, 3);
@@ -617,6 +626,8 @@ public final class SidePanel extends GCompound {
             put("SURVEILLED: -50% speed, -30% range", x0, y + 12, Cyber.mono(Font.BOLD, 11), Cyber.RED);
             y += 12;
         }
+        String inj = IntrusionText.towerLine(t);   // PROMPT INJECTION: live state, or immunity
+        if (inj != null) para(inj, F_TXT_S, IntrusionText.isWarning(t) ? Cyber.RED : Cyber.GREEN, 2);
 
         String extra = HeroStatText.liveLine(game, t);
         if (extra != null) para(extra, F_TXT_S, Cyber.YELLOW, 2);
@@ -638,22 +649,22 @@ public final class SidePanel extends GCompound {
         y += 30;
         UpgradeDef u = t.nextUpgrade();
         if (u != null) {
-            boolean can = game.getCash() >= u.cost;
+            boolean can = game.getCash() >= Shop.upgradePrice(game, u);
             UIButton ub = button(x0, y, textW, 40, "", () -> screen.upgradeSelected());
             ub.setEnabled(can);
             ub.setAccent(Cyber.CYAN);
             put(Cyber.spaced("upgrade [u]"), x0 + 12, y + 14, F_MICRO, can ? Cyber.alpha(Cyber.CYAN, 230) : Cyber.DIM);
             put(u.name, x0 + 12, y + 32, Cyber.display(Font.BOLD, 17), can ? Cyber.TEXT : Cyber.lerp(Cyber.MUTED, Cyber.TEXT, 0.4));
-            GLabel pr = put(Ui.money(u.cost), 0, y + 27, Cyber.mono(Font.BOLD, 16), can ? Cyber.YELLOW : Cyber.RED);
+            GLabel pr = put(Ui.money(Shop.upgradePrice(game, u)), 0, y + 27, Cyber.mono(Font.BOLD, 16), can ? Cyber.YELLOW : Cyber.RED);
             pr.setLocation(x0 + textW - 12 - pr.getWidth(), y + 27);
             y += 40;
             para(u.description, F_TXT_S, Cyber.MUTED, 3);
             AbilityDef locked = t.isAbilityLocked() ? t.getAbilityDef() : null;
-            if (locked != null) para("Max tier unlocks " + locked.name + " (" + Ui.money(TowerCatalog.ABILITY_UNLOCK_COST) + ").", F_TXT_S, Cyber.alpha(Cyber.MAGENTA, 220), 1);
+            if (locked != null) para("Max tier unlocks " + locked.name + " (" + Ui.money(Shop.abilityUnlockCost(game)) + ").", F_TXT_S, Cyber.alpha(Cyber.MAGENTA, 220), 1);
         } else if (!hero && t.isAbilityLocked()) {
             // maxed: the $15,000 ability unlock takes the upgrade button's place
             AbilityDef a = t.getAbilityDef();
-            int price = TowerCatalog.ABILITY_UNLOCK_COST;
+            int price = Shop.abilityUnlockCost(game);
             boolean can = game.hasAdminMoney() || game.getCash() >= price;
             UIButton ub = button(x0, y, textW, 40, "", () -> screen.unlockAbilitySelected());
             ub.setEnabled(can);
@@ -700,7 +711,7 @@ public final class SidePanel extends GCompound {
 
         // ---- sell / deselect
         y += 12;
-        UIButton sell = button(x0, y, 210, 34, hero ? "DISMISS (NO REDEPLOY)" : "SELL  +" + Ui.money(Shop.sellValue(t)), () -> screen.sellSelected());
+        UIButton sell = button(x0, y, 210, 34, hero ? "DISMISS (NO REDEPLOY)" : "SELL  +" + Ui.money(Shop.sellValue(game, t)), () -> screen.sellSelected());
         sell.setAccent(Cyber.RED);
         UIButton desel = button(x0 + 218, y, textW - 218, 34, "DESELECT", () -> screen.selectTower(null));
         desel.setAccent(Cyber.MUTED);
@@ -729,6 +740,8 @@ public final class SidePanel extends GCompound {
         statCell(x0 + 180, yy + 34, "armour", () -> (int) (e.getType().getArmor() * 100) + "%", Cyber.TEXT);
         y += 68;
         if (e.isLeadType()) para("Lead-type: immune to Sharp damage", F_TXT, Cyber.YELLOW, 1);
+        String inj = IntrusionText.enemyLine(e);   // PROMPT INJECTION
+        if (inj != null) para(inj, F_TXT, Cyber.RED, 1);
         if (e.getType().hasChildren()) para("Releases " + e.getType().totalChildren() + " " + e.getType().getChildTypes()[0].displayName + (e.getType().getChildTypes().length > 1 ? " + " + e.getType().getChildTypes()[1].displayName : ""), F_TXT, Cyber.TEXT, 2);
         y += 4;
         para(e.getType().description, F_TXT, Cyber.MUTED, 0);

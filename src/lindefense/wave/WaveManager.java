@@ -43,8 +43,9 @@ public class WaveManager {
         return n;
     }
 
+    /** True if the next wave may start (PATCH NOTES: also opens a due draft and is false until it is picked). */
     public boolean canStartNextWave() {
-        return !waveActive && currentWave < WaveData.WAVE_COUNT;
+        return !waveActive && currentWave < WaveData.WAVE_COUNT && game.getVariance().readyFor(currentWave + 1);
     }
 
     /** Starts the next wave. Returns false if a wave is active or the campaign is over. */
@@ -52,6 +53,7 @@ public class WaveManager {
         if (!canStartNextWave()) return false;
         currentWave++;
         current = game.getDifficulty().shape(WaveData.get(currentWave), game.getSeed());   // DIFFICULTY HOOK
+        current = game.getVariance().shapeWave(current);   // PATCH NOTES / BREAKING NEWS: counts, spawn gaps, Camo
         waveActive = true;
         waveTime = 0;
         progress.clear();

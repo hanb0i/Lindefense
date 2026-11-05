@@ -43,6 +43,12 @@ public final class Game {
     private final AbilityManager abilityManager;
     private final Combat combat;
     private final Effects effects;
+    /** PROMPT INJECTION: injector enemies, hijacked towers and Palantir's decoys (see {@link PromptInjection}). */
+    private final PromptInjection injection;
+    /** Palantir's window grab: the only window number the simulation sees (see {@link WindowLink}). */
+    private final WindowLink windowLink = new WindowLink();
+    /** PATCH NOTES / BREAKING NEWS: run modifiers and per-wave events (off unless enabled; see RunVariance). */
+    private final lindefense.variance.RunVariance variance;
     private final List<VisualEvent> events = new ArrayList<>();
     private final List<String> log = new ArrayList<>();
 
@@ -88,16 +94,25 @@ public final class Game {
         this.abilityManager = new AbilityManager(this);
         this.combat = new Combat(this);
         this.effects = new Effects(this);
+        this.injection = new PromptInjection(this);
+        this.variance = new lindefense.variance.RunVariance(this);
         map.reset();
     }
 
     /** A brand-new game on the same map and difficulty as {@code old} (used by RESTART): wave, cash, lives and all state reset. */
-    public static Game freshCopy(Game old) {
+    public static Game freshCopy(Game old) { return freshCopy(old, lindefense.variance.RunSeed.next()); }
+
+    /**
+     * As {@link #freshCopy(Game)} but with the given seed ({@code old.getSeed()} replays the run: same patch-note offers,
+     * news and spawns). Admin cheats and the variance switch carry over.
+     */
+    public static Game freshCopy(Game old, long seed) {
         int idx = lindefense.map.MapCatalog.indexOf(old.getMap());
         if (idx < 0) throw new IllegalArgumentException("map is not in the catalog: " + old.getMap().getName());
-        Game g = new Game(lindefense.map.MapCatalog.create(idx), System.nanoTime(), old.getDifficulty());
+        Game g = new Game(lindefense.map.MapCatalog.create(idx), seed, old.getDifficulty());
         g.setHeroCollection(old.getHeroCollection());   // unlocks are permanent; deployments reset per match
         g.copyAdminFrom(old);
+        if (old.variance.isEnabled()) g.variance.enable(old.variance.getPicker());   // PATCH NOTES: same switch and picker
         return g;
     }
 
@@ -168,6 +183,27 @@ public final class Game {
         return true;
     }
 
+    // ---------------- reverse mode ("Adversarial Training") ----------------
+    /** The attacker controller of a reverse-mode match (the player sends enemies, an AI defends), or null. */
+    private lindefense.ai.ReverseMatch reverse;
+    /** The reverse-mode controller, or null in the normal game. */
+    public lindefense.ai.ReverseMatch getReverse() { return reverse; }
+    /** True in reverse mode. */
+    public boolean isReverse() { return reverse != null; }
+    /** Installs the reverse-mode controller (see {@code ReverseMatch.create}); it is updated every step while playing. */
+    public void setReverse(lindefense.ai.ReverseMatch r) { reverse = r; }
+
+    /**
+     * Ends the match at once with the defender holding the line (reverse mode: the training run ran out). Does nothing
+     * if the match is already over or its defeat / victory sequence has started.
+     */
+    public void declareDefenderVictory(String bannerText) {
+        if (state != State.PLAYING || defeatTimer >= 0 || victoryTimer >= 0) return;
+        state = State.VICTORY;
+        setBanner(bannerText, 0x7fd8a8, 4);
+        log(bannerText);
+    }
+
     // ---------------- accessors ----------------
     public GameMap getMap() { return map; }
     public Difficulty getDifficulty() { return difficulty; }   // DIFFICULTY HOOK
@@ -178,9 +214,22 @@ public final class Game {
     public WaveManager getWaveManager() { return waveManager; }
     public AbilityManager getAbilityManager() { return abilityManager; }
     public Combat getCombat() { return combat; }
+    /** Patch notes (run modifiers) and breaking news (per-wave events); disabled unless the windowed game enables it. */
+    public lindefense.variance.RunVariance getVariance() { return variance; }
     /** Zones, walkers, drones, node hazards and scheduled tasks spawned by tower behaviours. */
     public Effects getEffects() { return effects; }
     public List<VisualEvent> getEvents() { return events; }
+    /** Prompt injection: injector broadcasts, hijacked towers' zaps and Palantir's decoys. */
+    public PromptInjection getInjection() { return injection; }
+    /** Palantir's window grab link (grab requests out, window fraction in). */
+    public WindowLink getWindowLink() { return windowLink; }
+    /**
+     * Reported by the windowed UI during Palantir's System Takeover: the window's size relative to its size before the
+     * grab (1.0 = untouched, the default; headless runs never call this).
+     */
+    public void setWindowFraction(double f) { windowLink.setFraction(f); }
+    /** The last window fraction the UI reported (1.0 unless Palantir's grab shrank the window). */
+    public double getWindowFraction() { return windowLink.getFraction(); }
     public List<String> getLog() { return log; }
     public State getState() { return state; }
     public double getCash() { return cash; }
@@ -200,7 +249,9 @@ public final class Game {
     public double getVictoryTimer() { return victoryTimer; }
     public String getBanner() { return bannerTime > 0 ? banner : null; }
     public int getBannerRgb() { return bannerRgb; }
-    public double getGlobalRateMultiplier() { return 1.0; }
+    public double getGlobalRateMultiplier() { return variance.fireRate(); }   // PATCH NOTES hook (1 when off)
+    /** Range multiplier from run modifiers / news for every tower (1 when variance is off). */
+    public double getGlobalRangeMultiplier() { return variance.range(); }
     public double getGlobalDamageMultiplier() { return difficulty.towerDamage; }   // DIFFICULTY HOOK
     public double getGlobalEnemySpeedMultiplier() { return globalEnemySpeedMultiplier; }
     public void setGlobalEnemySpeedMultiplier(double m) { globalEnemySpeedMultiplier = m; }
@@ -209,13 +260,16 @@ public final class Game {
     public boolean isInvincible() { return invincible; }
 
     /** HP scale for enemies spawned now (based on the current wave). */
-    public double getWaveHpScale() { return WaveData.hpScale(Math.max(1, getWave())) * difficulty.hpMultiplier(Math.max(1, getWave())); }   // DIFFICULTY HOOK
+    public double getWaveHpScale() { return WaveData.hpScale(Math.max(1, getWave())) * difficulty.hpMultiplier(Math.max(1, getWave())) * variance.enemyHp(); }   // DIFFICULTY HOOK, PATCH NOTES hook
     /** Type-aware HP scale used when spawning (DIFFICULTY HOOK: Palantir gets a reduced share of the mode's HP bonus). */
     public double getWaveHpScale(EnemyType type) {
-        return WaveData.hpScale(Math.max(1, getWave())) * difficulty.hpMultiplier(Math.max(1, getWave()), type);
+        return WaveData.hpScale(Math.max(1, getWave())) * difficulty.hpMultiplier(Math.max(1, getWave()), type) * variance.enemyHp();   // PATCH NOTES hook
     }
-    public double getWaveSpeedScale() { return WaveData.speedScale(Math.max(1, getWave())); }
-    public double getRewardScale() { return WaveData.rewardScale(Math.max(1, getWave())) * difficulty.income; }   // DIFFICULTY HOOK
+    public double getWaveSpeedScale() { return WaveData.speedScale(Math.max(1, getWave())) * variance.enemySpeed(); }   // PATCH NOTES hook
+    public double getRewardScale() {
+        if (reverse != null) return reverse.killRewardScale();   // REVERSE HOOK: the defender AI's kill bounty
+        return WaveData.rewardScale(Math.max(1, getWave())) * difficulty.income * variance.killIncome();   // DIFFICULTY HOOK, PATCH NOTES hook
+    }
 
     public void setSpeed(int s) { speed = Math.max(1, Math.min(3, s)); }
     public void setPaused(boolean p) { paused = p; }
@@ -251,8 +305,13 @@ public final class Game {
         if (state != State.PLAYING || n <= 0) return 0;
         int max = difficulty.startLives(START_LIVES);
         int before = lives;
-        lives = Math.min(max, lives + n);
+        lives = Math.max(lives, Math.min(max, lives + n));   // never lowers integrity above the maximum (Synthetic Data)
         return lives - before;
+    }
+
+    /** Adds integrity with no cap (Synthetic Data: +1 per wave cleared may exceed the starting maximum). */
+    public void addLives(int n) {
+        if (state == State.PLAYING && n > 0) lives += n;
     }
 
     /** The difficulty's starting (maximum) lives, the cap for {@link #restoreLives}. */
@@ -261,6 +320,7 @@ public final class Game {
     public void loseLives(int n, Enemy leaker) {
         if (state != State.PLAYING || n <= 0) return;
         lives = Math.max(0, lives - n);
+        if (reverse != null) reverse.onLeak(n, leaker);   // REVERSE HOOK: leak bonus for the attacker
         AudioManager.sfx(Sfx.LIFE_LOST);   // AUDIO HOOK
         events.add(VisualEvent.text(leaker.getPosition(), "-" + n + " lives", 0xff5a5a));
         if (invincible) { lives = Math.max(lives, 1); return; }
@@ -361,8 +421,10 @@ public final class Game {
             return;
         }
         if (state != State.PLAYING) return;
+        if (reverse != null) { reverse.update(dt); if (state != State.PLAYING) return; }   // REVERSE HOOK: attacker economy, uplink, AI
         waveManager.update(dt);
         map.update(this, dt);
+        injection.update(dt);   // PROMPT INJECTION: broadcasts and zaps before the towers act
         towerManager.update(dt);
         effects.update(dt);
         combat.updateProjectiles(dt);
@@ -382,6 +444,7 @@ public final class Game {
     // ---------------- hooks from subsystems ----------------
     public void onWaveStarted(int wave, WaveDef def) {
         roundPopValue = 0;
+        variance.onWaveStarted(wave);   // PATCH NOTES: stale news dropped, wave-start news effects
         map.onWaveStart(this, wave);
         AudioManager.sfx(def.containsBoss() ? Sfx.BOSS_ALARM : Sfx.WAVE_START);   // AUDIO HOOK
         String msg = "Wave " + wave;
@@ -393,12 +456,13 @@ public final class Game {
     public void onWaveCompleted(int wave, WaveDef def) {
         lastCompletedWave = wave;
         AudioManager.sfx(Sfx.WAVE_COMPLETE); AudioManager.sfx(Sfx.CASH);   // AUDIO HOOK
-        int bonus = (int) Math.round(WaveData.waveBonus(wave) * difficulty.income);   // DIFFICULTY HOOK
+        int bonus = (int) Math.round(WaveData.waveBonus(wave) * difficulty.income * variance.waveBonus());   // DIFFICULTY HOOK, PATCH NOTES hook
         double income = 0;
         for (Tower t : new ArrayList<>(towerManager.getTowers())) income += t.getBehavior().onRoundEnd(this, t);
         addCash(bonus + income, null);
         setBanner("Wave " + wave + " complete  +$" + (int) (bonus + income), 0x7fd8a8, 2.5);
         log("Wave " + wave + " complete: +$" + bonus + (income > 0 ? " (+$" + (int) income + " research income)" : ""));
+        variance.onWaveCompleted(wave);   // PATCH NOTES: integrity / interest, news expires, next draft and news
         if (wave >= WaveData.WAVE_COUNT && victoryTimer < 0 && state == State.PLAYING) {
             // Palantir already dead if we got here; treat as victory as a fallback.
             victoryTimer = 0.5;
@@ -407,7 +471,7 @@ public final class Game {
 
     public void onEnemyKilled(Enemy e) {
         if (e.getType().isBoss()) AudioManager.sfx(Sfx.BOSS_DEATH);   // AUDIO HOOK
-        if (e.getType() == EnemyType.PALANTIR && victoryTimer < 0) {
+        if (e.getType() == EnemyType.PALANTIR && victoryTimer < 0 && reverse == null) {   // REVERSE HOOK: just a unit there
             victoryTimer = VICTORY_SEQUENCE_TIME;
             setBanner("PALANTIR DESTROYED", 0xffd166, VICTORY_SEQUENCE_TIME);
             events.add(VisualEvent.phase(e.getPosition(), "PALANTIR DESTROYED", 0xffd166));

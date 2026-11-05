@@ -156,7 +156,7 @@ public final class CatalogScreen extends GCompound {
         card.add(holder);
         card.add(Ui.label(t.displayName, TX, y + 10, Cyber.display(Font.BOLD, 40), t.isBoss() ? Cyber.RED : Cyber.TEXT));
         y += 18;
-        String cls = t.isBoss() ? t.getBossClass().label + "-CLASS BOSS" : t.isSortingAlgorithm() ? "SORTING ALGORITHM" : t.isLinkedList() ? "LINKED LIST" : "DATA STRUCTURE";
+        String cls = t.isBoss() ? t.getBossClass().label + "-CLASS BOSS" : t.isHologram() ? "PALANTIR DECOY" : t.isSortingAlgorithm() ? "SORTING ALGORITHM" : t.isLinkedList() ? "LINKED LIST" : "DATA STRUCTURE";
         y += 16; card.add(Ui.label(cls, TX, y, Cyber.mono(Font.BOLD, 13), t.isBoss() ? Cyber.RED : Cyber.MAGENTA));
         heading("stats");
         statGrid(new String[][] {
@@ -183,7 +183,7 @@ public final class CatalogScreen extends GCompound {
         if (t.isBoss()) traits.add("Bosses take full damage from every attack; freezes and stuns do not work on them and slows are weaker. Rohan's slows still apply.");
         if (!traits.isEmpty()) { heading("traits"); for (String s : traits) line("•  " + s, Cyber.body(Font.PLAIN, 15), Cyber.MUTED, TX, TW); }
         heading("modifiers it can carry");
-        line("Camo (needs detection)  •  Regrow (heals over time)  •  Fortified (double HP)", Cyber.body(Font.PLAIN, 14), Cyber.MUTED, TX, TW);
+        line("Camo (needs detection)  •  Regrow (heals over time)  •  Fortified (double HP)  •  Prompt Injection (wave 30+: an IGNORE PREVIOUS INSTRUCTIONS sign that hijacks nearby towers)", Cyber.body(Font.PLAIN, 14), Cyber.MUTED, TX, TW);
     }
 
     /** Campaign notes for each boss (debut wave and special rules). */
@@ -194,7 +194,10 @@ public final class CatalogScreen extends GCompound {
             case THREE_COM: return "Debuts on wave 80; the largest HP pool before the finale.";
             case LOCKHEED_MARTIN: return "Debuts on wave 90. Camo and very fast: you need detection (Perplexity, Grok, or Gemini / Llama after their second upgrade).";
             case PALANTIR: return "Wave 100 final boss. Armour 60% / 35% / 10% across three phases (faster each phase, Lockheed escorts in phase 3); immune to control in phase 1. "
-                + "Predictive Surveillance marks your highest-investment towers for 3 s, then disrupts them for 8 s (-50% speed, -30% range, abilities locked). Towers near Perplexity U2 are immune.";
+                + "Predictive Surveillance marks your highest-investment towers for 3 s, then disrupts them for 8 s (-50% speed, -30% range, abilities locked). Towers near Perplexity U2 are immune. "
+                + "Phase 1 PANOPTICON: a rotating beam blinds the towers it sweeps (Perplexity U2 blocks it). Phase 2 PROMPT BROADCAST: hijacks your priciest towers and projects two decoy holograms. "
+                + "Phase 3 SYSTEM TAKEOVER: a kill switch resets your ability cooldowns once, and Palantir grabs your game window: while it stays shrunk, Palantir is sealed (regenerates, takes 30% damage) until you drag the window back.";
+            case PALANTIR_HOLOGRAM: return "Projected by Palantir in phase 2. Towers immune to prompt injection (Claude, Copilot, DeepSeek, Perplexity, Mr. Lindemann) see through it.";
             default: return null;
         }
     }
@@ -232,6 +235,14 @@ public final class CatalogScreen extends GCompound {
         y += 20; card.add(Ui.label(price, TX, y, Cyber.mono(Font.BOLD, 13), Cyber.YELLOW));
         heading("what it does");
         line(d.description, Cyber.body(Font.PLAIN, 15), Cyber.TEXT, TX, TW);
+        String imm = IntrusionText.typeLine(t);   // PROMPT INJECTION immunity (data flag)
+        if (imm != null) {
+            line(imm, Cyber.mono(Font.BOLD, 13), Cyber.GREEN, TX, TW);
+            String fw = IntrusionText.firewallLine(t);
+            if (fw != null) line(fw, Cyber.body(Font.PLAIN, 13), Cyber.GREEN, TX, TW);
+        } else {
+            line(IntrusionText.vulnerableLine(), Cyber.body(Font.PLAIN, 13), Cyber.MUTED, TX, TW);
+        }
         heading(HeroStatText.usesUnits(t) ? HeroStatText.attackName(t).toLowerCase() : "base attack");
         if (HeroStatText.usesUnits(t)) {
             for (String l : HeroStatText.attackLines(t)) line(l, Cyber.mono(Font.BOLD, 14), Cyber.TEXT, TX, TW);

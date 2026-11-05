@@ -51,7 +51,7 @@ public class TowerManager {
             if (t.isTemporary()) continue;
             if (t.getPosition().dist(p) < t.getRadius() + def.radius) return "Overlaps another tower";
         }
-        if (game.getCash() < def.baseCost) return "Not enough cash";
+        if (game.getCash() < Shop.priceOf(game, type)) return "Not enough cash";
         return null;
     }
 
@@ -93,13 +93,15 @@ public class TowerManager {
     public Tower place(TowerType type, Vec p) {
         if (!canPlace(type, p)) return null;
         TowerDef def = TowerCatalog.get(type);
-        if (!game.spendCash(def.baseCost)) return null;
+        int price = Shop.priceOf(game, type);   // PATCH NOTES: list price x run modifiers
+        if (!game.spendCash(price)) return null;
         Tower t = new Tower(def, p);
         towers.add(t);
         if (type.isHero()) game.markHeroDeployed(type);
         game.getEvents().add(VisualEvent.ability(p, def.radius * 2, type.primaryRgb));
         recomputeAuras();
         t.getBehavior().onPlaced(game, t);
+        game.getVariance().onTowerPlaced(t, price);   // PATCH NOTES: what was paid; Data Drought's free first upgrade
         return t;
     }
 
@@ -112,16 +114,18 @@ public class TowerManager {
     }
 
     public boolean canUpgrade(Tower t) {
-        return t != null && t.isAlive() && !t.isTemporary() && t.canUpgrade() && game.getCash() >= t.nextUpgrade().cost;
+        return t != null && t.isAlive() && !t.isTemporary() && t.canUpgrade() && game.getCash() >= Shop.upgradeCost(game, t);
     }
 
     /** Purchases the next upgrade. Returns false if unaffordable or maxed. */
     public boolean upgrade(Tower t) {
         if (!canUpgrade(t)) return false;
-        int cost = t.nextUpgrade().cost;
+        int list = t.nextUpgrade().cost, cost = Shop.upgradeCost(game, t);
         if (!game.spendCash(cost)) return false;
+        game.getVariance().onPurchase(t, list, cost);
         t.applyUpgrade(game);
         t.clearSurveilled();
+        t.getIntrusion().clear();   // PROMPT INJECTION: an upgrade patches a hijacked / disabled / blinded tower
         game.getEvents().add(VisualEvent.ability(t.getPosition(), 50, t.getType().secondaryRgb));
         recomputeAuras();
         return true;
@@ -133,7 +137,9 @@ public class TowerManager {
      */
     public boolean unlockAbility(Tower t) {
         if (t == null || !t.isAlive() || !t.canUnlockAbility()) return false;
-        if (!game.spendCash(TowerCatalog.ABILITY_UNLOCK_COST)) return false;
+        int cost = Shop.abilityUnlockCost(game);
+        if (!game.spendCash(cost)) return false;
+        game.getVariance().onPurchase(t, TowerCatalog.ABILITY_UNLOCK_COST, cost);
         t.unlockAbility();
         game.getEvents().add(VisualEvent.ability(t.getPosition(), 90, t.getType().primaryRgb));
         game.getEvents().add(VisualEvent.text(t.getPosition(), t.getAbility().name + " UNLOCKED", t.getType().primaryRgb));
@@ -143,7 +149,8 @@ public class TowerManager {
     /** Sells the tower for 70% of everything spent on it. Returns the refund. */
     public int sell(Tower t) {
         if (t == null || !t.isAlive() || t.isTemporary()) return 0;
-        int refund = Shop.sellValue(t);
+        int refund = Shop.sellValue(game, t);
+        game.getVariance().onTowerSold(t);
         t.markRemoved();
         towers.remove(t);
         t.getBehavior().onRemoved(game, t);
@@ -200,6 +207,7 @@ public class TowerManager {
             Tower t = towers.get(i);
             boolean wantsAttack = t.tickTimers(game, dt);
             if (!t.isAlive()) continue;
+            if (t.isOffline()) { t.idle(); continue; }   // PROMPT INJECTION: hijacked / disabled / blinded towers do nothing to enemies
             t.getBehavior().update(game, t, dt);
             if (tickCounter % FIELD_REFRESH_TICKS == 0) applyEnemyField(t);
             if (wantsAttack) {

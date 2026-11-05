@@ -59,6 +59,8 @@ public class Tower {
     /** True once the player has bought this tower's ability ({@link TowerCatalog#ABILITY_UNLOCK_COST}). */
     private boolean abilityUnlocked;
     private double surveilledRemaining;
+    /** Prompt-injection state: hijacked / disabled / blinded timers and the Copilot firewall flag. */
+    private final Intrusion intrusion = new Intrusion();
 
     // buff book
     private final double[][] auraBuffs = new double[STAT_COUNT][TYPE_COUNT];
@@ -243,9 +245,12 @@ public class Tower {
     public void resetAuraBonuses() {
         for (double[] row : auraBuffs) Arrays.fill(row, 0);
         grantedDetection = false; surveillanceImmune = false;
+        intrusion.setFirewalled(false);
     }
     public void grantDetection() { grantedDetection = true; }
     public void grantSurveillanceImmunity() { surveillanceImmune = true; }
+    /** Copilot's firewall aura: this tower resists prompt injection while it stands in the aura. */
+    public void grantInjectionFirewall() { intrusion.setFirewalled(true); }
     public boolean isSurveillanceImmune() { return surveillanceImmune || stats.auraSurveillanceImmunity; }
     /**
      * Camo detection: built-in (stats.seesCamo -- Student+AI, Grok, Perplexity, Gemini U2, Llama U2), granted by a
@@ -267,6 +272,19 @@ public class Tower {
     public boolean isSurveilled() { return surveilledRemaining > 0; }
     public double getSurveilledRemaining() { return surveilledRemaining; }
 
+    // ---------------- prompt injection ----------------
+    /** The tower's prompt-injection state (see {@link Intrusion}). */
+    public Intrusion getIntrusion() { return intrusion; }
+    /** True while hijacked, disabled or blinded: the tower does not attack and its ability is locked. */
+    public boolean isOffline() { return intrusion.isOffline(); }
+    /** True while the tower obeys an injected prompt and zaps its neighbours. */
+    public boolean isHijacked() { return intrusion.isHijacked(); }
+    /**
+     * True if prompt injection cannot touch this tower: its type is immune ({@link TowerStats#injectionImmune}:
+     * Claude, Copilot, DeepSeek, Perplexity, Mr. Lindemann) or it stands in a Copilot firewall aura.
+     */
+    public boolean isInjectionImmune() { return stats.injectionImmune || intrusion.isFirewalled(); }
+
     // ---------------- ability ----------------
     /**
      * The ability this tower can use right now, or null. A shop tower's ability is null until it is unlocked
@@ -286,7 +304,7 @@ public class Tower {
         abilityUnlocked = true;
         abilityCooldown = 0;
     }
-    public boolean isAbilityReady() { return getAbility() != null && abilityCooldown <= 0 && !isSurveilled(); }
+    public boolean isAbilityReady() { return getAbility() != null && abilityCooldown <= 0 && !isSurveilled() && !intrusion.isOffline(); }
     public double getAbilityCooldownRemaining() { return abilityCooldown; }
     public double getAbilityCooldownFraction() { AbilityDef a = getAbility(); return a == null ? 0 : Math.max(0, abilityCooldown / a.cooldown); }
     public void startAbilityCooldown() { AbilityDef a = getAbility(); if (a != null) abilityCooldown = a.cooldown; }
@@ -329,7 +347,7 @@ public class Tower {
     // ---------------- effective numbers ----------------
     public double effectiveRange(Game game) {
         double r = (stats.range + behavior.flatRangeBonus(this)) * (1 + buffTotal(BuffStat.RANGE)) * mapRange();
-        if (game != null) r *= game.getMap().towerRangeMultiplier(game, this);
+        if (game != null) r *= game.getMap().towerRangeMultiplier(game, this) * game.getGlobalRangeMultiplier();   // PATCH NOTES range hook
         if (isSurveilled()) r *= 0.7;
         return r;
     }
@@ -378,6 +396,7 @@ public class Tower {
         }
         if (abilityCooldown > 0) abilityCooldown = Math.max(0, abilityCooldown - dt);
         if (surveilledRemaining > 0) surveilledRemaining = Math.max(0, surveilledRemaining - dt);
+        intrusion.tick(dt);
         if (stats.kind == AttackKind.NONE) return false;
         attackCooldown -= dt;
         return attackCooldown <= 0;

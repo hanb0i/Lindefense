@@ -73,6 +73,16 @@ public final class TowerBuilder {
 
     public TowerBuilder radius(double r) { this.radius = r; return this; }
 
+    /**
+     * Marks the tower as immune to prompt injection at every tier (it is never hijacked or disabled by a hijacked
+     * neighbour). {@code why} is the one-line reason shown in the info panel and the catalog.
+     */
+    public TowerBuilder injectionImmune(String why) {
+        base.injectionImmune = true;
+        base.injectionImmuneReason = why;
+        return this;
+    }
+
     public TowerDef build() {
         return new TowerDef(type, subtitle, description, cost, radius, base, upgrades.toArray(new UpgradeDef[0]), ability, tiers,
             unlockCost, targeting);

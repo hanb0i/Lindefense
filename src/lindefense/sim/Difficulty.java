@@ -18,38 +18,28 @@ import lindefense.wave.WaveDef;
  * do not invalidate the tiers. {@link #O1} is an exact no-op (the original game).
  *
  * <p>Per-wave growth: HP, enemy count and elite chance ramp with a normalised curve
- * {@link #growth(int)} in [0,1] shaped like the mode's name (flat, linear, quadratic,
- * capped exponential). A ramped knob is {@code base + (final - base) * growth(wave)}.
- * Tower damage, income and starting resources are flat per mode.</p>
+ * {@link #growth(int)} in [0,1] (flat, linear or quadratic). A ramped knob is
+ * {@code base + (final - base) * growth(wave)}. Tower damage, income and starting resources are flat per mode.</p>
  *
  * <p>Elites: a share of each non-boss spawn group is split off into an elite group that gets
  * extra Camo/Regrow/Fortified modifiers and may be promoted to a tougher enemy type. Everything
- * is deterministic from (game seed, wave, group index). Extra bosses are added as additional
- * spawn groups; the normal splitting and Palantir logic apply unchanged.</p>
+ * is deterministic from (game seed, wave, group index).</p>
+ *
+ * <p>Tuning (beta 2.02): {@link #ONN} uses exactly the numbers {@link #ON2} had before (the hardest setting players
+ * found beatable), and {@link #ON2} was eased to sit between {@link #ON} and {@link #ONN}.</p>
  */
 public enum Difficulty {
     O1("O1", "O(1)", "O(1)", "Constant (current)", "The original game, unchanged.",
-        Curve.FLAT, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1),
+        Curve.FLAT, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1.00),
     ON("ON", "O(N)", "O(N)", "Linear (Normal)", "Tougher enemies, more of them, weaker towers, leaner income.",
-        Curve.LINEAR, 1.10, 1.50, 0.92, 0.80, 1.10, 1.40, 0, 0, 0, 0, 1, 1),
-    ON2("ON2", "O(N²)", "O(N^2)", "Quadratic (Hard)", "Everything scales harder, and late waves bring elite enemies.",
-        Curve.QUADRATIC, 1.25, 3.10, 0.84, 0.56, 1.25, 2.40, 0.03, 0.80, 2, 0.50, 1, 1),
-    ONN("ONN", "O(Nᴺ)", "O(N^N)", "Super-exponential (Impossible)", "Enemy health climbs to 3x, weaker towers, half income (double starting cash), elites and extra bosses. Still beatable.",
-        Curve.SUPEREXP, 1.30, 3.30, 0.75, 0.50, 1.30, 2.50, 0.05, 0.80, 2, 0.50, 2, 1);
+        Curve.LINEAR, 1.10, 1.50, 0.92, 0.80, 1.10, 1.40, 0, 0, 0, 0, 1, 1, 1.03),
+    ON2("ON2", "O(N²)", "O(N^2)", "Quadratic (Hard)", "Enemy health climbs to 1.85x with 1.6x the enemies, towers deal 90% damage, 72% income, and late waves bring some elites.",
+        Curve.QUADRATIC, 1.10, 1.85, 0.90, 0.72, 1.10, 1.60, 0.02, 0.22, 1, 0.20, 1, 1, 1.00),
+    ONN("ONN", "O(Nᴺ)", "O(N^N)", "Super-exponential (Impossible)", "Enemy health climbs to 3.1x with 2.4x the enemies, towers deal 84% damage, 56% income, and most late enemies are elites. Still beatable.",
+        Curve.QUADRATIC, 1.25, 3.10, 0.84, 0.56, 1.25, 2.40, 0.03, 0.80, 2, 0.50, 1, 1, 1.06);
 
     /** Shape of the per-wave growth curve. */
-    public enum Curve { FLAT, LINEAR, QUADRATIC, SUPEREXP }
-
-    /** One additional boss group added on a given wave. */
-    public static final class ExtraBoss {
-        public final int wave, count;
-        public final EnemyType type;
-        public final String mods;
-        public final double startDelay, interval;
-        ExtraBoss(int wave, EnemyType type, int count, String mods, double startDelay, double interval) {
-            this.wave = wave; this.type = type; this.count = count; this.mods = mods; this.startDelay = startDelay; this.interval = interval;
-        }
-    }
+    public enum Curve { FLAT, LINEAR, QUADRATIC }
 
     /** System property for the default mode: {@code -Dlindefense.difficulty=O1|ON|ON2|ONN}. */
     public static final String PROPERTY = "lindefense.difficulty";
@@ -74,7 +64,6 @@ public enum Difficulty {
     public final double startCashMult, startLivesMult;
     /** Small extra on top of damage-compensating Palantir HP. */
     public final double palantirExtra;
-    private final List<ExtraBoss> extraBosses = new ArrayList<>();
 
     private static Difficulty selected;
     private static final Map<EnemyType, EnemyType> PROMOTION = new EnumMap<>(EnemyType.class);
@@ -93,36 +82,20 @@ public enum Difficulty {
         PROMOTION.put(EnemyType.COUNTING_SORT, EnemyType.BUCKET_SORT);
         PROMOTION.put(EnemyType.RADIX_SORT, EnemyType.TIMSORT);
         PROMOTION.put(EnemyType.BUCKET_SORT, EnemyType.TIMSORT);
-        // O(N^N) extra boss schedule: (wave, type, count, modifiers, start delay, interval)
-        ONN.boss(25, EnemyType.BELLARMINE_COLLEGE_PREP, 1, null, 12, 1);
-        ONN.boss(30, EnemyType.BELLARMINE_COLLEGE_PREP, 1, null, 14, 1);
-        ONN.boss(35, EnemyType.BELLARMINE_COLLEGE_PREP, 1, null, 10, 1);
-        ONN.boss(45, EnemyType.BELLARMINE_COLLEGE_PREP, 1, null, 10, 1);
-        ONN.boss(50, EnemyType.BELLARMINE_COLLEGE_PREP, 1, null, 12, 1);
-        ONN.boss(55, EnemyType.BELLARMINE_COLLEGE_PREP, 1, null, 14, 1);
-        ONN.boss(65, EnemyType.BELLARMINE_COLLEGE_PREP, 1, null, 15, 1);
-        ONN.boss(70, EnemyType.SW_RESOURCE_CONSULTANT, 1, null, 15, 1);
-        ONN.boss(75, EnemyType.BELLARMINE_COLLEGE_PREP, 2, "F", 8, 4);
-        ONN.boss(85, EnemyType.BELLARMINE_COLLEGE_PREP, 2, "F", 12, 4);
     }
 
     Difficulty(String id, String label, String ascii, String subtitle, String description, Curve curve,
                double hpBase, double hpFinal, double towerDamage, double income, double countBase, double countFinal,
-               double eliteBase, double eliteFinal, int eliteMods, double promoteChance, double cash, double lives) {
+               double eliteBase, double eliteFinal, int eliteMods, double promoteChance, double cash, double lives, double palantirExtra) {
         this.id = id; this.label = label; this.asciiLabel = ascii; this.subtitle = subtitle; this.description = description;
         this.curve = curve; this.hpBase = hpBase; this.hpFinal = hpFinal; this.towerDamage = towerDamage; this.income = income;
         this.countBase = countBase; this.countFinal = countFinal; this.eliteBase = eliteBase; this.eliteFinal = eliteFinal;
         this.eliteMods = eliteMods; this.promoteChance = promoteChance; this.startCashMult = cash; this.startLivesMult = lives;
-        this.palantirExtra = 1 + 0.03 * ordinal();
-    }
-
-    private void boss(int wave, EnemyType t, int count, String mods, double delay, double interval) {
-        extraBosses.add(new ExtraBoss(wave, t, count, mods, delay, interval));
+        this.palantirExtra = palantirExtra;
     }
 
     /** True for the unmodified original game. */
     public boolean isBase() { return this == O1; }
-    public List<ExtraBoss> getExtraBosses() { return extraBosses; }
 
     // ------------------------------------------------------------------ lookup / selection
     /** Parses O1 / ON / ON2 / ONN (also "O(1)", "O(N^2)" ...); null if unrecognised. */
@@ -150,7 +123,6 @@ public enum Difficulty {
         switch (curve) {
             case LINEAR: return x;
             case QUADRATIC: return x * x;
-            case SUPEREXP: return (Math.exp(6 * x) - 1) / (Math.exp(6) - 1);
             default: return 0;
         }
     }
@@ -179,8 +151,7 @@ public enum Difficulty {
     // ------------------------------------------------------------------ wave shaping
     /**
      * Returns the wave definition to actually spawn. For {@link #O1} this is the very same
-     * object; otherwise counts, elites and extra bosses are applied deterministically from
-     * (seed, wave).
+     * object; otherwise counts and elites are applied deterministically from (seed, wave).
      */
     public WaveDef shape(WaveDef base, long seed) {
         if (isBase()) return base;
@@ -207,22 +178,13 @@ public enum Difficulty {
             if (elite > 0) out.add(new SpawnGroup(g.type, elite, em, interval * n / elite, g.startDelay + interval * 0.5, g.route));
             if (promoted > 0) out.add(new SpawnGroup(PROMOTION.get(g.type), promoted, em, interval * n / promoted, g.startDelay + interval * 0.25, g.route));
         }
-        for (ExtraBoss b : extraBosses) {
-            if (b.wave != wave) continue;
-            EnumSet<Modifier> m = EnumSet.noneOf(Modifier.class);
-            if (b.mods != null) {
-                if (b.mods.indexOf('C') >= 0) m.add(Modifier.CAMO);
-                if (b.mods.indexOf('R') >= 0) m.add(Modifier.REGROW);
-                if (b.mods.indexOf('F') >= 0) m.add(Modifier.FORTIFIED);
-            }
-            out.add(new SpawnGroup(b.type, b.count, m, b.interval, b.startDelay, -1));
-        }
         return new WaveDef(wave, base.note, out.toArray(new SpawnGroup[0]));
     }
 
     private EnumSet<Modifier> eliteModifiers(EnumSet<Modifier> have, Random r) {
         EnumSet<Modifier> m = EnumSet.copyOf(have);
         List<Modifier> missing = new ArrayList<>(EnumSet.complementOf(m));
+        missing.remove(Modifier.INJECTION);   // PROMPT INJECTION is placed by the wave schedule, never rolled for elites
         for (int i = 0; i < eliteMods && !missing.isEmpty(); i++) m.add(missing.remove(r.nextInt(missing.size())));
         return m;
     }

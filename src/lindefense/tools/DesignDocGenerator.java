@@ -76,6 +76,9 @@ public final class DesignDocGenerator {
         w.println("5. [Maps](#5-maps)");
         w.println("6. [Wave table](#6-wave-table)");
         w.println("7. [Difficulty Growth](#7-difficulty-growth)");
+        w.println("8. [Prompt injection and Palantir's protocols](#8-prompt-injection-and-palantirs-protocols)");
+        w.println("9. [Patch Notes and Breaking News](#9-patch-notes-and-breaking-news)");
+        w.println("10. [Adversarial Training (reverse mode)](#10-adversarial-training-reverse-mode)");
         w.println();
         globalRules(w);
         towers(w);
@@ -84,6 +87,122 @@ public final class DesignDocGenerator {
         maps(w);
         waves(w);
         difficultyGrowth(w);
+        injectionAndProtocols(w);
+        runVariance(w);
+        reverseMode(w);
+    }
+
+    private static void injectionAndProtocols(PrintWriter w) {
+        w.println();
+        w.println("## 8. Prompt injection and Palantir's protocols");
+        w.println();
+        w.println("**Prompt injection** (`sim/PromptInjection`, schedule in `wave/InjectionSchedule`): an injector carries the sign \""
+            + lindefense.sim.PromptInjection.SIGN + "\". It broadcasts when a tower comes within " + f(lindefense.sim.PromptInjection.RADIUS)
+            + " px and every " + f(lindefense.sim.PromptInjection.INTERVAL) + " s after, hijacking the " + lindefense.sim.PromptInjection.MAX_TARGETS
+            + " nearest non-immune towers for " + f(lindefense.sim.PromptInjection.HIJACK_TIME) + " s. A hijacked tower stops attacking and zaps a neighbour within "
+            + f(lindefense.sim.PromptInjection.ZAP_RANGE) + " px offline for " + f(lindefense.sim.PromptInjection.DISABLE_TIME) + " s, "
+            + lindefense.sim.PromptInjection.ZAPS_PER_HIJACK + " times per hijack. Chains are one hop and every outage is followed by a short protection window.");
+        w.println();
+        w.println("| Immune tower | Why |");
+        w.println("|---|---|");
+        for (TowerType t : TowerType.purchasable()) {
+            if (TowerCatalog.isInjectionImmune(t)) w.println("| " + t.displayName + " | " + TowerCatalog.injectionImmunityReason(t) + " |");
+        }
+        w.println();
+        StringBuilder sched = new StringBuilder();
+        for (int wave = lindefense.wave.InjectionSchedule.FIRST_WAVE; wave <= WaveData.WAVE_COUNT; wave++) {
+            int n = lindefense.wave.InjectionSchedule.injectors(wave);
+            if (n > 0) sched.append(sched.length() == 0 ? "" : ", ").append("w").append(wave).append(n > 1 ? " x" + n : "");
+        }
+        w.println("Injectors per wave at O(1) (taken from the wave's largest non-boss group; harder Difficulty Growth scales the count): " + sched + ".");
+        w.println();
+        w.println("**Palantir's phase abilities** (`enemy/PalantirProtocols`):");
+        w.println();
+        w.println("| Phase | Ability | Numbers |");
+        w.println("|---|---|---|");
+        w.println("| 1 | " + lindefense.enemy.PalantirProtocols.ABILITY_NAMES[0] + " | a " + f(lindefense.enemy.PalantirProtocols.PANOPTICON_RANGE)
+            + " px beam turns once every " + f(lindefense.enemy.PalantirProtocols.PANOPTICON_PERIOD) + " s (from " + f(lindefense.enemy.PalantirProtocols.PANOPTICON_DELAY)
+            + " s); towers it crosses are blinded " + f(lindefense.enemy.PalantirProtocols.PANOPTICON_BLIND) + " s; Perplexity U2 radius protects |");
+        w.println("| 2 | " + lindefense.enemy.PalantirProtocols.ABILITY_NAMES[1] + " | from " + f(lindefense.enemy.PalantirProtocols.BROADCAST_FIRST) + " s, every "
+            + f(lindefense.enemy.PalantirProtocols.BROADCAST_INTERVAL) + " s: hijacks the " + lindefense.enemy.PalantirProtocols.BROADCAST_TARGETS
+            + " most expensive non-immune towers (+1 per " + lindefense.enemy.PalantirProtocols.BROADCAST_TOWERS_PER_EXTRA + " towers, max "
+            + lindefense.enemy.PalantirProtocols.BROADCAST_MAX_TARGETS + ") for " + f(lindefense.enemy.PalantirProtocols.BROADCAST_HIJACK) + " s; "
+            + lindefense.enemy.PalantirProtocols.DECOYS + " hologram decoys with " + pct(lindefense.enemy.PalantirProtocols.DECOY_HP_FRACTION)
+            + " of its HP draw non-immune towers |");
+        w.println("| 3 | " + lindefense.enemy.PalantirProtocols.ABILITY_NAMES[2] + " | one-time kill switch (warning at " + pct(lindefense.enemy.PalantirProtocols.KILL_SWITCH_WARNING)
+            + " HP) restarts unlocked ability cooldowns; grabs the game window (shrinks it to " + pct(lindefense.ui.WindowGrab.SHRINK)
+            + "); while the window stays under " + pct(lindefense.sim.WindowLink.SEAL_THRESHOLD) + " of its size Palantir is sealed: "
+            + pct(lindefense.enemy.PalantirProtocols.SEAL_DAMAGE_MULT) + " damage taken, slow regeneration. SETTINGS > DISPLAY > WINDOW EFFECTS turns the grab off |");
+    }
+
+    private static void runVariance(PrintWriter w) {
+        w.println();
+        w.println("## 9. Patch Notes and Breaking News");
+        w.println();
+        w.println("Off in tools and tests, on for players (`-Dlindefense.variance=off` disables it). Drafts before waves "
+            + java.util.Arrays.toString(lindefense.variance.RunVariance.DRAFT_WAVES) + ": " + lindefense.variance.RunVariance.OFFER_SIZE
+            + " random cards, keep 1 for the run. News: from wave " + lindefense.variance.RunVariance.NEWS_FIRST_WAVE + ", "
+            + pct(lindefense.variance.RunVariance.NEWS_CHANCE) + " chance per wave, lasting that wave. All rolls come from the run seed, so a seed replays the same offers and news.");
+        w.println();
+        w.println("| Patch note | Upside | Downside |");
+        w.println("|---|---|---|");
+        for (lindefense.variance.PatchNote n : lindefense.variance.PatchNote.values()) {
+            w.println("| " + n.title + " | " + effects(n.upsides(20)) + " | " + effects(n.downsides(20)) + " |");
+        }
+        w.println();
+        w.println("| Breaking News | From wave | Boss waves | Multi-lane maps only | Effect |");
+        w.println("|---|---|---|---|---|");
+        for (lindefense.variance.BreakingNews n : lindefense.variance.BreakingNews.values()) {
+            String fx = effects(n.mods().upsides(20));
+            String bad = effects(n.mods().downsides(20));
+            w.println("| " + n.title + " | " + n.minWave + " | " + (n.onBossWaves ? "yes" : "no") + " | " + (n.needsLanes ? "yes" : "no") + " | "
+                + (fx.equals("-") ? "" : fx) + (fx.equals("-") || bad.equals("-") ? "" : "; ") + (bad.equals("-") ? "" : bad) + " |");
+        }
+    }
+
+    private static String effects(java.util.List<lindefense.variance.Mods.Effect> list) {
+        if (list.isEmpty()) return "-";
+        StringBuilder sb = new StringBuilder();
+        for (lindefense.variance.Mods.Effect e : list) { if (sb.length() > 0) sb.append("; "); sb.append(e.text); }
+        return sb.toString();
+    }
+
+    private static void reverseMode(PrintWriter w) {
+        w.println();
+        w.println("## 10. Adversarial Training (reverse mode)");
+        w.println();
+        w.println("The player attacks, an AI defender (`ai/DefenderAI`, shared with the balance bot) builds. Match: "
+            + lindefense.ai.ReverseMatch.EPOCHS + " epochs of " + f(lindefense.ai.ReverseMatch.EPOCH_SECONDS) + " s (+" + f(lindefense.ai.ReverseMatch.OVERTIME)
+            + " s overtime for units already sent), " + f(lindefense.ai.ReverseMatch.HANDSHAKE) + " s setup. Start with " + lindefense.ai.ReverseMatch.START_CREDITS
+            + " compute credits; each integrity point a leak costs pays " + lindefense.ai.ReverseMatch.LEAK_BONUS_PER_LIFE + "; SCALE COMPUTE adds +"
+            + lindefense.ai.ReverseMatch.COMPUTE_STEP + "/s (from $" + lindefense.ai.ReverseMatch.COMPUTE_BASE_PRICE + ", x" + f(lindefense.ai.ReverseMatch.COMPUTE_PRICE_GROWTH)
+            + " each, max " + lindefense.ai.ReverseMatch.COMPUTE_MAX + "). Queue: " + lindefense.ai.ReverseMatch.MAX_QUEUE + " units, one every "
+            + f(lindefense.ai.ReverseMatch.SPAWN_GAP) + " s.");
+        w.println();
+        w.println("| Unit | Price | Unlocks at |");
+        w.println("|---|---|---|");
+        for (lindefense.ai.AttackUnit u : lindefense.ai.AttackUnit.values()) {
+            w.println("| " + u.type.displayName + " | $" + u.price + " | " + lindefense.ai.ReverseMatch.clock(u.unlockAt) + " |");
+        }
+        w.println();
+        w.println("| Modifier | Price factor | Unlocks at |");
+        w.println("|---|---|---|");
+        for (lindefense.enemy.Modifier m : lindefense.enemy.Modifier.values()) {
+            w.println("| " + m.label + " | x" + f(lindefense.ai.AttackUnit.modifierFactor(m)) + " | " + lindefense.ai.ReverseMatch.clock(lindefense.ai.AttackUnit.modifierUnlockAt(m)) + " |");
+        }
+        w.println();
+        w.println("| Exploit | Cost | Cooldown | Unlocks at | Effect |");
+        w.println("|---|---|---|---|---|");
+        for (lindefense.ai.AttackAbility a : lindefense.ai.AttackAbility.values()) {
+            w.println("| " + a.displayName + " | $" + a.cost + " | " + f(a.cooldown) + " s | " + lindefense.ai.ReverseMatch.clock(a.unlockAt) + " | " + a.description + " |");
+        }
+        w.println();
+        w.println("| Difficulty Growth | AI | Funding | Start cash | Notes |");
+        w.println("|---|---|---|---|---|");
+        for (Difficulty d : Difficulty.values()) {
+            lindefense.ai.DefenderProfile pr = lindefense.ai.DefenderProfile.of(d);
+            w.println("| " + d.asciiLabel + " | " + pr.displayName + " | x" + f(pr.income) + " | x" + f(pr.startCash) + " | " + pr.description + " |");
+        }
     }
 
     private static void globalRules(PrintWriter w) {
@@ -398,7 +517,7 @@ public final class DesignDocGenerator {
         w.println();
         w.println("Four selectable modes (`lindefense.sim.Difficulty`; pick on the map-select screen or `-Dlindefense.difficulty=O1|ON|ON2|ONN`).");
         w.println("All knobs are relative multipliers on top of the base game. Ramped knobs use `base + (final - base) * growth(wave)` where");
-        w.println("growth is 0 (O(1)), `w/100` (O(N)), `(w/100)^2` (O(N^2)) or `(e^(6w/100) - 1)/(e^6 - 1)` (O(N^N)).");
+        w.println("growth is 0 (O(1)), `w/100` (O(N)) or `(w/100)^2` (O(N^2) and O(N^N)).");
         w.println();
         Difficulty[] ds = Difficulty.values();
         StringBuilder h = new StringBuilder("| Knob |"), sep = new StringBuilder("|---|");
@@ -413,47 +532,32 @@ public final class DesignDocGenerator {
         w.print("| Elite chance per spawn (wave 1 -> 100) |"); for (Difficulty d : ds) w.print(" " + (d.eliteFinal == 0 ? "-" : pct(d.eliteBase) + " -> " + pct(d.eliteFinal)) + " |"); w.println();
         w.print("| Elite extra modifiers |"); for (Difficulty d : ds) w.print(" " + (d.eliteFinal == 0 ? "-" : d.eliteMods + " of Camo/Regrow/Fortified") + " |"); w.println();
         w.print("| Elite promotion to tougher type |"); for (Difficulty d : ds) w.print(" " + (d.eliteFinal == 0 ? "-" : pct(d.promoteChance) + " of elites") + " |"); w.println();
+        w.print("| Palantir HP extra |"); for (Difficulty d : ds) w.print(" x" + f(d.palantirExtra) + " |"); w.println();
         w.print("| Starting cash x / lives x |"); for (Difficulty d : ds) w.print(" " + f(d.startCashMult) + " / " + f(d.startLivesMult) + " |"); w.println();
-        w.print("| Extra bosses |"); for (Difficulty d : ds) w.print(" " + (d.getExtraBosses().isEmpty() ? "-" : d.getExtraBosses().size() + " groups (below)") + " |"); w.println();
         w.println();
         w.println("Elites: each non-boss spawn is an elite with the chance above (deterministic from game seed + wave + group). Elites are split into their own");
         w.println("spawn group with extra random modifiers and, for some, a promotion to a tougher type (e.g. Quick Sort -> Heap Sort). Enemy counts are");
         w.println("rounded stochastically (deterministic per seed, minimum 1) and spawn intervals shrink by `1 + 0.5 (countMult - 1)`. Bosses already in the wave are never multiplied.");
-        w.println("Palantir does not receive the ramped HP multiplier: its HP is multiplied by `towerDamage x (1 + 0.03 x tier)` so the final fight takes about as long as in O(1) (a DPS check, not a wall).");
+        w.println("Palantir does not receive the ramped HP multiplier: its HP is multiplied by `towerDamage x palantirExtra` (row above) so the final fight takes about as long as in O(1) (a DPS check, not a wall).");
         w.println("Kill rewards and the wave bonus are both scaled by the income multiplier (research-tower income is not). Any mode can be tried with `-Dlindefense.difficulty=O1|ON|ON2|ONN`.");
         w.println();
-        w.println("**Balance-bot calibration** (AutoPlayer after the economy rebalance; maps in catalog order: Silicon Circuit, Legacy Monolith, Hallucination Canyon, Singularity Core;");
-        w.println("V = victory with lives left, D = defeat on that wave; seeds 1234 / 1235 / 1236).");
-        w.println("The bot is `tools.AutoPlayer`: a wave-gated build plan (cheap early defence, Perplexity income, camo detection before the first camo wave, DeepSeek / Brad / Qwen as the");
-        w.println("boss-damage core), one copy per hero, focus-fire targeting on boss waves, every ability fired when it matters (DALL-E Outpainting and Mistral Stratosphere Tempest at the");
-        w.println("densest track spot). Re-run it with `-Dbot.difficulty=...` after any stat change (`-Dbot.seeds=N` runs N consecutive seeds, `-Dbot.maxTowers=20` and `-Dbot.random=true` are the handicaps).");
+        w.println("**Balance-bot calibration (beta 2.02)**: `tools.AutoPlayer` (wave-gated build plan, Perplexity income, camo detection before camo waves,");
+        w.println("boss-damage core, focus fire on boss waves, abilities when they matter) on the four original maps (Silicon Circuit, Legacy Monolith,");
+        w.println("Hallucination Canyon, Singularity Core) x seeds 1234-1236, with prompt injection and Palantir's phase abilities active and Patch Notes off.");
+        w.println("Re-run with `-Dbot.difficulty=O1|ON|ON2|ONN -Dbot.seed=1234 -Dbot.seeds=3` after any stat change (`-Dbot.variance=random` adds Patch Notes).");
         w.println();
-        w.println("| Mode | Near-optimal bot | Wins (12 runs) |");
+        w.println("| Mode | Wins (12 runs) | Where the losses happen |");
         w.println("|---|---|---|");
-        w.println("| O(1) | V100 V96 V92 / V100 V100 V100 / V100 V100 V100 / V100 V100 V100 | 12 |");
-        w.println("| O(N) | V96 V100 V92 / V100 V100 V100 / V100 V100 V98 / V99 V98 V100 | 12 |");
-        w.println("| O(N^2) | V75 V69 V22 / V99 V98 V98 / V97 V86 V36 / D99 V27 D59 | 10 (also 9 on seeds 50-52 and 9 on seeds 70-72) |");
-        w.println("| O(N^N) | D99 D99 D99 / V100 V100 V98 / D99 D94 D98 / D98 V0 D99 | 4 |");
+        w.println("| O(1) | 12 | - |");
+        w.println("| O(N) | 11 | one Palantir fight on Singularity Core (wave 100) |");
+        w.println("| O(N^2) | 9 (8 on seeds 2000-2002) | all at Palantir on wave 100 (Silicon 1, Singularity Core 2) |");
+        w.println("| O(N^N) | 3 (Legacy Monolith) | waves 59-79 on the other maps |");
         w.println();
-        w.println("O(N^N) over a 20-seed batch (seeds 2000-2019): wins per map Silicon 6 / 20 (lives left 0, 48, 25, 77, 35, 83), Legacy 20 / 20 (93-100), Canyon 4 / 20 (0, 24, 0, 5),");
-        w.println("Core 3 / 20 (26, 12, 0), i.e. 33 of 80; it is beatable on every map. Losses are almost all on wave 98-99 (the last boss rehearsals), with a few at the wave-60 BFB (59), 67-91.");
-        w.println("The Legacy Monolith is the easy map (one long serpentine route, every tower covers it) and wins every mode with 90+ lives. Each 6-seed result above can be reproduced");
-        w.println("with the commands in the README.");
-        w.println();
-        w.println("| Mode | 20-tower cap | Random-placement casual bot |");
-        w.println("|---|---|---|");
-        w.println("| O(1) | 3 of 12 won (Legacy only; the rest die on waves 94-99) | loses on waves 38-77 (12 of 12 lost) |");
-        w.println("| O(N) | 3 of 12 won (Legacy only) | loses on waves 32-77 |");
-        w.println("| O(N^2) | 0 of 12 won (dies on waves 59-99) | loses on waves 9-59 |");
-        w.println("| O(N^N) | 0 of 12 won | loses on waves 11-59 |");
-        w.println();
-        w.println("The casual bot (random spots that merely touch the track, a broad build, no Perplexity, no ability use, no focus-fire) loses mid-game in every mode, so there is a real skill curve.");
-        w.println("The 20-tower cap wins the base game on Legacy only now that bosses keep their full, never-decreasing HP (it won 10 of 12 when late boss HP was discounted to a few percent).");
-        w.println();
-        w.println("Knobs raised beyond the original Difficulty numbers (harder only): O(N^2) enemy HP 1.25 -> 3.1 (was 1.2 -> 2.2), tower damage 0.84 (was 0.86), income 0.56 (was 0.60), count 1.25 -> 2.4 (was 1.2 -> 2.3),");
-        w.println("elite chance 3% -> 80% (was 60%), 2 modifiers (was 1), promotion 50% (was 35%); O(N^N) enemy HP 1.3 -> 3.3 (was 1.3 -> 3.0), elite chance 5% -> 80% (was 60%), promotion 50% (unchanged), count 1.3 -> 2.5 (was 2.4).");
-        w.println("O(N^N) keeps double starting cash (it needs the opening) and its tower damage 0.75 and income 0.5. The O(N^N) extra-boss schedule was thinned: single extra MOABs on 25 / 30 / 35 / 45 / 50 / 55 / 65, one BFB on 70, two Fortified MOABs on 75 and 85, none after wave 85");
-        w.println("so the opening stays playable and the wall is the last waves.");
+        w.println("Beta 2.02 tuning: O(N^N) now uses exactly the numbers O(N^2) had in beta 2.01 (enemy HP 1.25 -> 3.1, count 1.25 -> 2.4, tower damage 0.84,");
+        w.println("income 0.56, elites 3% -> 80% with 2 modifiers and 50% promotion, the quadratic curve); its old extra-boss schedule and double starting cash are gone.");
+        w.println("O(N^2) was eased to sit between O(N) and O(N^N): enemy HP 1.10 -> 1.85, count 1.10 -> 1.6, tower damage 0.90, income 0.72, elites 2% -> 22%");
+        w.println("with 1 modifier and 20% promotion, and Palantir's HP extra 1.00, so its final fight is about as long as on O(N) while everything before it is harder.");
+        w.println("The Legacy Monolith is the easy map (one long serpentine route that every tower covers) and wins every mode.");
         w.println();
         w.println("**Economy before / after (O(1))**");
         w.println();
@@ -468,22 +572,9 @@ public final class DesignDocGenerator {
         w.println("| Bot with the new roster (4 maps) | died on waves 11 / 71 / 39 / 14 | wins all four with 92-100 lives |");
         w.println();
         w.println("Boss HP: the base HP of each boss is its debut-wave value (MOAB wave 40, BFB 60, ZOMG 80, DDT 90, BAD 100) and campaign HP is base x the single HP scale, so it never");
-        w.println("decreases and grows after wave 80. The BFB base (7,500) is set by the tower spec's duel targets: a fully upgraded Brad alone (about 6,150 damage in one pass)");
-        w.println("beats a MOAB at every campaign HP (wave 40-100) but leaves 18-36% of a BFB from wave 60 to 99, and no other fully upgraded non-hero tower deals more than 59% of one (DeepSeek the closest).");
-        w.println("Those duels are run in `BalanceTests` at base HP and at the HP met in the waves. Roles: MOAB general damage, BFB sustained damage against 40% armour and weak-hit halving,");
-        w.println("ZOMG late firepower (its three BFB children), DDT detection and speed control (camo, 2.6x speed, Lead), BAD everything (Palantir 65,000 at wave 100, six times the next boss).");
-        w.println();
-        for (Difficulty d : ds) {
-            if (d.getExtraBosses().isEmpty()) continue;
-            w.println("**Extra bosses, " + d.asciiLabel + "** (added to the wave's normal groups; they split normally, Palantir is never duplicated):");
-            w.println();
-            w.println("| Wave | Boss | Count | Modifiers | Start / interval |");
-            w.println("|---|---|---|---|---|");
-            for (Difficulty.ExtraBoss b : d.getExtraBosses()) {
-                w.println("| " + b.wave + " | " + b.type.displayName + " (" + b.type.getBossClass().label + ") | " + b.count + " | " + (b.mods == null ? "-" : b.mods) + " | +" + f(b.startDelay) + "s / " + f(b.interval) + "s |");
-            }
-            w.println();
-        }
+        w.println("decreases and grows after wave 80. `BalanceTests` keeps every fully upgraded hero and tower from soloing a BFB at the HP it has on wave 99, so towers stay");
+        w.println("necessary. Roles: MOAB general damage, BFB sustained damage against 40% armour, ZOMG late firepower (its three BFB children), DDT detection and speed control");
+        w.println("(camo, 2.6x speed, Lead), BAD everything (Palantir 65,000 at wave 100 on O(1), with a signature ability per phase; see section 8).");
     }
 
     /** Number of bodies produced by one enemy of this type including all descendants. */

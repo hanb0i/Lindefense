@@ -25,6 +25,7 @@ public final class MilitaryTowers {
             .tiers("DeepSeek V4 Flash", "DeepSeek V4.1 Flash", "DeepSeek R1", "DeepSeek V4 Pro")
             .attack(AttackKind.INSTANT, DamageType.ENERGY, TowerStats.UNLIMITED_RANGE, 1.6, 2, 1)
             .base(s -> { s.ignoresLos = true; })
+            .injectionImmune("Chain-of-thought reasoning: it thinks the injected prompt through and catches the trick.")
             .upgrade(850, "Parallel Processing", "3 shots per volley, pierce 3.",
                 s -> { s.projectilesPerShot = 3; s.pierce = 3; })
             .upgrade(900, "Recursive Lock", "Default targeting becomes Strongest. Each consecutive hit on the same target adds +1 damage (max +6); the bonus resets when the target changes.",
@@ -41,7 +42,8 @@ public final class MilitaryTowers {
             .description("Code fragments with a tether that speeds up nearby towers. Later launches explosive drones and powers every Military tower on the map. No camo detection.")
             .tiers("Copilot", "Copilot Pro", "Microsoft 365 Copilot", "GitHub Copilot Enterprise")
             .attack(AttackKind.PROJECTILE, DamageType.ENERGY, 150, 1.0, 1, 1)
-            .base(s -> { s.auraRange = 150; s.auraRate = 0.10; })
+            .base(s -> { s.auraRange = 150; s.auraRate = 0.10; s.auraInjectionImmunity = true; })
+            .injectionImmune("Security Copilot: its firewall also shields every tower in its tether radius.")
             .upgrade(350, "Hotfix", "Tether bonus becomes +20% attack speed and +1 pierce.",
                 s -> { s.auraRate = 0.20; s.auraPierce = 1; })
             .upgrade(600, "Task Scheduler", "Every 8 s launches an explosive drone at the densest cluster (damage 6, splash 70).",

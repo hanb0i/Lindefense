@@ -67,9 +67,13 @@ public final class HeadlessTests {
         MagicSupportTests.runAll();
         HeroStoreTests.runAll();
         AbilityUnlockTests.runAll();
+        GraphicsTests.runAll();
         TitanTests.runAll();
+        InjectionTests.runAll();   // PROMPT INJECTION + Palantir phase abilities + window seal
         BalanceTests.runAll();
         ConsistencyTests.runAll();
+        VarianceTests.runAll();   // PATCH NOTES / BREAKING NEWS / run seeds
+        ReverseModeTests.runAll();   // REVERSE MODE: Adversarial Training (attacker economy, uplink, defender AI)
 
         run("restartResetsLevel", HeadlessTests::restartResetsLevel);
         run("assetNamesMatchExactly", () -> { for (String f : AssetTests.run()) check(false, f); check(AssetTests.checkCount() > 40, "asset suite ran (" + AssetTests.checkCount() + " checks)"); });

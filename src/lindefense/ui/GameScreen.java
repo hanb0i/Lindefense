@@ -28,8 +28,14 @@ public final class GameScreen extends GCompound {
     private final WorldView world;
     private final HudPanel hud;
     private final SidePanel side;
+    /** Reverse mode ("Adversarial Training"): the attacker's spawn panel replaces the shop; null in the normal game. */
+    private final AttackPanel attack;
     private final BossDock dock;
     private final AbilityBar abilities;
+    /** PATCH NOTES / BREAKING NEWS strip under the top bar (hidden while run variance is off). */
+    private final RunStrip strip;
+    /** Draft state when the overlay was last built, and whether the draft overlay is the one showing. */
+    private boolean draftSeen, draftOpen;
     private Tower targetingTower;
     private final GCompound overlay = new GCompound();
     private final List<UIButton> overlayButtons = new ArrayList<>();
@@ -78,13 +84,16 @@ public final class GameScreen extends GCompound {
         dock = new BossDock(game);
         hud = new HudPanel(this);
         side = new SidePanel(this);
+        attack = game.isReverse() ? new AttackPanel(this) : null;   // REVERSE HOOK
         abilities = new AbilityBar(this);
+        strip = new RunStrip(this);
         add(world);
         add(dock);
         add(hud);
         add(abilities);
-        add(side);
+        add(attack != null ? attack : side);   // REVERSE HOOK
         buildBrackets();
+        add(strip);
         if (tutorial) { this.tutorial = new TutorialGuide(new TutorialScript(game)); add(this.tutorial); }
         add(overlay);
     }
@@ -123,10 +132,11 @@ public final class GameScreen extends GCompound {
     public double[] getMouseLogical() { return new double[] { mouseLx, mouseLy }; }
     public SidePanel getSidePanel() { return side; }
     /** B key / ALL button: switch the shop between one faction and all towers. */
-    public void toggleShopAll() { side.toggleAll(); }
+    public void toggleShopAll() { if (!game.isReverse()) side.toggleAll(); }
 
     // ------------------------------------------------------------------ actions
     public void beginPlacing(TowerType t) {
+        if (t != null && game.isReverse()) return;   // REVERSE HOOK: the AI builds, the player only inspects
         placing = t;
         if (t != null) { selectedTower = null; selectedEnemy = null; targetingTower = null; }
         side.requestRebuild();
@@ -144,10 +154,10 @@ public final class GameScreen extends GCompound {
         side.requestRebuild();
     }
 
-    public void startWave() { game.startNextWave(); }
+    public void startWave() { if (!game.isReverse()) game.startNextWave(); }
     public void setSpeed(int s) { game.setSpeed(s); game.setPaused(false); }
     public void togglePause() { game.togglePause(); }
-    public void toggleAuto() { game.getWaveManager().setAutoStart(!game.getWaveManager().isAutoStart()); }
+    public void toggleAuto() { if (!game.isReverse()) game.getWaveManager().setAutoStart(!game.getWaveManager().isAutoStart()); }
     public void backToMenu() { app.showMenu(); }
 
     /**
@@ -191,7 +201,7 @@ public final class GameScreen extends GCompound {
     // ---- Hero Store
     /** Opens / closes the Hero Store overlay (HEROES button or K). The game keeps running underneath. */
     public void toggleHeroStore() {
-        if (game.getState() != Game.State.PLAYING) return;
+        if (game.getState() != Game.State.PLAYING || game.isReverse()) return;
         heroStoreShown = !heroStoreShown;
         if (heroStoreShown) { helpShown = false; heroStoreNotice = null; }
         heroStoreKey = "";
@@ -251,7 +261,7 @@ public final class GameScreen extends GCompound {
 
     /** U / the upgrade button: buys the next upgrade; on a maxed tower with a locked ability it buys the ability. */
     public void upgradeSelected() {
-        if (selectedTower == null) return;
+        if (selectedTower == null || game.isReverse()) return;
         if (selectedTower.canUpgrade()) game.upgradeTower(selectedTower);
         else if (selectedTower.isAbilityLocked()) unlockAbilitySelected();
         side.requestRebuild();
@@ -260,16 +270,16 @@ public final class GameScreen extends GCompound {
     /** UNLOCK ABILITY button: buys the selected maxed tower's ability ($15,000); it is ready at once. */
     public void unlockAbilitySelected() {
         Tower t = selectedTower;
-        if (t == null || !t.isAbilityLocked()) return;
+        if (t == null || !t.isAbilityLocked() || game.isReverse()) return;
         String name = t.getAbilityDef().name;
         if (game.unlockAbility(t)) abilities.showHint(name + " UNLOCKED  -  press A or click it in the ability bar", Cyber.GREEN, 3);
         else if (!t.canUnlockAbility()) abilities.showHint(name + ": buy every upgrade first", Cyber.RED, 2.5);
-        else abilities.showHint(name + ": needs " + Ui.money(lindefense.tower.TowerCatalog.ABILITY_UNLOCK_COST), Cyber.RED, 2.5);
+        else abilities.showHint(name + ": needs " + Ui.money(lindefense.tower.Shop.abilityUnlockCost(game)), Cyber.RED, 2.5);
         side.requestRebuild();
     }
 
     public void sellSelected() {
-        if (selectedTower != null) { game.sellTower(selectedTower); selectedTower = null; side.requestRebuild(); }
+        if (selectedTower != null && !game.isReverse()) { game.sellTower(selectedTower); selectedTower = null; side.requestRebuild(); }
     }
 
     public void abilitySelected() {
@@ -281,6 +291,7 @@ public final class GameScreen extends GCompound {
     public void fireAbility(Tower t) {
         if (t == null || !t.isAlive() || t.getAbility() == null) return;
         if (game.getState() != Game.State.PLAYING) return;
+        if (game.isReverse()) { abilities.showHint("The defender AI fires its own abilities", Cyber.MAGENTA, 2); return; }   // REVERSE HOOK
         String why = abilityRefusal(t);
         if (why != null) { abilities.showHint(t.getAbility().name + ": " + why, Cyber.RED, 2.5); return; }
         if (t.getAbility().needsTarget) {
@@ -298,6 +309,7 @@ public final class GameScreen extends GCompound {
     /** Why the ability cannot be used right now (null if it can be tried). */
     private String abilityRefusal(Tower t) {
         if (t.isSurveilled()) return "offline (surveillance)";
+        if (t.isOffline()) return "offline (" + (t.isHijacked() ? "hijacked" : t.getIntrusion().isBlinded() ? "blinded" : "disabled") + ")";   // PROMPT INJECTION
         if (!t.isAbilityReady()) return String.format("recharging (%.0fs)", Math.ceil(t.getAbilityCooldownRemaining()));
         return null;
     }
@@ -326,19 +338,35 @@ public final class GameScreen extends GCompound {
     }
 
     public void cycleTargeting(int dir) {
-        if (selectedTower == null) return;
+        if (selectedTower == null || game.isReverse()) return;
         selectedTower.cycleTargeting(dir);
         side.requestRebuild();
     }
 
     public void flashBanner(String text, Color col, double seconds) { hud.flashBanner(text, col, seconds); }
 
+    // ---- PATCH NOTES draft
+    /** True while the patch-notes draft overlay is showing (the next wave waits for a pick). */
+    public boolean isDraftOpen() { return draftOpen; }
+
+    /** Ships offered card {@code index} (draft overlay click, or keys 1-3). */
+    public void pickPatchNote(int index) {
+        lindefense.variance.RunVariance v = game.getVariance();
+        java.util.List<lindefense.variance.PatchNote> offer = v.getOffer();
+        if (index < 0 || index >= offer.size()) return;
+        lindefense.variance.PatchNote p = offer.get(index);
+        if (!v.pick(index)) return;
+        hud.flashBanner("PATCH " + v.getVersion() + " SHIPPED: " + p.title.toUpperCase(), PatchNotesView.accent(p.category), 2.6);
+        buildOverlay();
+        side.requestRebuild();
+    }
+
     // ------------------------------------------------------------------ input
     private List<UIButton> allButtons() {
         List<UIButton> all = new ArrayList<>(overlayButtons);
         if (tutorial != null && overlayButtons.isEmpty()) all.addAll(tutorial.getButtons());
         all.addAll(hud.getButtons());
-        all.addAll(side.getButtons());
+        all.addAll(attack != null ? attack.getButtons() : side.getButtons());   // REVERSE HOOK
         all.addAll(abilities.getButtons());
         return all;
     }
@@ -348,7 +376,7 @@ public final class GameScreen extends GCompound {
         if (!rightButton && Slider.pressAny(lx, ly, pauseSliders)) return;   // AUDIO: volume sliders
         if (!overlayButtons.isEmpty()) {
             for (UIButton b : overlayButtons) if (b.hit(lx, ly)) { b.click(); return; }
-            if (game.getState() != Game.State.PLAYING || helpShown || heroStoreShown || game.isPaused()) return;
+            if (game.getState() != Game.State.PLAYING || helpShown || heroStoreShown || game.isPaused() || draftOpen) return;
         }
         if (rightButton) {
             if (targetingTower != null) { cancelTargeting(); return; }
@@ -368,7 +396,7 @@ public final class GameScreen extends GCompound {
             Tower t = game.placeTower(placing, w);
             if (t != null) {
                 // keep placing the same type if affordable, otherwise select the new tower
-                if (game.getCash() < t.getDef().baseCost) { placing = null; selectTower(t); }
+                if (game.getCash() < lindefense.tower.Shop.priceOf(game, t.getType())) { placing = null; selectTower(t); }
                 side.requestRebuild();
             }
             return;
@@ -396,10 +424,19 @@ public final class GameScreen extends GCompound {
 
     private Vec toWorld(double lx, double ly) { return world.toWorld(lx, ly); }
 
+    /** Logical point {x, y} where world point {@code w} is drawn (tools and the scripted demo click through it). */
+    public double[] worldToLogical(Vec w) { return world.toLogical(w); }
+
     /** Re-applies hover to every button for the last mouse position (after panels rebuild). */
     public void refreshHover() { for (UIButton b : allButtons()) b.setHover(b.hit(mouseLx, mouseLy)); }
 
     public void keyPressed(KeyEvent e) {
+        if (draftOpen && !game.isPaused()) {   // PATCH NOTES draft: 1 / 2 / 3 ship a card; Esc, H and P still work
+            int k = e.getKeyCode();
+            if (k >= KeyEvent.VK_1 && k <= KeyEvent.VK_9) { pickPatchNote(k - KeyEvent.VK_1); return; }
+            if (k != KeyEvent.VK_ESCAPE && k != KeyEvent.VK_H && k != KeyEvent.VK_P) return;
+        }
+        if (attack != null && game.getState() == Game.State.PLAYING && !game.isPaused() && !helpShown && attack.keyPressed(e)) return;   // REVERSE HOOK: attacker keys
         switch (e.getKeyCode()) {
             case KeyEvent.VK_SPACE: startWave(); break;
             case KeyEvent.VK_1: setSpeed(1); break;
@@ -439,11 +476,14 @@ public final class GameScreen extends GCompound {
         double target = dock.getHeight();
         dockShown += (target - dockShown) * Math.min(1, realDt * 9);
         if (Math.abs(target - dockShown) < 0.3) dockShown = target;
-        world.setDock(dockShown);
+        double stripH = strip.height();   // PATCH NOTES strip sits under the top bar; the boss dock opens below it
+        dock.setLocation(0, Ui.WORLD_Y + stripH);
+        world.setDock(dockShown + stripH);
         mouseWorld = toWorld(mouseLx, mouseLy);
         world.update(realDt);
         hud.update(realDt);
-        side.update(realDt);
+        strip.update(realDt);
+        if (attack != null) attack.update(realDt); else side.update(realDt);   // REVERSE HOOK
         if (targetingTower != null && !targetingTower.isAlive()) cancelTargeting();
         abilities.update(realDt);
         if (tutorial != null) tutorial.update(realDt);
@@ -462,10 +502,12 @@ public final class GameScreen extends GCompound {
             shownState = st;
             buildOverlay();
             // AUDIO HOOK: end-of-game stingers
-            if (st == Game.State.VICTORY) lindefense.audio.AudioManager.sfx(lindefense.audio.Sfx.VICTORY);
+            if (game.isReverse()) lindefense.audio.AudioManager.sfx(game.getReverse().attackerWon() ? lindefense.audio.Sfx.VICTORY : lindefense.audio.Sfx.DEFEAT);   // REVERSE HOOK
+            else if (st == Game.State.VICTORY) lindefense.audio.AudioManager.sfx(lindefense.audio.Sfx.VICTORY);
             else if (st == Game.State.DEFEAT) lindefense.audio.AudioManager.sfx(lindefense.audio.Sfx.DEFEAT);
         }
         else if (st == Game.State.PLAYING && game.isPaused() != pauseShown) buildOverlay();
+        else if (st == Game.State.PLAYING && game.getVariance().isDraftPending() != draftSeen) buildOverlay();   // PATCH NOTES
         else if (heroStoreShown && !heroStoreStateKey().equals(heroStoreKey)) buildOverlay();
         if (heroStoreShown) refreshHeroStoreLive();
     }
@@ -486,7 +528,10 @@ public final class GameScreen extends GCompound {
             if (!e.getType().isBoss() || !e.isAlive()) continue;
             if (e.getType() == lindefense.enemy.EnemyType.PALANTIR) palantir = true; else boss = true;
         }
-        am.setMusic(musicDirector.choose(st == Game.State.VICTORY, st == Game.State.DEFEAT, game.getWave(),
+        boolean won = st == Game.State.VICTORY, lost = st == Game.State.DEFEAT;
+        int wave = game.getWave();
+        if (game.isReverse()) { won = lost; lost = st == Game.State.VICTORY; wave = game.getReverse().equivalentWave(); }   // REVERSE HOOK: the attacker's view
+        am.setMusic(musicDirector.choose(won, lost, wave,
             game.getDifficulty() == lindefense.sim.Difficulty.ONN, palantir, boss, game.getTime()));
     }
 
@@ -511,9 +556,12 @@ public final class GameScreen extends GCompound {
         Slider.releaseAll(pauseSliders);   // a rebuild mid-drag still saves the level
         pauseSliders = null;
         pauseShown = game.isPaused();
+        draftSeen = game.getVariance().isDraftPending();
+        draftOpen = false;
         Game.State st = game.getState();
         if (st != Game.State.PLAYING) heroStoreShown = false;
         if (helpShown && st == Game.State.PLAYING) { buildHelpOverlay(); return; }
+        if (draftSeen && st == Game.State.PLAYING && !game.isPaused()) { buildDraftOverlay(); return; }
         if (heroStoreShown && st == Game.State.PLAYING && !game.isPaused()) { buildHeroStoreOverlay(); return; }
         if (st == Game.State.PLAYING && !game.isPaused()) { menuConfirm = Confirm.NONE; return; }
         if (st == Game.State.PLAYING) { buildMenuOverlay(); return; }
@@ -530,7 +578,12 @@ public final class GameScreen extends GCompound {
         } else {
             return;   // PLAYING is handled by buildMenuOverlay()
         }
-        double pw = 720, ph = ended ? 404 : 270;
+        if (game.isReverse()) {   // REVERSE HOOK: the player is the attacker
+            String[] rt = AttackPanel.endTexts(game);
+            title = rt[0]; micro = rt[1]; sub = rt[2]; col = "win".equals(rt[3]) ? Cyber.YELLOW : Cyber.RED;
+        }
+        boolean notes = ended && game.getVariance().isEnabled();   // PATCH NOTES: the run's cards and a seed replay
+        double pw = 720, ph = ended ? 404 + (notes ? 44 : 0) : 270;
         double px = cx - pw / 2, py = cy - ph / 2;
         overlay.add(new Cyber.Chamfer(px, py, pw, ph, 26).fill(new Color(6, 10, 24, 238)).border(col).glow(1.1).lineWidth(2).ticks(true));
         overlay.add(Ui.rect(px + 24, py + 12, 140, 3, Cyber.MAGENTA, Cyber.MAGENTA));
@@ -556,6 +609,7 @@ public final class GameScreen extends GCompound {
                 { "hostiles purged", Cyber.commas(game.getEnemyManager().getTotalKilled()), "" },
                 { "credits earned", Ui.money(game.getTotalCashEarned()), "y" },
                 { "integrity left", String.valueOf(game.getLives()), "r" } };
+            if (game.isReverse()) stats = AttackPanel.endStats(game);   // REVERSE HOOK
             double cw = 158, gap = 12, sx = cx - (4 * cw + 3 * gap) / 2, cyy = py + 214;
             for (int i = 0; i < 4; i++) {
                 double x = sx + i * (cw + gap);
@@ -567,12 +621,21 @@ public final class GameScreen extends GCompound {
             // DIFFICULTY HOOK: show the Difficulty Growth mode on the end screen
             Font modeFont = Cyber.mono(Font.BOLD, 13);
             GLabel mode = Ui.label("MODE // " + DifficultySelector.display(game.getDifficulty(), modeFont)
-                + "  " + game.getDifficulty().subtitle.toUpperCase(), 0, cyy + 86, modeFont, Cyber.MAGENTA);
+                + "  " + game.getDifficulty().subtitle.toUpperCase() + "   //   " + PatchNotesView.seedText(game), 0, cyy + 86, modeFont, Cyber.MAGENTA);
+            if (game.isReverse()) mode.setLabel("ADVERSARIAL TRAINING // " + DifficultySelector.display(game.getReverse().getLevel(), modeFont)
+                + "  " + game.getReverse().getProfile().displayName.toUpperCase() + " AI");   // REVERSE HOOK
             mode.setLocation(cx - mode.getWidth() / 2, cyy + 86);
             overlay.add(mode);
-            UIButton again = new UIButton(cx - 250, py + ph - 76, 240, 50, "PLAY AGAIN", Cyber.display(Font.BOLD, 22), () -> app.showMapSelect());
+            if (notes) PatchNotesView.chipRows(overlay, game.getVariance().getActive(), cx, cyy + 102, pw - 80);
+            double bw = notes ? 212 : 240;
+            UIButton again = new UIButton(notes ? cx - 326 : cx - 250, py + ph - 76, bw, 50, "PLAY AGAIN", Cyber.display(Font.BOLD, 22), () -> app.showMapSelect());
             again.setPrimary(true);
-            UIButton menu = new UIButton(cx + 10, py + ph - 76, 240, 50, "MAIN MENU", Cyber.display(Font.BOLD, 22), () -> app.showMenu());
+            if (notes) {
+                UIButton replay = new UIButton(cx - 106, py + ph - 76, bw, 50, "REPLAY SEED", Cyber.display(Font.BOLD, 22), () -> app.replaySeed());
+                replay.setAccent(Cyber.CYAN);
+                overlay.add(replay); overlayButtons.add(replay);
+            }
+            UIButton menu = new UIButton(notes ? cx + 114 : cx + 10, py + ph - 76, bw, 50, "MAIN MENU", Cyber.display(Font.BOLD, 22), () -> app.showMenu());
             menu.setAccent(Cyber.MAGENTA);
             overlay.add(again); overlay.add(menu);
             overlayButtons.add(again); overlayButtons.add(menu);
@@ -587,6 +650,17 @@ public final class GameScreen extends GCompound {
         overlay.add(b);
         overlayButtons.add(b);
         return b;
+    }
+
+    /** PATCH NOTES draft: three cards over the playfield; the next wave waits until one is shipped. */
+    private void buildDraftOverlay() {
+        if (placing != null) beginPlacing(null);
+        cancelTargeting();
+        heroStoreShown = false;
+        draftOpen = true;
+        overlayTitle = PatchNotesView.buildDraft(overlay, overlayButtons, game, this::pickPatchNote);
+        glitchTimer = 2.5;
+        refreshHover();
     }
 
     /** The pause menu: RESUME, RESTART, SOUND EFFECTS and MUSIC (each toggle with its volume slider), QUIT LEVEL, MAIN MENU (or a Yes / No confirmation). */
@@ -621,7 +695,8 @@ public final class GameScreen extends GCompound {
             refreshHover();
             return;
         }
-        GLabel hint = Ui.label("P / Esc to resume", 0, py + 146, Cyber.mono(Font.BOLD, 12), Cyber.MUTED);
+        String seed = "   //   " + PatchNotesView.seedText(game) + (game.getVariance().isEnabled() ? "   //   PATCH " + game.getVariance().getVersion() : "");
+        GLabel hint = Ui.label("P / Esc to resume" + seed, 0, py + 146, Cyber.mono(Font.BOLD, 12), Cyber.MUTED);
         hint.setLocation(cx - hint.getWidth() / 2, py + 146);
         overlay.add(hint);
         double bw = 500, bx = cx - bw / 2, by = py + 172, bh = 46, gap = 10, tw = 200;   // tw: audio toggle width, its slider fills the rest of the row
@@ -789,6 +864,7 @@ public final class GameScreen extends GCompound {
         String[][] keys = { { "SPACE", "start next wave" }, { "1  2  3", "game speed" }, { "P", "pause / resume" }, { "B", "all towers / faction tabs" },
             { "ESC", "cancel / deselect, else pause menu" }, { "U", "upgrade selected tower" }, { "S", "sell selected tower" }, { "A", "fire selected tower's ability" },
             { "T", "cycle targeting priority" }, { "K", "Hero Store" }, { "M", "music on / off" }, { "N", "sound on / off" }, { "H", "toggle this help" } };
+        if (game.isReverse()) keys = AttackPanel.HELP_KEYS;   // REVERSE HOOK
         double ky = py + 126;
         overlay.add(Ui.label(Cyber.spaced("// controls"), px + 34, ky, Cyber.mono(Font.BOLD, 11), Cyber.CYAN));
         for (String[] k : keys) {
@@ -798,10 +874,11 @@ public final class GameScreen extends GCompound {
         }
         double rx = px + 470, ry = py + 126, rw = pw - 470 - 34;
         String[][] notes = {
-            { "enemy modifiers", "Camo enemies need detection (Perplexity, Grok, or Gemini / Llama after their second upgrade). Regrow enemies heal over time. Fortified enemies carry double HP." },
+            { "enemy modifiers", "Camo enemies need detection (Perplexity, Grok, or Gemini / Llama after their second upgrade). Regrow enemies heal over time. Fortified enemies carry double HP. Prompt Injection enemies (wave 30+) hijack nearby towers; Claude, Copilot (and its radius), DeepSeek, Perplexity and Mr. Lindemann are immune." },
             { "hero store", "Open with HEROES or K. Buy a hero once to unlock it permanently, then deploy it free, once per match. Heroes are not in the tower shop." },
             { "economy", "Enemies pay cash when destroyed and every wave pays a bonus. Selling refunds most of what you spent on a tower." },
             { "bosses", "Boss health shows in the dock under the top bar. Palantir (wave " + lindefense.wave.WaveData.WAVE_COUNT + ") disrupts your strongest towers with Predictive Surveillance; watch the telegraph. Towers near Perplexity are immune." } };
+        if (game.isReverse()) notes = AttackPanel.HELP_NOTES;   // REVERSE HOOK
         for (String[] n : notes) {
             overlay.add(Ui.label(Cyber.spaced("// " + n[0]), rx, ry, Cyber.mono(Font.BOLD, 11), Cyber.CYAN));
             for (String l : Ui.wrap(n[1], Cyber.body(Font.PLAIN, 14), rw)) { ry += 20; overlay.add(Ui.label(l, rx, ry, Cyber.body(Font.PLAIN, 14), Cyber.MUTED)); }

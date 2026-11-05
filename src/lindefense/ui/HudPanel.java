@@ -81,6 +81,9 @@ public final class HudPanel extends GCompound {
     private double toastW;
 
     private String bannerText; private Color bannerColor; private double bannerTime;
+    /** Reverse mode: the attacker controller and the chips that replace Start Wave / Auto / Heroes (null otherwise). */
+    private final lindefense.ai.ReverseMatch rev;
+    private Chip timerChip, aiChip;
     private int lastLives = -1;
     private double lifeFlash, time;
     private final java.util.Random rnd = new java.util.Random(11);
@@ -172,6 +175,70 @@ public final class HudPanel extends GCompound {
         }
         toast.setVisible(false);
         add(toast);
+        rev = game.getReverse();
+        if (rev != null) buildReverse();   // REVERSE HOOK
+    }
+
+    // ------------------------------------------------------------------ reverse mode ("Adversarial Training")
+    /** The attacker's HUD: compute credits, the AI's integrity, the epoch, the training-run timer and the AI's cash. */
+    private void buildReverse() {
+        Cyber.setText(cashChip.micro, Cyber.spaced("compute"));
+        Cyber.setText(livesChip.micro, Cyber.spaced("ai integrity"));
+        Cyber.setText(waveChip.micro, Cyber.spaced("epoch"));
+        startBtn.setVisible(false);
+        autoBtn.setVisible(false);
+        heroBtn.setVisible(false);
+        double tx = startBtn.getX(), tw = autoBtn.getX() + autoBtn.getW() - tx;
+        timerChip = new Chip(tx, tw, Cyber.Kind.FAST, "training run", Cyber.MAGENTA);
+        add(timerChip);
+        aiChip = new Chip(heroBtn.getX(), heroBtn.getW(), Cyber.Kind.CASH, "ai cash", Cyber.YELLOW);
+        aiChip.icon.setVisible(false);
+        aiChip.micro.setLocation(9, aiChip.micro.getY());
+        aiChip.value.setLocation(9, aiChip.value.getY());
+        add(aiChip);
+        Cyber.setText(mapMicro, Cyber.spaced("sector") + "   //   ADVERSARIAL TRAINING   //   AI " + DifficultySelector.display(rev.getLevel(), CHIP_LABEL)
+            + " " + rev.getProfile().displayName.toUpperCase());
+        bossTag.setVisible(false);
+        bossTagLabel.setVisible(false);
+    }
+
+    /** Per-frame reverse-mode chips and bottom strip (the AI's latest action, the next unlock). */
+    private void updateReverse() {
+        cashChip.set(rev.hasUnlimitedCredits() ? "ADMIN \u221e" : compactMoney(rev.getCredits()), Cyber.YELLOW);
+        waveChip.set(rev.getEpoch() + " / " + lindefense.ai.ReverseMatch.EPOCHS, Cyber.TEXT);
+        waveBar.setValue(Math.min(1, rev.getElapsed() / lindefense.ai.ReverseMatch.DURATION));
+        int alive = game.getEnemyManager().getAliveCount(), queued = rev.getQueued();
+        enemyChip.set(alive + " / " + (alive + queued), alive + queued > 0 ? Cyber.TEXT : Cyber.MUTED);
+        boolean closing = !rev.isUplinkClosed() && rev.getTimeLeft() <= 60;
+        double pulse = closing ? 0.5 + 0.5 * Math.sin(time * 6) : 0;
+        if (rev.isUplinkClosed()) timerChip.set("OVERTIME  " + lindefense.ai.ReverseMatch.clock(rev.getOvertimeLeft()), Cyber.YELLOW);
+        else timerChip.set(lindefense.ai.ReverseMatch.clock(rev.getTimeLeft()) + "  LEFT", closing ? Cyber.lerp(Cyber.MAGENTA, Color.WHITE, pulse * 0.5) : Cyber.TEXT);
+        timerChip.frame.glow(closing ? 0.3 + 0.6 * pulse : 0);
+        aiChip.set(compactMoney(game.getCash()), Cyber.YELLOW);
+        // bottom strip: map event / the AI's last action in the centre, the next unlock on the right
+        double cxEvent = Ui.WORLD_W / 2.0;
+        String ev = game.getMap().getEventText();
+        Cyber.setText(eventLabel, ev == null ? "" : ev);
+        eventLabel.setLocation(cxEvent - eventLabel.getWidth() / 2, eventLabel.getY());
+        lindefense.ai.ReverseMatch.FeedEntry last = rev.getLastAiAction();
+        Cyber.setText(noteLabel, last == null ? "THE DEFENDER AI IS ONLINE" : last.text.toUpperCase());
+        Cyber.setColor(noteLabel, last == null ? Cyber.MUTED : Cyber.lerp(Ui.c(last.rgb), Cyber.TEXT, 0.25));
+        noteLabel.setLocation(cxEvent - noteLabel.getWidth() / 2, ev == null || ev.isEmpty() ? Ui.BOTTOM_Y + 32 : Ui.BOTTOM_Y + 41);
+        double next = Double.MAX_VALUE;
+        List<String> names = new ArrayList<>();
+        double now = rev.getElapsed();
+        for (lindefense.ai.AttackUnit u : lindefense.ai.AttackUnit.values()) if (u.unlockAt > now) next = Math.min(next, u.unlockAt);
+        for (lindefense.enemy.Modifier m : lindefense.enemy.Modifier.values()) if (lindefense.ai.AttackUnit.modifierUnlockAt(m) > now) next = Math.min(next, lindefense.ai.AttackUnit.modifierUnlockAt(m));
+        for (lindefense.ai.AttackUnit u : lindefense.ai.AttackUnit.values()) if (u.unlockAt == next) names.add(u.type.displayName);
+        for (lindefense.enemy.Modifier m : lindefense.enemy.Modifier.values()) if (lindefense.ai.AttackUnit.modifierUnlockAt(m) == next) names.add(m.label);
+        String micro, line;
+        if (next == Double.MAX_VALUE) { micro = "uplink"; line = rev.isUplinkClosed() ? "closed" : "everything unlocked"; }
+        else { micro = "next unlock // " + lindefense.ai.ReverseMatch.clock(next); line = names.get(0) + (names.size() > 1 ? "  +" + (names.size() - 1) : ""); }
+        Cyber.setText(nextMicro, Cyber.spaced(micro));
+        Cyber.setText(nextLine, line);
+        double right = Ui.WORLD_W - 18;
+        nextLine.setLocation(right - nextLine.getWidth(), nextLine.getY());
+        nextMicro.setLocation(right - nextMicro.getWidth(), nextMicro.getY());
     }
 
     private UIButton btn(double x, double y, double w, double h, String text, Runnable r) {
@@ -235,13 +302,13 @@ public final class HudPanel extends GCompound {
             startBtn.setText(t);
             startBtn.setIcon(Cyber.Kind.PLAY);
         } else {
-            startBtn.setText(w >= WaveData.WAVE_COUNT ? "FINAL WAVE" : "WAVE " + w + " LIVE");
+            startBtn.setText(game.getVariance().isDraftPending() ? "PICK A PATCH" : w >= WaveData.WAVE_COUNT ? "FINAL WAVE" : "WAVE " + w + " LIVE");   // PATCH NOTES
             startBtn.setIcon(null);
         }
         autoBtn.setSelected(game.getWaveManager().isAutoStart());
         heroBtn.setSelected(screen.isHeroStoreOpen());
 
-        updateStrip(w);
+        if (rev != null) updateReverse(); else updateStrip(w);   // REVERSE HOOK
         updateToast(dt);
     }
 

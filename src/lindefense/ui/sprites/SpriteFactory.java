@@ -39,6 +39,7 @@ public final class SpriteFactory {
             case THREE_COM: return new ThreeComSprite(e);
             case LOCKHEED_MARTIN: return new LockheedMartinSprite(e);
             case PALANTIR: return new PalantirSprite(e);
+            case PALANTIR_HOLOGRAM: return new PalantirSprite(e);   // the decoy wears Palantir's hull; the world view adds the hologram flicker
             default: return new GenericSprite(e);
         }
     }

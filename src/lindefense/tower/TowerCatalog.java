@@ -42,6 +42,27 @@ public final class TowerCatalog {
     /** Whether a tower type's ability must be bought at max tier for {@link #ABILITY_UNLOCK_COST} (all but Zethos). */
     public static boolean abilityNeedsUnlock(TowerType type) { return type != TowerType.ZETHOS && !type.isHero(); }
 
+    /**
+     * Whether a tower type is immune to prompt injection (the {@link TowerStats#injectionImmune} flag set in its data
+     * file): Claude, Copilot, DeepSeek, Perplexity and Mr. Lindemann. Immune towers are never hijacked and never
+     * disabled by a hijacked neighbour; Copilot additionally shields the towers in its tether radius.
+     */
+    public static boolean isInjectionImmune(TowerType type) {
+        TowerDef d = get(type);
+        return d != null && d.baseStats.injectionImmune;
+    }
+
+    /** The one-line reason a tower type is immune to prompt injection, or null if it is not. */
+    public static String injectionImmunityReason(TowerType type) {
+        return isInjectionImmune(type) ? get(type).baseStats.injectionImmuneReason : null;
+    }
+
+    /** Whether a tower type's aura shields other towers from prompt injection (Copilot's firewall). */
+    public static boolean grantsInjectionFirewall(TowerType type) {
+        TowerDef d = get(type);
+        return d != null && d.baseStats.auraInjectionImmunity;
+    }
+
     private static void register(Iterable<TowerDef> defs) {
         for (TowerDef d : defs) DEFS.put(d.type, d.type.isHero() ? withoutAbility(d) : d);
     }

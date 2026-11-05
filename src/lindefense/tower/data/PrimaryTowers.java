@@ -72,6 +72,7 @@ public final class PrimaryTowers {
             .tiers("Claude Haiku 5.5", "Claude Sonnet 5.5", "Claude Opus 5.5", "Claude Fable 5.1")
             .attack(AttackKind.PROJECTILE, DamageType.SHARP, 190, 0.7, 1, 2)
             .base(s -> { s.projectileSpeed = 700; })
+            .injectionImmune("Constitutional AI: trained to refuse instructions smuggled into its input.")
             .upgrade(550, null, "Pierce 8, interval 0.55.",
                 s -> { s.pierce = 8; s.interval(0.55); })
             .upgrade(650, "Context Snare", "Hit enemies are MARKED (+1 damage taken) and SLOWED 15% for 4 s.",
