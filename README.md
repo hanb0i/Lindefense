@@ -1,22 +1,38 @@
 # Lindefense - The Last Line of Code
 
-**Version: beta 1.1**
+**Version: beta 2.01**
 
 ![Lindefense title card](docs/titlecard.png)
 
 Lindefense is a complete, playable tower-defense game written in Java with the Stanford ACM Graphics
 library (`GCanvas`, `GCompound`, `GOval`, `GRect`, `GPolygon`, `GLine`, `GLabel`). You defend a track
-with 18 towers (17 AI models and companies plus **Zethos, the Quantum Architect**) and six unlockable
-**Hero Store** heroes against 100 waves of computer-science enemies - data structures, sorting
-algorithms and five corporate MOAB-class bosses - ending with the BAD-class final boss **Palantir** on
-Wave 100. New players can start with the guided **Tutorial**; the **Catalog** on the main menu
-explains every enemy, tower and hero.
+with 18 towers (17 AI models and companies plus **Zethos, the Quantum Architect**) and 18 unlockable
+**Hero Store** heroes (up to 3 per game, led by the teacher himself, **Mr. Lindemann**) across seven maps,
+against 100 waves of computer-science enemies - data structures, sorting algorithms and five corporate
+MOAB-class bosses - ending with the BAD-class final boss **Palantir** on Wave 100. Every shop tower has an
+overpowered ability you can unlock for $15,000 once it is fully upgraded. New players can start with the
+guided **Tutorial**; the **Catalog** on the main menu explains every enemy, tower and hero.
 
 The window opens large (about 92% of your screen) and is freely resizable: the whole game scales to
 fit whatever size you drag it to.
 
 All tuning numbers (tower stats, upgrades, abilities, enemy stats, boss phases, every wave) are in
 data classes and documented in [DESIGN.md](DESIGN.md), which is generated from those classes.
+
+### What's new in beta 2.01
+
+- **Tower abilities are back**, much stronger than before, and locked behind a **$15,000** unlock once a shop tower
+  has all three upgrades (side-panel **UNLOCK ABILITY** button or `U`). They are ready the moment you buy them.
+- **New hero: Mr. Lindemann** ($2,500), the strongest hero. He fires black holes of Java code that leave a crushing
+  singularity on the track, and every 20 s he warps space and sends every enemy, bosses included, back 5 s.
+  **Spear Hanbo** is buffed to second strongest ($2,000).
+- **At most 3 heroes per game.** **Zethos** is nerfed to about twice the strength of Gemini, Claude and GPT.
+- **Mission briefing:** DEPLOY on a map card first shows the map's preview, description, mechanics and your
+  difficulty; deploy from there (or press `Enter`).
+- **`Esc` toggles the pause menu** in game. Fixed: pressing `Esc` on the map screen could leave the main menu's
+  buttons unresponsive.
+- **Volume sliders** for music and sound in the pause menu and the main menu's SETTINGS, next to the on/off toggles.
+- The Hero Store no longer flickers whenever your cash changes, and the HUD's hostiles chip shows `alive / total`.
 
 ## 1. Setup
 
@@ -357,8 +373,13 @@ Bosses: Bellarmine College Prep (MOAB), SW Resource Consultant (BFB), 3Com (ZOMG
 | The Legacy Monolith | Intermediate | Serpentine server rack; chassis block line of sight; Thermal Overload Venting every 10 waves on a random floor |
 | The Hallucination Canyon | Advanced | Two crossing routes; Attention Drift teleports 25% of enemies at the hub; Noise Storms halve range unless a Logic Specialist (DeepSeek/Copilot) is near |
 | The Singularity Core | Expert | Four portals spiralling into a vortex; Gravitational Pull speeds enemies up near the core; Event Horizon Collapse on wave 50 resets cooldowns and scatters enemies |
+| Silicon Valley | Intermediate | One long winding campus road; buildings block placement and the rounded bends reward towers that cover two stretches at once |
+| The Neural Network | Advanced | Two inputs branch through hidden layers into six routes that merge at one output neuron |
+| Abandoned Data Center | Beginner | A long maintenance route; every 16 s one of four marked track sections malfunctions and slows enemies there by 45% for 7 s |
 
 The map select screen lays out every map registered in `MapCatalog` (4 per row), so additional maps appear automatically; `DESIGN.md` section 5 is generated from the same registry.
+Clicking a card's **DEPLOY** opens a mission briefing (large preview with entry / exit markers, description, map
+mechanics and the selected Difficulty Growth mode); its own **DEPLOY** or `Enter` starts the match.
 
 ## 8. Project layout
 
@@ -366,7 +387,7 @@ The map select screen lays out every map registered in `MapCatalog` (4 per row),
 src/lindefense/
   Main.java                 entry point
   sim/      Game (state, economy, fixed-step loop), Vec, Rng
-  map/      GameMap, Path (waypoints), Obstacle, the four maps, MapCatalog
+  map/      GameMap, Path (waypoints), Obstacle, the seven maps, MapCatalog
   enemy/    EnemyType (data table), Enemy, Boss (phases + Predictive Surveillance), EnemyManager, modifiers/status,
             EnemyGrid (spatial hash grid for proximity queries; see Performance)
   tower/    TowerType, TowerCatalog, TowerDef/TowerStats/UpgradeDef/AbilityDef, Tower (buff book),
@@ -377,13 +398,15 @@ src/lindefense/
   combat/   Combat (targeting, attacks, damage formula), Projectile, HitSpec, HitContext, Clusters, DamageType, VisualEvent
   wave/     WaveData (all 100 waves), WaveDef, SpawnGroup, WaveManager
   ui/       LindefenseProgram (ACM GraphicsProgram), ScaledLayer (resize scaling), GameScreen, WorldView,
-            HudPanel, SidePanel, TowerSprite, MenuScreen, MapSelectScreen, UIButton, Ui, DemoDriver
+            HudPanel, SidePanel, TowerSprite, MenuScreen, MapSelectScreen (+ mission briefing), UIButton, Slider
+            (volume sliders), Ui, DemoDriver
   ui/sprites/  enemy + boss character sprites (SpriteFactory, EnemySprite, BossSprite, Logo, death/split
                effects); SpriteGallery previews every enemy/state
   ui/sprites/towers/  tower art for every tower and tier (TowerArtFactory, *Art), TowerIcons (shop icons),
                ProjectileSprites (per-tower projectiles + beam/chain/hit/explosion effects); TowerGallery
   audio/    AudioManager (sound effects, music, switches), Sfx, Track, MusicDirector, Mixer, MusicStream
-  test/     HeadlessTests plus GlobalRulesTests, EnginePrimitiveTests and the per-faction group tests - run without a window
+  test/     HeadlessTests plus GlobalRulesTests, EnginePrimitiveTests, the per-faction group tests, HeroStoreTests,
+            AbilityUnlockTests and VolumeTests - run without a window
   tools/    DesignDocGenerator (DESIGN.md), AutoPlayer (balance bot), PerfBench (performance benchmark)
 lib/acm.jar
 assets/fonts/                 bundled OFL fonts used by every UI label (see below)
@@ -415,15 +438,18 @@ and runs headless; the `ui` package renders it.
 ## 9. Testing
 
 `./test.sh` runs `lindefense.test.HeadlessTests`, which exercises the real game logic: purchase /
-upgrade / sell and the 70% refund, exactly three upgrades for all 20 towers, the global tower rules (damage types, statuses, buff caps, camo, hero uniqueness), the sim primitives and every tower's data-table numbers, rewards without
+upgrade / sell and the 70% refund, every upgrade path (three upgrades for shop towers and heroes, four for Zethos), the
+$15,000 ability unlocks and every unlocked ability, the Hero Store (prices, permanent unlocks, the 3-heroes-per-game cap,
+Mr. Lindemann strongest and Spear Hanbo second), the global tower rules (damage types, statuses, buff caps, camo, hero uniqueness), the sim primitives and every tower's data-table numbers, volume settings, rewards without
 duplicate-kill exploits, lives on leaks, every targeting priority, camo vs detection, Fortified and
 Regrow, every splitter's children, boss children, all 100 wave compositions (including Palantir on
 Wave 100), Palantir's phases and Predictive Surveillance, ability cooldowns, traversal of every
-route on all four maps, map mechanics, win and loss conditions, and a late-wave stress run.
+route on all seven maps, map mechanics, win and loss conditions, and a late-wave stress run.
 
 `JAVA_OPTS="-Dlindefense.demo=<dir>" ./run.sh` runs a scripted UI walkthrough
-(menu -> map select -> game -> window resizes -> Palantir) that writes PNG snapshots and verifies
-click-to-place after resizing.
+(menu -> map select -> mission briefing -> game -> window resizes -> Palantir -> pause menu and volume sliders) that
+writes PNG snapshots and verifies click-to-place after resizing, `Esc` handling on every screen, the briefing popup
+and the pause-menu flows.
 
 ## 10. Performance
 
