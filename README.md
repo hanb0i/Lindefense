@@ -1,6 +1,6 @@
 # Lindefense - The Last Line of Code
 
-**Version: beta 2.03**
+**Version: beta 2.04**
 
 ![Lindefense title card](docs/titlecard.png)
 
@@ -18,6 +18,27 @@ fit whatever size you drag it to.
 
 All tuning numbers (tower stats, upgrades, abilities, enemy stats, boss phases, every wave) are in
 data classes and documented in [DESIGN.md](DESIGN.md), which is generated from those classes.
+
+### What's new in beta 2.04
+
+- **Catalog is a pop-up now, not a separate screen:** CATALOG on the main menu opens as a dimmed, bordered panel over
+  the menu (same idiom as a map's mission briefing) instead of fully navigating away; BACK / Esc dismiss it in place.
+- **Upgrades are more than stat bumps:** every hero's first upgrade, plus a few shop-tower upgrades that were pure
+  numbers before (Claude, Zethos, Perplexity), now adds a genuine new trait - a mark, a slow, a burn, extra pierce,
+  knockback, or a small support aura - on top of its numbers.
+- **A COLLAPSE SHOP button** on the tower shop (ARMORY) hides the card grid so the info panel can use the space; EXPAND
+  SHOP brings it back without losing your tab.
+- **Cleaner top HUD:** the credits / integrity / wave / hostiles chips lost their micro-labels - just the icon and the
+  number now, in Adversarial Training too.
+- **Heroes cost something to deploy:** on top of their one-time Hero Store price (now 25-35% higher across the board),
+  placing an unlocked hero costs cash too, like a tower; every hero's base stats were buffed to compensate, dismissing
+  still refunds 70% of what was spent (deploy cost plus upgrades), and the Tutorial's bonuses were raised to match.
+- **Adversarial Training's SCALE COMPUTE is worth buying all game:** its price used to balloon to $4,045 by the 8th
+  purchase, a payback time longer than the 15:00 run itself; the price curve is slower now, so even the last purchase
+  pays for itself in well under half the match.
+- **Reverse-mode units are cheaper and unlock sooner**, especially the costlier sorters and all five bosses.
+- **Map select is grouped by difficulty** (Beginner, then Intermediate, Advanced, Expert) instead of a fixed order, and
+  dropped the "SEVEN BATTLEFIELDS - BEGINNER TO EXPERT - PICK YOURS" subtitle.
 
 ### What's new in beta 2.03
 
@@ -332,13 +353,15 @@ ffmpeg -i input.mp4 -vn -t 90 -ar 22050 -ac 2 -c:a pcm_mulaw assets/music/menu.w
   Collapse ability unlocks the same way, for $15,000 after the fourth upgrade. It is tuned to about twice the best of
   Gemini, Claude and GPT at each tier.
   Towers have configurable **targeting** (Grok U2+ adds Densest Cluster) and sell for 70% of everything spent.
-- **Hero Store** (`HEROES` button or `K`): 18 heroes ($850 to $2,500). Everyone starts with none. Buying one with
-  match cash unlocks it **permanently** (saved with `java.util.prefs`, node `lindefense/heroes`); unlocked
-  heroes deploy **for free, once per match**, and **at most 3 different heroes per game** (dismissing one does not
-  give its deployment or its slot back). Heroes level up through three purchasable upgrades and have no active
-  abilities. **Mr. Lindemann** ($2,500) is the strongest hero: his shots are black holes of Java code that leave a
-  crushing singularity on the track, and every 20 s (15 s when maxed) he warps space and sends every enemy on the
-  map, bosses included, back 5 s along the track. **Spear Hanbo** ($2,000) is the second strongest.
+- **Hero Store** (`HEROES` button or `K`): 18 heroes ($1,150 to $3,400 to unlock). Everyone starts with none. Buying
+  one with match cash unlocks it **permanently** (saved with `java.util.prefs`, node `lindefense/heroes`); an
+  unlocked hero then costs a separate, smaller **deploy fee** ($200-$700) to place, **once per match**, and
+  **at most 3 different heroes per game** (dismissing one does not give its deployment or its slot back, though it
+  refunds 70% of its deploy cost and any upgrades bought, like selling a tower). Heroes level up through three
+  purchasable upgrades and have no active abilities. **Mr. Lindemann** ($3,400 to unlock, $700 to deploy) is the
+  strongest hero: his shots are black holes of Java code that leave a crushing singularity on the track, and every
+  20 s (15 s when maxed) he warps space and sends every enemy on the map, bosses included, back 5 s along the
+  track. **Spear Hanbo** ($2,700 to unlock) is the second strongest.
   The heroes' and Zethos's ranges, radii and projectile speeds are specified in map units (1 unit = 4 px).
 - **Modifiers**: *Camo* enemies cannot be targeted without detection (Grok,
   Perplexity or its aura, Gemini U2, Llama U2). *Regrow* enemies heal 1 HP every 2 s.

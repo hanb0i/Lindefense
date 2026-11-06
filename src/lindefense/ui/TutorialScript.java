@@ -18,8 +18,8 @@ public final class TutorialScript {
         WAVE("Start a wave", "Press SPACE or the START WAVE button at the top. Waves never start on their own unless AUTO is on.", true, 0),
         UPGRADE("Upgrade a tower", "Click one of your towers, then press UPGRADE in the panel (or U). Each upgrade is a stronger tier; selling refunds 70%. Tutorial bonus: +$900.", true, 900),
         TARGETING("Targeting", "With a tower selected, press T or the < > arrows to choose who it shoots: First, Last, Strongest, Weakest or Closest.", false, 0),
-        HERO_STORE("Open the Hero Store", "Press HEROES at the top right (or K) and BUY a hero. Real unlocks are permanent; this one is a practice unlock. Tutorial bonus: +$1,000.", true, 1000),
-        DEPLOY("Deploy your hero", "Press DEPLOY on the hero's card and click a spot on the map. Deploying is free, but each hero can be deployed only once per match.", true, 0),
+        HERO_STORE("Open the Hero Store", "Press HEROES at the top right (or K) and BUY a hero. Real unlocks are permanent; this one is a practice unlock. Tutorial bonus: +$1,200.", true, 1200),
+        DEPLOY("Deploy your hero", "Press DEPLOY on the hero's card and click a spot on the map. Deploying now costs a bit of cash on top of the Hero Store price, but each hero can be deployed only once per match. Tutorial bonus: +$300.", true, 300),
         HERO_UPGRADE("Upgrade your hero", "Heroes level up like towers: select the hero and press UPGRADE (or U) to buy the first of its three upgrades. Each one changes what it does and how it looks. Tutorial bonus: +$600.", true, 600),
         ZETHOS("Meet Zethos", "Zethos (PRIMARY tab, $650) is a regular tower with FOUR upgrades: piercing quantum shots that gain splash, then bounce between enemies. After the fourth upgrade, $15,000 unlocks Reality Collapse.", false, 0),
         DONE("You're ready", "Towers and heroes grow through upgrades. Once a shop tower has every upgrade, you can buy its overpowered ability for $15,000. Look anything up in the CATALOG on the main menu. Press H in game for controls. Good luck!", false, 0);

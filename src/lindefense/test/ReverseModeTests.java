@@ -81,7 +81,7 @@ public final class ReverseModeTests {
             advanceController(h, p[0] * 60);
             check(Math.abs(h.getReverse().baseIncome() - p[1]) < 0.6, "base income at " + (int) p[0] + ":00 is " + p[1] + ", got " + h.getReverse().baseIncome());
         }
-        // SCALE COMPUTE: +4/s, price grows 45% each time, at most 8
+        // SCALE COMPUTE: +4/s, price grows (COMPUTE_PRICE_GROWTH - 1) x 100% each time, at most 8
         Game c = reverse(0, Difficulty.ON);
         ReverseMatch rc = c.getReverse();
         check(rc.computePrice() == ReverseMatch.COMPUTE_BASE_PRICE, "first SCALE COMPUTE costs " + ReverseMatch.COMPUTE_BASE_PRICE);
@@ -90,7 +90,7 @@ public final class ReverseModeTests {
         double before = rc.getCredits(), inc = rc.incomeRate();
         check(rc.scaleCompute(), "SCALE COMPUTE once affordable");
         check(Math.abs(rc.getCredits() - (before - 300)) < 1e-6 && Math.abs(rc.incomeRate() - inc - ReverseMatch.COMPUTE_STEP) < 1e-9, "costs 300 and adds 4 credits/s");
-        check(rc.computePrice() == (int) Math.round(300 * 1.45), "second purchase costs 45% more");
+        check(rc.computePrice() == (int) Math.round(300 * ReverseMatch.COMPUTE_PRICE_GROWTH), "second purchase costs " + (int) Math.round((ReverseMatch.COMPUTE_PRICE_GROWTH - 1) * 100) + "% more");
         rc.setUnlimitedCredits(true);
         for (int i = 0; i < 20; i++) rc.scaleCompute();
         check(rc.getComputeLevel() == ReverseMatch.COMPUTE_MAX && "Fully scaled".equals(rc.computeProblem()), "SCALE COMPUTE stops at " + ReverseMatch.COMPUTE_MAX);

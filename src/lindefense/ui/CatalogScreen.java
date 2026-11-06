@@ -38,7 +38,7 @@ public final class CatalogScreen extends GCompound {
     private static final double LIST_X = 50, LIST_W = 420, LIST_Y = 168, ROW_H = 36;
     private static final double CARD_X = 500, CARD_Y = 150, CARD_W = 1050, CARD_H = 800;
 
-    private final LindefenseProgram app;
+    private final Runnable onClose;
     private final List<UIButton> chrome = new ArrayList<>();
     private final List<UIButton> rows = new ArrayList<>();
     private final GCompound listLayer = new GCompound();
@@ -50,13 +50,18 @@ public final class CatalogScreen extends GCompound {
     private Enemy liveEnemy;
     private double time;
 
-    public CatalogScreen(LindefenseProgram app) {
-        this.app = app;
-        add(Ui.rect(0, 0, Ui.W, Ui.H, Ui.BG, Ui.BG));
-        for (int y = 0; y < Ui.H; y += 40) { acm.graphics.GLine l = new acm.graphics.GLine(0, y + 0.5, Ui.W, y + 0.5); l.setColor(Cyber.alpha(Cyber.CYAN, 12)); add(l); }
+    /**
+     * Builds the catalog as a pop-up panel (it is added on top of whatever screen opened it, dimming it, rather
+     * than replacing it): {@code onClose} is called by BACK / Esc to dismiss the panel.
+     */
+    public CatalogScreen(Runnable onClose) {
+        this.onClose = onClose;
+        // dim the screen behind the panel, then frame the panel itself as a bordered pop-up card (not a full page)
+        add(Ui.rect(0, 0, Ui.W, Ui.H, Ui.c(0x02040a, 205), Ui.c(0x000000, 0)));
+        add(new Cyber.Chamfer(20, 20, Ui.W - 40, Ui.H - 40, 26).fill(new Color(6, 10, 24, 248)).border(Cyber.alpha(Cyber.CYAN, 160)).glow(0.8).lineWidth(2).ticks(true));
         add(Ui.label(Cyber.spaced("// field database"), LIST_X, 50, Cyber.mono(Font.BOLD, 12), Cyber.alpha(Cyber.MAGENTA, 230)));
         add(Ui.label("CATALOG", LIST_X, 98, Cyber.display(Font.BOLD, 48), Cyber.TEXT));
-        UIButton back = new UIButton(Ui.W - 50 - 180, 52, 180, 46, "BACK  [ESC]", Cyber.display(Font.BOLD, 18), () -> app.showMenu());
+        UIButton back = new UIButton(Ui.W - 50 - 180, 52, 180, 46, "BACK  [ESC]", Cyber.display(Font.BOLD, 18), onClose);
         back.setAccent(Cyber.MAGENTA);
         add(back); chrome.add(back);
         double tx = 330;
@@ -230,7 +235,7 @@ public final class CatalogScreen extends GCompound {
         }
         card.add(Ui.label(t.displayName, TX, y + 10, Cyber.display(Font.BOLD, 40), accent));
         y += 18;
-        String price = t.isHero() ? "HERO STORE  " + Ui.money(d.unlockCost) + "  //  deploy free, once per match" : Ui.money(d.baseCost) + "  //  " + t.faction.label.toUpperCase() + "  //  full path " + Ui.money(d.totalCost());
+        String price = t.isHero() ? "HERO STORE  " + Ui.money(d.unlockCost) + "  //  " + Ui.money(d.baseCost) + " to deploy, once per match" : Ui.money(d.baseCost) + "  //  " + t.faction.label.toUpperCase() + "  //  full path " + Ui.money(d.totalCost());
         y += 16; card.add(Ui.label(d.subtitle, TX, y, Cyber.body(Font.BOLD, 15), Cyber.MUTED));
         y += 20; card.add(Ui.label(price, TX, y, Cyber.mono(Font.BOLD, 13), Cyber.YELLOW));
         heading("what it does");
@@ -286,7 +291,7 @@ public final class CatalogScreen extends GCompound {
     /** Up / down step through the list, left / right switch tabs, Esc goes back. */
     public void keyPressed(java.awt.event.KeyEvent e) {
         switch (e.getKeyCode()) {
-            case java.awt.event.KeyEvent.VK_ESCAPE: app.showMenu(); break;
+            case java.awt.event.KeyEvent.VK_ESCAPE: onClose.run(); break;
             case java.awt.event.KeyEvent.VK_DOWN: select(selected + 1); break;
             case java.awt.event.KeyEvent.VK_UP: select(selected - 1); break;
             case java.awt.event.KeyEvent.VK_RIGHT: setTab(Tab.values()[(tab.ordinal() + 1) % Tab.values().length]); break;

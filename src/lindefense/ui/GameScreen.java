@@ -738,7 +738,7 @@ public final class GameScreen extends GCompound {
         close.setAccent(Cyber.MAGENTA);
         overlay.add(close); overlayButtons.add(close);
         String sub = heroStoreNotice != null ? heroStoreNotice
-            : "Buy a hero once to unlock it forever. Unlocked heroes deploy free, once per match (up to " + lindefense.tower.TowerManager.MAX_HEROES_PER_GAME + " heroes per game), then level up with three upgrades bought in game.";
+            : "Buy a hero once to unlock it forever. Unlocked heroes cost a bit of cash to deploy, once per match (up to " + lindefense.tower.TowerManager.MAX_HEROES_PER_GAME + " heroes per game), then level up with three upgrades bought in game.";
         overlay.add(Ui.label(sub, px + 30, py + 92, Cyber.body(Font.BOLD, 14), heroStoreNotice != null ? Cyber.GREEN : Cyber.MUTED));
 
         // ---- left: the roster grid
@@ -875,7 +875,7 @@ public final class GameScreen extends GCompound {
         double rx = px + 470, ry = py + 126, rw = pw - 470 - 34;
         String[][] notes = {
             { "enemy modifiers", "Camo enemies need detection (Perplexity, Grok, or Gemini / Llama after their second upgrade). Regrow enemies heal over time. Fortified enemies carry double HP. Prompt Injection enemies (wave 30+) hijack nearby towers; Claude, Copilot (and its radius), DeepSeek, Perplexity and Mr. Lindemann are immune." },
-            { "hero store", "Open with HEROES or K. Buy a hero once to unlock it permanently, then deploy it free, once per match. Heroes are not in the tower shop." },
+            { "hero store", "Open with HEROES or K. Buy a hero once to unlock it permanently, then deploy it for a deploy cost, once per match. Heroes are not in the tower shop." },
             { "economy", "Enemies pay cash when destroyed and every wave pays a bonus. Selling refunds most of what you spent on a tower." },
             { "bosses", "Boss health shows in the dock under the top bar. Palantir (wave " + lindefense.wave.WaveData.WAVE_COUNT + ") disrupts your strongest towers with Predictive Surveillance; watch the telegraph. Towers near Perplexity are immune." } };
         if (game.isReverse()) notes = AttackPanel.HELP_NOTES;   // REVERSE HOOK

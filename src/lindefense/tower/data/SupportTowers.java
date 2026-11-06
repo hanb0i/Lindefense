@@ -47,8 +47,8 @@ public final class SupportTowers {
                 s -> { s.set("revealAllCamo", 1); })
             .upgrade(750, "Predictive Analysis", "Enemies in range are MARKED (+20% damage taken); towers in range get +15% range. Towers within this radius are immune to Predictive Surveillance.",
                 s -> { s.fieldMarkPct = 0.20; s.auraRangeBonus = 0.15; s.auraSurveillanceImmunity = true; })
-            .upgrade(1250, null, "End-of-round bonus becomes +$250.",
-                s -> { s.incomePerWave = 250; })
+            .upgrade(1250, "Knowledge Synthesis", "End-of-round bonus becomes +$250, and towers in its radius gain +1 damage per hit.",
+                s -> { s.incomePerWave = 250; s.auraDamage = 1; })
             .ability(AbilityBuilder.of("Deep Research Scrape", 60, "Instantly gain cash equal to 35% of the current round's pop value so far (max $3,000).")
                 .p("popValuePct", 0.35).p("maxCash", 3000))
             .build();

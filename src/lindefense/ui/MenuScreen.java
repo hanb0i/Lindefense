@@ -45,6 +45,9 @@ public final class MenuScreen extends GCompound {
     // SETTINGS panel: admin code entry
     private final GCompound settings = new GCompound();
     private boolean settingsShown;
+    // CATALOG: a pop-up panel over the menu (not a separate screen), like HELP / SETTINGS
+    private final CatalogScreen catalog;
+    private boolean catalogShown;
     private final StringBuilder codeInput = new StringBuilder();
     private GLabel codeLabel, adminStatus, codeFeedback;
     private NeonButton disableAdmin;
@@ -142,7 +145,7 @@ public final class MenuScreen extends GCompound {
         Font bf = menuFont(Font.BOLD, 24);
         NeonButton play = new NeonButton(Ui.W / 2.0 - 150, 488, 300, 50, "PLAY", bf, CYAN, app::showMapSelect);
         NeonButton tut = new NeonButton(Ui.W / 2.0 - 150, 546, 300, 50, "TUTORIAL", bf, new Color(0x3bff8a), app::startTutorial);
-        NeonButton cat = new NeonButton(Ui.W / 2.0 - 150, 604, 300, 50, "CATALOG", bf, CYAN, app::showCatalog);
+        NeonButton cat = new NeonButton(Ui.W / 2.0 - 150, 604, 300, 50, "CATALOG", bf, CYAN, this::toggleCatalog);
         NeonButton how = new NeonButton(Ui.W / 2.0 - 150, 662, 300, 50, "HOW TO PLAY", bf, MAGENTA, this::toggleHelp);
         NeonButton set = new NeonButton(Ui.W / 2.0 - 150, 720, 300, 50, "SETTINGS", bf, new Color(0x9b7bff), this::toggleSettings);
         NeonButton quit = new NeonButton(Ui.W / 2.0 - 150, 778, 300, 50, "QUIT", bf, YELLOW, app::quit);
@@ -177,6 +180,9 @@ public final class MenuScreen extends GCompound {
         buildSettings();
         settings.setVisible(false);
         add(settings);
+        catalog = new CatalogScreen(this::toggleCatalog);
+        catalog.setVisible(false);
+        add(catalog);
 
         // start the intro with every letter hidden
         for (int i = 0; i < main.getLetterCount(); i++) setLetterStackVisible(i, false);
@@ -292,7 +298,7 @@ public final class MenuScreen extends GCompound {
         String[][] sections = {
             { "GOAL", "Survive all 100 waves and destroy Palantir, the BAD-class final boss, on Wave 100. You start with $650 and 100 lives." },
             { "BUILDING", "Pick a faction tab (or press B for all towers), click a tower, then click a free spot beside the track. Each tower has three upgrades named after its model lineup (Zethos has four) and several targeting priorities. Once a tower has every upgrade (Zethos: all four), buy its overpowered ability for $15,000 (U or the side panel)." },
-            { "HERO STORE", "Press HEROES (or K) in game. Buy a hero once to unlock it for good: 18 heroes, up to Mr. Lindemann, the strongest. Unlocked heroes deploy free, once per match, at most 3 per game, and level up with three upgrades. New here? Try TUTORIAL; look anything up in CATALOG." },
+            { "HERO STORE", "Press HEROES (or K) in game. Buy a hero once to unlock it for good: 18 heroes, up to Mr. Lindemann, the strongest. Unlocked heroes cost a bit of cash to deploy, once per match, at most 3 per game, and level up with three upgrades. New here? Try TUTORIAL; look anything up in CATALOG." },
             { "ECONOMY", "Enemies pay cash when destroyed; every wave pays a bonus. Perplexity earns research income. Selling refunds 70% of everything spent on a tower." },
             { "ENEMIES", "Data structures and sorting algorithms, each with a mechanic: Bubble Sort swaps places, Heap Sort shields allies and is Lead-type (Sharp damage cannot hurt it), Merge/Quick/Counting/TimSort split, Bucket Sort stores weaker enemies, Radix Sort turns Lead-type in its armoured phases, Shell Sort gap-jumps." },
             { "MODIFIERS", "Camo needs detection (Grok, Perplexity and its radius, Gemini / Llama U2). Regrow heals. Fortified has double HP. Prompt Injection hijacks nearby towers; Claude, Copilot, DeepSeek, Perplexity and Mr. Lindemann are immune." },
@@ -325,8 +331,16 @@ public final class MenuScreen extends GCompound {
         for (int i = 0; i < main.getLetterCount(); i++) setLetterStackVisible(i, true);
     }
 
+    /** CATALOG button: opens / closes the catalog as a pop-up panel over the menu (never a separate screen). */
+    private void toggleCatalog() {
+        catalogShown = !catalogShown;
+        if (catalogShown) { helpShown = false; help.setVisible(false); settingsShown = false; settings.setVisible(false); }
+        catalog.setVisible(catalogShown);
+    }
+
     public void mousePressed(double lx, double ly) {
         skipIntro();
+        if (catalogShown) { catalog.mousePressed(lx, ly); return; }   // the catalog pop-up is modal
         if (settingsShown) {   // the settings panel is modal
             if (Slider.pressAny(lx, ly, settingsSliders)) return;   // AUDIO: volume sliders
             for (UIButton c : settingsChips) if (c.hit(lx, ly)) { c.click(); return; }
@@ -549,6 +563,7 @@ public final class MenuScreen extends GCompound {
      */
     public void keyPressed(java.awt.event.KeyEvent e) {
         skipIntro();
+        if (catalogShown) { catalog.keyPressed(e); return; }
         int k = e.getKeyCode();
         if (!settingsShown) {
             if (k == java.awt.event.KeyEvent.VK_ESCAPE && helpShown) toggleHelp();
@@ -565,6 +580,7 @@ public final class MenuScreen extends GCompound {
     }
 
     public void mouseMoved(double lx, double ly) {
+        if (catalogShown) { catalog.mouseMoved(lx, ly); return; }
         for (NeonButton b : buttons) b.setHover(b.hit(lx, ly));
         for (UIButton c : chips) c.setHover(c.hit(lx, ly));
         for (UIButton c : settingsChips) c.setHover(settingsShown && c.hit(lx, ly));
@@ -587,6 +603,7 @@ public final class MenuScreen extends GCompound {
     // ------------------------------------------------------------------ animation
     public void frame(double dt) {
         t += dt;
+        if (catalogShown) catalog.frame(dt);
         if (settingsShown) {
             updateCodeLabel();
             if (feedbackTime > 0 && (feedbackTime -= dt) <= 0) codeFeedback.setLabel("");

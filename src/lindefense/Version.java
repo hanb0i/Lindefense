@@ -8,7 +8,7 @@ public final class Version {
     private Version() { }
 
     /** Release number, matching the release commit names. */
-    public static final String NUMBER = "2.03";
+    public static final String NUMBER = "2.04";
 
     /** Stage of development. */
     public static final String STAGE = "BETA";

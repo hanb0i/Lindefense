@@ -71,6 +71,12 @@ final class DemoDriver {
                 clickLogical(Ui.W / 2.0, 528);   // PLAY
                 boolean reopened = app.getMapSelect() != null && app.getMenu() == null;
                 results.add((onMenu && reopened ? "PASS" : "FAIL") + " Esc to the menu keeps its buttons working (menu " + onMenu + ", PLAY reopened map select " + reopened + ")");
+                // same regression, but through the map select screen's own BACK button (mouse click) instead of Esc
+                clickLogical(90, 49);   // BACK (top-left NeonButton, x=25 y=28 w=130 h=42)
+                boolean onMenu2 = app.getMenu() != null && app.getMapSelect() == null;
+                clickLogical(Ui.W / 2.0, 528);   // PLAY
+                boolean reopened2 = app.getMapSelect() != null && app.getMenu() == null;
+                results.add((onMenu2 && reopened2 ? "PASS" : "FAIL") + " BACK button click to the menu keeps its buttons working (menu " + onMenu2 + ", PLAY reopened map select " + reopened2 + ")");
                 break;
             }
             case 3: {
@@ -175,6 +181,16 @@ final class DemoDriver {
                 boolean ok = app.getGameScreen().getPlacing() == want && app.getGameScreen().getSidePanel().isAllMode();
                 results.add((ok ? "PASS" : "FAIL") + " ALL-view cell click starts placement of " + want + " (got " + app.getGameScreen().getPlacing() + ")");
                 app.getGameScreen().beginPlacing(null);
+                // COLLAPSE SHOP: hides the card grid, the info panel grows into the freed space, then EXPAND SHOP restores it
+                SidePanel side = app.getGameScreen().getSidePanel();
+                side.toggleShopCollapsed();
+                app.getGameScreen().frame(0.01);
+                snap("03i_shop_collapsed");
+                boolean collapsed = side.isShopCollapsed();
+                side.toggleShopCollapsed();
+                app.getGameScreen().frame(0.01);
+                boolean restored = !side.isShopCollapsed();
+                results.add((collapsed && restored ? "PASS" : "FAIL") + " COLLAPSE SHOP hides the card grid and EXPAND SHOP restores it (collapsed " + collapsed + ", restored " + restored + ")");
                 break;
             }
             case 14: { app.getGameScreen().toggleShopAll(); break; }

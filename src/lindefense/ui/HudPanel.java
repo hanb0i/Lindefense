@@ -37,12 +37,14 @@ public final class HudPanel extends GCompound {
             this.width = w; this.accent = accent;
             frame = new Cyber.Chamfer(0, 0, w, CHIP_H, 8).scan(false).fill(new Color(7, 12, 28, 235)).border(Cyber.alpha(accent, 150));
             add(frame);
-            icon = new Cyber.Icon(kind, 16, accent);
-            icon.setLocation(9, (CHIP_H - 16) / 2);
+            icon = new Cyber.Icon(kind, 18, accent);
+            icon.setLocation(10, (CHIP_H - 18) / 2);
             add(icon);
-            micro = Ui.label(Cyber.spaced(label), 32, 14, CHIP_LABEL, Cyber.alpha(accent, 190));
+            // no micro text label: just the icon and the value, vertically centred in the chip
+            micro = Ui.label(Cyber.spaced(label), 34, 14, CHIP_LABEL, Cyber.alpha(accent, 190));
+            micro.setVisible(false);
             add(micro);
-            value = Ui.label("", 32, 32, CHIP_VALUE, Cyber.TEXT);
+            value = Ui.label("", 36, (CHIP_H + CHIP_VALUE.getSize()) / 2 - 3, CHIP_VALUE, Cyber.TEXT);
             add(value);
             setLocation(x, CHIP_Y);
         }

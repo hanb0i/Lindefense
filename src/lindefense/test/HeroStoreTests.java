@@ -43,24 +43,24 @@ public final class HeroStoreTests {
 
     /** The roster, with its Hero Store price and the three upgrade costs from the specification. */
     private static final Object[][] ROSTER = {
-        { TowerType.LOBBER_LUIS, 900, 400, 850, 1500 },
-        { TowerType.SAGE_AARAV, 1000, 450, 900, 1600 },
-        { TowerType.IRON_IMRAAN, 1200, 500, 950, 1700 },
-        { TowerType.BOOM_SAM, 1100, 450, 900, 1700 },
-        { TowerType.CHILLSTIN, 1000, 400, 850, 1500 },
-        { TowerType.KAIJU_KAI, 1500, 600, 1100, 2000 },
-        { TowerType.ABHI_ACE, 1350, 500, 1000, 1800 },
-        { TowerType.ZIPPY_MATT, 1250, 450, 900, 1600 },
-        { TowerType.SUNNY_JOE, 850, 400, 800, 1500 },
-        { TowerType.NIK_SCOPE, 1300, 500, 1000, 1800 },
-        { TowerType.CAMI_MINE, 1100, 450, 900, 1600 },
-        { TowerType.JUSTIN_TIME, 1400, 500, 950, 1800 },
-        { TowerType.SPEAR_HANBO, 2000, 400, 850, 1500 },
-        { TowerType.THORN_TUHIN, 1200, 450, 900, 1700 },
-        { TowerType.TRAPPER_CHE, 1150, 450, 900, 1600 },
-        { TowerType.BLITZ_ARNAV, 1350, 500, 950, 1750 },
-        { TowerType.TANIMBUS, 1300, 500, 950, 1700 },
-        { TowerType.MR_LINDEMANN, 2500, 1200, 2600, 5000 } };
+        { TowerType.LOBBER_LUIS, 1250, 400, 850, 1500 },
+        { TowerType.SAGE_AARAV, 1400, 450, 900, 1600 },
+        { TowerType.IRON_IMRAAN, 1650, 500, 950, 1700 },
+        { TowerType.BOOM_SAM, 1500, 450, 900, 1700 },
+        { TowerType.CHILLSTIN, 1400, 400, 850, 1500 },
+        { TowerType.KAIJU_KAI, 2000, 600, 1100, 2000 },
+        { TowerType.ABHI_ACE, 1800, 500, 1000, 1800 },
+        { TowerType.ZIPPY_MATT, 1700, 450, 900, 1600 },
+        { TowerType.SUNNY_JOE, 1150, 400, 800, 1500 },
+        { TowerType.NIK_SCOPE, 1750, 500, 1000, 1800 },
+        { TowerType.CAMI_MINE, 1500, 450, 900, 1600 },
+        { TowerType.JUSTIN_TIME, 1900, 500, 950, 1800 },
+        { TowerType.SPEAR_HANBO, 2700, 400, 850, 1500 },
+        { TowerType.THORN_TUHIN, 1650, 450, 900, 1700 },
+        { TowerType.TRAPPER_CHE, 1550, 450, 900, 1600 },
+        { TowerType.BLITZ_ARNAV, 1800, 500, 950, 1750 },
+        { TowerType.TANIMBUS, 1750, 500, 950, 1700 },
+        { TowerType.MR_LINDEMANN, 3400, 1200, 2600, 5000 } };
 
     public static void runAll() {
         run("heroes.registration", HeroStoreTests::registration);
@@ -115,7 +115,7 @@ public final class HeroStoreTests {
             check(h.faction == Faction.HERO, h + " is classified as a hero");
             TowerDef d = TowerCatalog.get(h);
             check(d != null, h + " has a definition");
-            check(d.baseCost == 0, h + " deploys free once unlocked");
+            check(d.baseCost > 0, h + " costs something to deploy, on top of its one-time Hero Store price");
             check(d.unlockCost > 0, h + " has a Hero Store price");
         }
         for (Object[] row : ROSTER) check(seen.contains((TowerType) row[0]), row[0] + " is in the roster");
@@ -195,7 +195,7 @@ public final class HeroStoreTests {
         g.getHeroCollection().unlock(t);
         Tower first = g.placeTower(t, buildableNear(g, new Vec(400, 300), 200));
         check(first != null, "an unlocked hero deploys");
-        check(near(g.getCash(), Game.START_CASH), "deploying an unlocked hero is free");
+        check(near(g.getCash(), Game.START_CASH - TowerCatalog.get(t).baseCost), "deploying an unlocked hero charges its deploy cost");
         check(g.getTowerManager().heroProblem(t) != null, "the same hero cannot be deployed twice in one match");
         check(g.placeTower(t, buildableNear(g, new Vec(800, 500), 200)) == null, "a second copy is refused");
         TowerType other = TowerType.SUNNY_JOE;
@@ -311,7 +311,7 @@ public final class HeroStoreTests {
         int before = g.getLives();
         check(before < g.getMaxLives(), "integrity was lost");
         runSeconds(g, 5.2);
-        check(g.getLives() == before + 5, "restores 5 integrity every 5 s (" + before + " -> " + g.getLives() + ")");
+        check(g.getLives() == before + 6, "restores 6 integrity every 5 s (" + before + " -> " + g.getLives() + ")");
         // never above the maximum
         runSeconds(g, 60);
         check(g.getLives() == g.getMaxLives(), "healing stops at the starting maximum");
@@ -478,7 +478,7 @@ public final class HeroStoreTests {
         Tower h = hero(g, TowerType.SUNNY_JOE, 500);
         double before = g.getCash();
         runSeconds(g, 10.2);
-        check(near(g.getCash(), before + 40), "pays $40 every 10 s (got $" + (g.getCash() - before) + ")");
+        check(near(g.getCash(), before + 46), "pays $46 every 10 s (got $" + (g.getCash() - before) + ")");
         // Financial Empire: bigger income and the periodic bonus
         Game g2 = frozen();
         Tower h2 = hero(g2, TowerType.SUNNY_JOE, 500, 3);
@@ -579,7 +579,9 @@ public final class HeroStoreTests {
         for (Enemy e : back) maxHit = Math.max(maxHit, taken(e));
         double single = h2.getStats().hit.damage;
         check(maxHit > single + 1e-6, "an enemy can be hit on the way out and on the way back (" + maxHit + " > " + single + ")");
-        check(maxHit <= single * 2 + 1e-6, "but no more than twice (" + maxHit + ")");
+        // Sharpened Spear (U1, already applied at tier 2) marks the target +1 flat damage for 2 s, so the return
+        // hit lands for single + 1: allow for that on top of the double-hit ceiling.
+        check(maxHit <= single * 2 + 1 + 1e-6, "but no more than twice plus the mark (" + maxHit + ")");
     }
 
     private static void thornTuhin() {

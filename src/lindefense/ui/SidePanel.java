@@ -57,6 +57,8 @@ public final class SidePanel extends GCompound {
     private final List<UIButton> tabButtons = new ArrayList<>();
     private final UIButton allButton;
     private final UIButton helpBtn;
+    private final UIButton collapseBtn;
+    private boolean shopCollapsed;
     private boolean compactShop;
     private static final double BRIEF_H = 96;
     private final List<Card> cards = new ArrayList<>();
@@ -89,6 +91,10 @@ public final class SidePanel extends GCompound {
         helpBtn = new UIButton(Ui.PANEL_X + Ui.PANEL_W - 8 - 92, 8, 92, 26, "? HELP  [H]", Cyber.mono(Font.BOLD, 11), screen::toggleHelp);
         helpBtn.setAccent(Cyber.MAGENTA);
         add(helpBtn);
+        // collapses the card grid (tabs, ALL and the cards) so the info panel below gets the room instead
+        collapseBtn = new UIButton(helpBtn.getX() - 8 - 132, 8, 132, 26, "COLLAPSE SHOP", Cyber.mono(Font.BOLD, 10), this::toggleShopCollapsed);
+        collapseBtn.setAccent(Cyber.CYAN);
+        add(collapseBtn);
 
         double x = Ui.PANEL_X + 8;
         double tabW = 60;
@@ -135,12 +141,36 @@ public final class SidePanel extends GCompound {
         rebuildCards();
     }
 
+    /** True while the shop's card grid is collapsed (tabs, ALL and the cards hidden; the info panel grows into the space). */
+    public boolean isShopCollapsed() { return shopCollapsed; }
+
+    /** COLLAPSE SHOP / EXPAND SHOP: hides (or restores) the card grid without losing the current tab / ALL selection. */
+    public void toggleShopCollapsed() {
+        shopCollapsed = !shopCollapsed;
+        collapseBtn.setText(shopCollapsed ? "EXPAND SHOP" : "COLLAPSE SHOP");
+        collapseBtn.setSelected(shopCollapsed);
+        lindefense.audio.AudioManager.sfx(lindefense.audio.Sfx.UI_CLICK);   // AUDIO HOOK
+        rebuildCards();
+    }
+
     // ------------------------------------------------------------------ shop cards
     private void rebuildCards() {
-        for (int i = 0; i < tabButtons.size(); i++) tabButtons.get(i).setSelected(!allMode && ShopLayout.shopFactions().get(i) == tab);
+        for (int i = 0; i < tabButtons.size(); i++) {
+            UIButton b = tabButtons.get(i);
+            b.setVisible(!shopCollapsed);
+            b.setSelected(!allMode && ShopLayout.shopFactions().get(i) == tab);
+        }
+        allButton.setVisible(!shopCollapsed);
         allButton.setSelected(allMode);
+        cardLayer.setVisible(!shopCollapsed);
         cardLayer.removeAll();
         cards.clear();
+        if (shopCollapsed) {
+            infoY = ShopLayout.CARDS_Y;   // the card grid is hidden: the info panel reclaims all of its space
+            refreshAffordability();
+            builtKey = "";
+            return;
+        }
         List<ShopLayout.Cell> cells = layoutCells();
         for (ShopLayout.Cell c : cells) {
             TowerType t = c.type;
@@ -266,11 +296,13 @@ public final class SidePanel extends GCompound {
     }
 
     public List<UIButton> getButtons() {
+        // tabs, ALL, then the cards stay at this fixed prefix (tools click through by index); collapseBtn is appended
         List<UIButton> all = new ArrayList<>(tabButtons);
         all.add(allButton);
         all.add(helpBtn);
         for (Card c : cards) all.add(c.button);
         all.addAll(infoButtons);
+        all.add(collapseBtn);
         return all;
     }
 
@@ -526,7 +558,7 @@ public final class SidePanel extends GCompound {
     private void buildShopInfo(TowerType type) {
         TowerDef d = TowerCatalog.get(type);
         Color tc = Cyber.lerp(Ui.c(type.primaryRgb), Color.WHITE, 0.3);
-        header(type.displayName, tc, type.isHero() ? "HERO // DEPLOY" : Ui.money(Shop.priceOf(game, type)), Cyber.YELLOW);
+        header(type.displayName, tc, type.isHero() ? "DEPLOY  " + Ui.money(Shop.priceOf(game, type)) : Ui.money(Shop.priceOf(game, type)), Cyber.YELLOW);
         y += 4;
         put(d.subtitle + "  //  " + type.faction.label.toUpperCase(), x0, y + 12, F_TXT, Ui.c(type.faction.rgb));
         y += 14;
@@ -570,7 +602,7 @@ public final class SidePanel extends GCompound {
             para(d.ability.description + (locked ? " " + (int) d.ability.cooldown + "s cooldown." : ""), F_TXT_S, Cyber.MUTED, 3);
         }
         y += 12;
-        para(type.isHero() ? "Click a free spot to deploy (free, once per match). Esc cancels." : "Click a free spot on the map. Right-click or Esc to cancel.", F_TXT_S, Cyber.CYAN, 1);
+        para(type.isHero() ? "Click a free spot to deploy (once per match). Esc cancels." : "Click a free spot on the map. Right-click or Esc to cancel.", F_TXT_S, Cyber.CYAN, 1);
         button(x0, Math.min(y + 10, Ui.H - 56), 130, 34, "CANCEL", () -> screen.beginPlacing(null)).setAccent(Cyber.RED);
     }
 
@@ -711,7 +743,7 @@ public final class SidePanel extends GCompound {
 
         // ---- sell / deselect
         y += 12;
-        UIButton sell = button(x0, y, 210, 34, hero ? "DISMISS (NO REDEPLOY)" : "SELL  +" + Ui.money(Shop.sellValue(game, t)), () -> screen.sellSelected());
+        UIButton sell = button(x0, y, 210, 34, (hero ? "DISMISS  +" : "SELL  +") + Ui.money(Shop.sellValue(game, t)), () -> screen.sellSelected());
         sell.setAccent(Cyber.RED);
         UIButton desel = button(x0 + 218, y, textW - 218, 34, "DESELECT", () -> screen.selectTower(null));
         desel.setAccent(Cyber.MUTED);

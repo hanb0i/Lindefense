@@ -3,8 +3,10 @@ package lindefense.tower;
 import lindefense.sim.Game;
 
 /**
- * Pricing helpers: purchase price, next-upgrade price, sell refunds (70%) and shop availability rules. Heroes are
- * free to deploy once unlocked in the Hero Store, so dismissing one refunds nothing.
+ * Pricing helpers: purchase price, next-upgrade price, sell refunds (70%) and shop availability rules. Heroes carry
+ * two prices: a one-time Hero Store unlock ({@link #unlockPriceOf}) and a per-match deploy cost ({@link #priceOf},
+ * the same field shop towers use for their placement price); dismissing a hero refunds 70% of its deploy cost and
+ * any upgrades bought, same as selling a tower, but its one-time Hero Store unlock is never refunded.
  */
 public final class Shop {
     public static final double SELL_FRACTION = 0.70;

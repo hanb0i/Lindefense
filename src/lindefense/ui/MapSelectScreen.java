@@ -60,24 +60,25 @@ public final class MapSelectScreen extends GCompound {
         LogoWordmark small = new LogoWordmark(22, new Color(0xeafcff), MenuScreen.CYAN, true);
         small.setLocation(Ui.W - 190, 46);
         add(small);
-        GLabel sub = Ui.label(spaced("SEVEN BATTLEFIELDS  -  BEGINNER TO EXPERT  -  PICK YOURS"), 0, 0, MenuScreen.menuFont(Font.PLAIN, 12), Ui.withAlpha(MenuScreen.MAGENTA, 200));
-        sub.setLocation((Ui.W - sub.getWidth()) / 2, 88);
-        add(sub);
 
         maps = MapCatalog.createAll();
         int n = maps.size();
         int rows = Math.max(1, (n + COLS - 1) / COLS);
-        // DIFFICULTY HOOK: mode picker under the subtitle; map cards start lower to make room
+        // DIFFICULTY HOOK: mode picker under the title; map cards start lower to make room
         difficulty = new DifficultySelector(25, 104, Ui.W - 50);
         add(difficulty);
         double top = 104 + DifficultySelector.HEIGHT + 40, bottom = Ui.H - 28, gap = 18;
         double cardW = (Ui.W - 50 - gap * (COLS - 1)) / COLS;
         double cardH = Math.min(rows == 1 ? 540 : 520, (bottom - top - gap * (rows - 1)) / rows);   // capped: no big empty gap under the text
         top += Math.max(0, ((bottom - top - gap * (rows - 1)) / rows - cardH) * 0.35 * rows);   // sit slightly above centre when the cards are capped
-        for (int i = 0; i < n; i++) {
-            GameMap m = maps.get(i);
-            int col = i % COLS, row = i / COLS;
-            buildCard(app, m, i, 25 + col * (cardW + gap), top + row * (cardH + gap), cardW, cardH);
+        // cards are laid out beginner -> intermediate -> advanced -> expert (just a reposition: the underlying map
+        // index passed to buildCard, and so to DEPLOY / startGame, is unchanged)
+        int[] order = displayOrder(maps);
+        for (int pos = 0; pos < n; pos++) {
+            int idx = order[pos];
+            GameMap m = maps.get(idx);
+            int col = pos % COLS, row = pos / COLS;
+            buildCard(app, m, idx, 25 + col * (cardW + gap), top + row * (cardH + gap), cardW, cardH);
         }
         NeonButton back = new NeonButton(25, 28, 130, 42, "BACK", MenuScreen.menuFont(Font.BOLD, 18), MenuScreen.CYAN, () -> app.showMenu());
         buttons.add(back);
@@ -89,25 +90,47 @@ public final class MapSelectScreen extends GCompound {
 
     /**
      * Logical centre of a map card's DEPLOY button, for tools that click through the real UI (the demo driver). Mirrors the
-     * layout in the constructor.
+     * layout in the constructor. {@code idx} is the underlying catalog index (as passed to {@link LindefenseProgram#startGame}),
+     * not the grid position: it is resolved through {@link #displayOrder} first, since cards are shown grouped by difficulty.
      */
     public static double[] deployCenter(int idx) {
         int n = lindefense.map.MapCatalog.MAP_COUNT, rows = Math.max(1, (n + COLS - 1) / COLS);
+        int pos = positionOf(displayOrder(lindefense.map.MapCatalog.createAll()), idx);
         double top = 104 + DifficultySelector.HEIGHT + 40, bottom = Ui.H - 28, gap = 18;
         double cardW = (Ui.W - 50 - gap * (COLS - 1)) / COLS;
         double full = (bottom - top - gap * (rows - 1)) / rows;
         double cardH = Math.min(rows == 1 ? 540 : 520, full);
         top += Math.max(0, (full - cardH) * 0.35 * rows);
         boolean compact = cardH < 520;
-        double y = top + (idx / COLS) * (cardH + gap), x = 25 + (idx % COLS) * (cardW + gap);
+        double y = top + (pos / COLS) * (cardH + gap), x = 25 + (pos % COLS) * (cardW + gap);
         double by = y + cardH - (compact ? 54 : 70), bh = compact ? 40 : 50;
         return new double[] { x + cardW / 2, by + bh / 2 };
     }
 
-    private static String spaced(String s) {
-        StringBuilder sb = new StringBuilder();
-        for (char c : s.toCharArray()) { sb.append(c); sb.append(' '); }
-        return sb.toString().trim();
+    /** Beginner -> Intermediate -> Advanced -> Expert, ties kept in catalog order: maps a grid position to a catalog index. */
+    private static int[] displayOrder(List<GameMap> maps) {
+        List<Integer> idx = new ArrayList<>();
+        for (int i = 0; i < maps.size(); i++) idx.add(i);
+        idx.sort((a, b) -> Integer.compare(tierRank(maps.get(a).getDifficulty()), tierRank(maps.get(b).getDifficulty())));
+        int[] order = new int[idx.size()];
+        for (int i = 0; i < order.length; i++) order[i] = idx.get(i);
+        return order;
+    }
+
+    private static int tierRank(String difficulty) {
+        switch (difficulty) {
+            case "Beginner": return 0;
+            case "Intermediate": return 1;
+            case "Advanced": return 2;
+            case "Expert": return 3;
+            default: return 4;
+        }
+    }
+
+    /** Position of {@code value} in {@code order} (grid position of a catalog index), or 0 if absent. */
+    private static int positionOf(int[] order, int value) {
+        for (int i = 0; i < order.length; i++) if (order[i] == value) return i;
+        return 0;
     }
 
     private static Color difficultyColor(String d) {

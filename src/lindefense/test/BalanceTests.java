@@ -147,13 +147,13 @@ public final class BalanceTests {
         TowerType cheapType = null, priceyType = null;
         for (TowerType h : TowerType.heroes()) {
             int p = TowerCatalog.get(h).unlockCost;
-            check(p >= 800 && p <= 2500, h + " Hero Store price $" + p + " is in the $800-2500 band");
+            check(p >= 1100 && p <= 3500, h + " Hero Store price $" + p + " is in the $1,100-3,500 band");
             if (p < cheapest) { cheapest = p; cheapType = h; }
             if (p > priciest) { priciest = p; priceyType = h; }
         }
-        check(cheapType == TowerType.SUNNY_JOE && cheapest == 850, "Sunny Joe is the cheapest hero at $850");
-        check(priceyType == TowerType.MR_LINDEMANN && priciest == 2500, "Mr. Lindemann (the strongest hero) is the priciest at $2,500");
-        check(TowerCatalog.get(TowerType.SPEAR_HANBO).unlockCost == 2000, "Spear Hanbo (second strongest) costs $2,000");
+        check(cheapType == TowerType.SUNNY_JOE && cheapest == 1150, "Sunny Joe is the cheapest hero at $1,150");
+        check(priceyType == TowerType.MR_LINDEMANN && priciest == 3400, "Mr. Lindemann (the strongest hero) is the priciest at $3,400");
+        check(TowerCatalog.get(TowerType.SPEAR_HANBO).unlockCost == 2700, "Spear Hanbo (second strongest) costs $2,700");
         check(TowerCatalog.get(TowerType.ZETHOS).totalCost() == 5350, "Zethos fully upgraded costs $5,350");
     }
 

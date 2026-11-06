@@ -307,7 +307,7 @@ public final class DesignDocGenerator {
             + TowerCatalog.ABILITY_UNLOCK_COST + "** for it (U or the side-panel button); it is ready the moment it is bought. **Zethos** (Primary)");
         w.println("has **four** upgrades (its Reality Collapse unlocks after the fourth); it is tuned to about twice the best of Gemini, Claude");
         w.println("and GPT at each tier. The " + TowerType.heroes().length + " **heroes** are not in the tower shop: they are unlocked once in the **Hero Store** (permanent,");
-        w.println("saved between sessions), deploy for free once per match (at most " + lindefense.tower.TowerManager.MAX_HEROES_PER_GAME + " different heroes per game) and level up");
+        w.println("saved between sessions), then pay a deploy cost once per match (at most " + lindefense.tower.TowerManager.MAX_HEROES_PER_GAME + " different heroes per game) and level up");
         w.println("through three purchasable upgrades; they have no active abilities. Mr. Lindemann is the strongest hero and Spear Hanbo the");
         w.println("second strongest. Heroes and Zethos are specified");
         w.println("in map units: 1 unit = " + f(TowerStats.MAP_UNIT) + " px (tables below are in px). Source of truth for every number: `lindefense/tower/data/*.java`.");
@@ -320,7 +320,7 @@ public final class DesignDocGenerator {
             TowerDef d = TowerCatalog.get(t);
             StringBuilder ups = new StringBuilder();
             for (UpgradeDef u : d.upgrades) { if (ups.length() > 0) ups.append(" / "); ups.append('$').append(u.cost); }
-            String price = t.isHero() ? "Hero Store $" + d.unlockCost + " (deploy free)" : "$" + d.baseCost;
+            String price = t.isHero() ? "Hero Store $" + d.unlockCost + " (deploy $" + d.baseCost + ")" : "$" + d.baseCost;
             w.printf("| %s | %s | %s | %s | %s | %s | %s | %s | %s |%n", t.displayName, t.faction.label, d.subtitle,
                 String.join(" -> ", d.tierLabels), price, ups.length() == 0 ? "none" : ups.toString(),
                 t.isHero() ? "-" : "$" + d.totalCost(), t.isHero() ? "no refund" : "$" + (int) Math.floor(d.totalCost() * Shop.SELL_FRACTION),

@@ -34,8 +34,8 @@ public final class PrimaryTowers {
             .tiers("Quantum Pulse", "Quantum Acceleration", "Dimensional Fracture", "Quantum Singularity", "Zethos: Reality Engine")
             .attack(AttackKind.PROJECTILE, DamageType.ENERGY, u(45), 0.65, 2, 2)
             .base(s -> { s.projectileSpeed = u(55); s.bounceRange = u(25); s.set("splashPct", 0).set("bouncePct", 0); })
-            .upgrade(350, null, "Damage 3, interval 0.6 s, range 46 units, pierce 4. Faster projectiles (65 units/s) with a brighter energy trail.",
-                s -> { s.hit.damage = 3; s.interval(0.6); s.range = u(46); s.pierce = 4; s.projectileSpeed = u(65); })
+            .upgrade(350, "Quantum Acceleration", "Damage 3, interval 0.6 s, range 46 units, pierce 4. Faster projectiles (65 units/s) that leave a brief slowing trail (10% for 1 s).",
+                s -> { s.hit.damage = 3; s.interval(0.6); s.range = u(46); s.pierce = 4; s.projectileSpeed = u(65); s.hit.slowFraction = 0.10; s.hit.slowDuration = 1; })
             .upgrade(650, null, "Damage 4, interval 0.5 s, range 47 units, pierce 5. Each impact fractures into quantum fragments: 60% splash damage within 7 units.",
                 s -> { s.hit.damage = 4; s.interval(0.5); s.range = u(47); s.pierce = 5; s.splashRadius = u(7); s.set("splashPct", 0.60); })
             .upgrade(1200, null, "Damage 6, interval 0.55 s, range 48 units, pierce 5. Singularity explosions: 45% splash within 6 units. Then bounces to up to 2 more enemies at 45% damage.",
@@ -73,8 +73,8 @@ public final class PrimaryTowers {
             .attack(AttackKind.PROJECTILE, DamageType.SHARP, 190, 0.7, 1, 2)
             .base(s -> { s.projectileSpeed = 700; })
             .injectionImmune("Constitutional AI: trained to refuse instructions smuggled into its input.")
-            .upgrade(550, null, "Pierce 8, interval 0.55.",
-                s -> { s.pierce = 8; s.interval(0.55); })
+            .upgrade(550, "Sonnet Flow", "Pierce 8, interval 0.55, and hits mark the target for +1 damage for 2 s.",
+                s -> { s.pierce = 8; s.interval(0.55); s.hit.markFlat = 1; s.hit.markDuration = 2; })
             .upgrade(650, "Context Snare", "Hit enemies are MARKED (+1 damage taken) and SLOWED 15% for 4 s.",
                 s -> { s.hit.markFlat = 1; s.hit.markDuration = 4; s.hit.slowFraction = 0.15; s.hit.slowDuration = 4; })
             .upgrade(1100, null, "Pierce 20, damage 2, +3 damage vs Fortified / Lead-type / Ceramic-type, and can damage Lead.",

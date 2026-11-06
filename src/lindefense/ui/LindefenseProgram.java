@@ -40,7 +40,6 @@ public class LindefenseProgram extends GraphicsProgram {
     private final ScaledLayer root = new ScaledLayer();
     private MenuScreen menu;
     private MapSelectScreen mapSelect;
-    private CatalogScreen catalog;
     private GameScreen gameScreen;
     private long lastNanos;
     private Timer timer;
@@ -118,7 +117,6 @@ public class LindefenseProgram extends GraphicsProgram {
             root.fit(canvas.getWidth(), canvas.getHeight());
         }
         if (gameScreen != null) gameScreen.frame(dt);
-        else if (catalog != null) catalog.frame(dt);
         else if (menu != null && menu.isVisible()) menu.frame(dt);
         else if (mapSelect != null) mapSelect.frame(dt);
         if (demo != null) demo.frame(dt);
@@ -129,13 +127,13 @@ public class LindefenseProgram extends GraphicsProgram {
     // ------------------------------------------------------------------ screens
     /**
      * Removes the current screen and forgets EVERY screen reference. Input is routed to the first non-null screen
-     * (game, catalog, map select, menu), so a stale reference to a screen that is no longer showing would keep
-     * swallowing clicks and keys meant for the new one (Esc from map select once left the menu's buttons dead).
+     * (game, map select, menu; the catalog is a pop-up panel owned by the menu screen itself), so a stale reference
+     * to a screen that is no longer showing would keep swallowing clicks and keys meant for the new one (Esc from
+     * map select once left the menu's buttons dead).
      */
     private void clearScreens() {
         root.removeAll();
         gameScreen = null;
-        catalog = null;
         mapSelect = null;
         menu = null;
     }
@@ -206,14 +204,6 @@ public class LindefenseProgram extends GraphicsProgram {
         startGame(g, true);
     }
 
-    /** CATALOG (main menu): every enemy, tower and hero. */
-    public void showCatalog() {
-        clearScreens();
-        catalog = new CatalogScreen(this);
-        root.add(catalog);
-        getGCanvas().repaint();
-    }
-
     /** RESTART: throws the running level away and starts a fresh game on the same map and difficulty. */
     public void restartLevel() {
         if (gameScreen == null) return;
@@ -266,7 +256,6 @@ public class LindefenseProgram extends GraphicsProgram {
         double lx = root.toLogicalX(e.getX()), ly = root.toLogicalY(e.getY());
         boolean right = SwingUtilities.isRightMouseButton(e) || e.isControlDown();
         if (gameScreen != null) gameScreen.mousePressed(lx, ly, right);
-        else if (catalog != null) catalog.mousePressed(lx, ly);
         else if (mapSelect != null) mapSelect.mousePressed(lx, ly);
         else if (menu != null) menu.mousePressed(lx, ly);
         getGCanvas().repaint();
@@ -275,7 +264,6 @@ public class LindefenseProgram extends GraphicsProgram {
     @Override public void mouseMoved(MouseEvent e) {
         double lx = root.toLogicalX(e.getX()), ly = root.toLogicalY(e.getY());
         if (gameScreen != null) gameScreen.mouseMoved(lx, ly);
-        else if (catalog != null) catalog.mouseMoved(lx, ly);
         else if (mapSelect != null) mapSelect.mouseMoved(lx, ly);
         else if (menu != null) menu.mouseMoved(lx, ly);
     }
@@ -285,18 +273,18 @@ public class LindefenseProgram extends GraphicsProgram {
         mouseMoved(e);
         double lx = root.toLogicalX(e.getX()), ly = root.toLogicalY(e.getY());
         if (gameScreen != null) gameScreen.mouseDragged(lx, ly);
-        else if (catalog == null && mapSelect == null && menu != null) menu.mouseDragged(lx, ly);
+        else if (mapSelect == null && menu != null) menu.mouseDragged(lx, ly);
     }
 
     /** Ends a volume-slider drag (the screens save the new level on release). */
     @Override public void mouseReleased(MouseEvent e) {
         if (gameScreen != null) gameScreen.mouseReleased();
-        else if (catalog == null && mapSelect == null && menu != null) menu.mouseReleased();
+        else if (mapSelect == null && menu != null) menu.mouseReleased();
     }
 
     @Override public void keyPressed(KeyEvent e) {
         // SETTINGS text entry gets every key first (so typing M or N doesn't toggle the audio)
-        if (gameScreen == null && catalog == null && menu != null && menu.isTyping()) { menu.keyPressed(e); return; }
+        if (gameScreen == null && menu != null && menu.isTyping()) { menu.keyPressed(e); return; }
         // AUDIO HOOK: M toggles music, N toggles sound, on every screen
         lindefense.audio.AudioManager am = lindefense.audio.AudioManager.get();
         if (am != null && (e.getKeyCode() == KeyEvent.VK_M || e.getKeyCode() == KeyEvent.VK_N)) {
@@ -304,7 +292,6 @@ public class LindefenseProgram extends GraphicsProgram {
             return;
         }
         if (gameScreen != null) gameScreen.keyPressed(e);
-        else if (catalog != null) catalog.keyPressed(e);
         else if (mapSelect != null) mapSelect.keyPressed(e);
         else if (menu != null) menu.keyPressed(e);
     }
@@ -312,7 +299,6 @@ public class LindefenseProgram extends GraphicsProgram {
     /** Exposed for tests / tooling. */
     public ScaledLayer getRoot() { return root; }
     public GameScreen getGameScreen() { return gameScreen; }
-    public CatalogScreen getCatalog() { return catalog; }
     public MapSelectScreen getMapSelect() { return mapSelect; }
     public MenuScreen getMenu() { return menu; }
     public Game getGame() { return gameScreen == null ? null : gameScreen.getGame(); }

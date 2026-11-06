@@ -133,7 +133,7 @@ public final class HeadlessTests {
             check(d.upgrades.length == ups, t + " has exactly " + ups + " upgrades");
             if (TowerCatalog.hasActiveAbility(t)) check(d.ability != null && d.ability.cooldown > 0, t + " has ability with cooldown");
             else check(d.ability == null, t + " (original shop tower) has no special ability");
-            check(t.isHero() ? d.baseCost == 0 && d.unlockCost > 0 : d.baseCost > 0 && d.unlockCost == 0, t + " has cost (heroes: unlock price, free deploy)");
+            check(t.isHero() ? d.baseCost > 0 && d.unlockCost > 0 : d.baseCost > 0 && d.unlockCost == 0, t + " has cost (heroes: a one-time unlock price plus a per-deploy cost)");
             for (int i = 0; i <= ups; i++) check(d.statsForTier(i) != null, t + " tier " + i + " stats");
             for (int i = 0; i < ups; i++) check(d.upgrades[i].name.equals(d.tierLabels[i + 1]), t + " upgrade name is the tier label");
             if (t.isHero()) heroes++;

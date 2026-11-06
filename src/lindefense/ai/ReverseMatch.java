@@ -70,8 +70,12 @@ public final class ReverseMatch {
     public static final int COMPUTE_STEP = 4;
     /** Price of the first SCALE COMPUTE purchase. */
     public static final int COMPUTE_BASE_PRICE = 300;
-    /** Each SCALE COMPUTE purchase costs this much more than the previous one. */
-    public static final double COMPUTE_PRICE_GROWTH = 1.45;
+    /**
+     * Each SCALE COMPUTE purchase costs this much more than the previous one. Lowered from the original 1.45 (which
+     * made the price balloon to $4,045 by the 8th purchase, a 1,011 s payback that could never recoup inside a 15:00
+     * run) so every purchase, even the last, pays for itself in well under half the match.
+     */
+    public static final double COMPUTE_PRICE_GROWTH = 1.28;
     /** Most SCALE COMPUTE purchases per match. */
     public static final int COMPUTE_MAX = 8;
     /** The defender is "under pressure" (stops greedy plays, adds cheap firepower) after 2+ lives lost in this window. */
