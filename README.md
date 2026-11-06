@@ -13,6 +13,10 @@ MOAB-class bosses - ending with the BAD-class final boss **Palantir** on Wave 10
 overpowered ability you can unlock for $15,000 once it is fully upgraded. New players can start with the
 guided **Tutorial**; the **Catalog** on the main menu explains every enemy, tower and hero.
 
+> **Python version:** the whole game has been ported to Python (pygame-ce window + Skia GPU rendering at native
+> Retina resolution) in [`python/`](python/README.md). Run it with `python/run.sh`, or build a double-clickable
+> `Lindefense.app` with `python/packaging/build_app.sh`. The Java version below stays until the port is retired.
+
 ## 1. Setup
 
 ### Quick start (macOS / Linux)

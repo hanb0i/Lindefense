@@ -1,0 +1,4 @@
+pygame-ce==2.5.8
+skia-python==144.1
+numpy>=2.0
+pytest>=8.0
