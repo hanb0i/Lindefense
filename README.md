@@ -1,11 +1,13 @@
 # Lindefense - The Last Line of Code
 
-**Version: beta 2.04**
+**Version: beta 3.0**
 
 ![Lindefense title card](docs/titlecard.png)
 
-Lindefense is a complete, playable tower-defense game written in Java with the Stanford ACM Graphics
-library (`GCanvas`, `GCompound`, `GOval`, `GRect`, `GPolygon`, `GLine`, `GLabel`). You defend a track
+Lindefense is a complete, playable tower-defense game. As of beta 3.0 it runs in **Python** as a native desktop app
+(pygame-ce window, Skia GPU rendering at native Retina resolution, fully anti-aliased). The original **Java** version,
+built on the Stanford ACM Graphics library (`GCanvas`, `GCompound`, `GOval`, `GRect`, `GPolygon`, `GLine`, `GLabel`),
+is still in the repository, and both versions run the same simulation bit for bit. You defend a track
 with 18 towers (17 AI models and companies plus **Zethos, the Quantum Architect**) and 18 unlockable
 **Hero Store** heroes (up to 3 per game, led by the teacher himself, **Mr. Lindemann**) across seven maps,
 against 100 waves of computer-science enemies - data structures, sorting algorithms and five corporate
@@ -13,13 +15,33 @@ MOAB-class bosses - ending with the BAD-class final boss **Palantir** on Wave 10
 overpowered ability you can unlock for $15,000 once it is fully upgraded. New players can start with the
 guided **Tutorial**; the **Catalog** on the main menu explains every enemy, tower and hero.
 
-> **Python version:** the whole game has been ported to Python (pygame-ce window + Skia GPU rendering at native
-> Retina resolution) in [`python/`](python/README.md). Run it with `python/run.sh`, or build a double-clickable
-> `Lindefense.app` with `python/packaging/build_app.sh`. The Java version below stays until the port is retired.
-
 ## 1. Setup
 
-### Quick start (macOS / Linux)
+### Quick start: Python (macOS / Linux)
+
+You need Python 3.10 or newer (`python3 --version`). Copy-paste this whole block into a terminal:
+
+```bash
+git clone https://github.com/hanb0i/Lindefense.git
+cd Lindefense
+python/run.sh   # first run creates python/.venv and installs pygame-ce, skia-python and numpy
+```
+
+On macOS, `python/packaging/build_app.sh` builds a double-clickable `python/dist/Lindefense.app`.
+
+Windows (PowerShell):
+
+```powershell
+git clone https://github.com/hanb0i/Lindefense.git
+cd Lindefense\python
+python -m venv .venv
+.venv\Scripts\pip install -r requirements.txt
+.venv\Scripts\python -m lindefense.app
+```
+
+Tests, developer switches and how the UI was ported: [python/README.md](python/README.md).
+
+### Quick start: Java (macOS / Linux)
 
 Copy-paste this whole block into a terminal:
 
@@ -67,7 +89,7 @@ javac -version                                   # expect javac 11 - 25
 export JAVA_HOME=$(/usr/libexec/java_home -v 21)  # macOS only; on Linux use the JDK's install dir
 ```
 
-### Windows (PowerShell)
+### Java on Windows (PowerShell)
 
 ```powershell
 winget install EclipseAdoptium.Temurin.21.JDK
@@ -119,6 +141,8 @@ unzip -l lib/acm.jar | grep GraphicsProgram      # should list acm/program/Graph
 | Window doesn't open over SSH / in CI | Expected: the game needs a display. `./test.sh` runs headless |
 
 ## 2. Build and run
+
+Python: `python/run.sh` (see Setup above). The rest of this section is the Java version.
 
 macOS / Linux:
 
@@ -416,7 +440,14 @@ mechanics and the selected Difficulty Growth mode); its own **DEPLOY** or `Enter
 ## 8. Project layout
 
 ```
-src/lindefense/
+python/                       the Python version (same packages as src/lindefense; see python/README.md)
+  run.sh                      creates .venv on first run, then launches the game
+  lindefense/app.py           desktop app: pygame-ce window, Skia GPU surface, input, frame loop
+  tests/                      pytest suite (ported from the Java tests)
+  packaging/                  PyInstaller spec + build_app.sh (macOS Lindefense.app)
+  devtools/j2py.py            the Java-to-Python transpiler used for the UI port
+src/lindefense/               the Java version
+
   Main.java                 entry point
   sim/      Game (state, economy, fixed-step loop), Vec, Rng
   map/      GameMap, Path (waypoints), Obstacle, the seven maps, MapCatalog
@@ -473,7 +504,15 @@ and runs headless; the `ui` package renders it.
 
 ## 9. Testing
 
-`./test.sh` runs `lindefense.test.HeadlessTests`, which exercises the real game logic: purchase /
+Python (after `python/run.sh` has created the virtual environment once):
+
+```bash
+cd python
+.venv/bin/python -m pytest tests -q -m "not slow"   # ~40 s
+.venv/bin/python -m pytest tests -q                 # everything, ~6 min
+```
+
+Java: `./test.sh` runs `lindefense.test.HeadlessTests`, which exercises the real game logic: purchase /
 upgrade / sell and the 70% refund, every upgrade path (three upgrades for shop towers and heroes, four for Zethos), the
 $15,000 ability unlocks and every unlocked ability, the Hero Store (prices, permanent unlocks, the 3-heroes-per-game cap,
 Mr. Lindemann strongest and Spear Hanbo second), prompt injection and immunity, Palantir's phase abilities and window seal,
