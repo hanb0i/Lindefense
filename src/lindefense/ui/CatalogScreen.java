@@ -24,9 +24,10 @@ import lindefense.ui.sprites.SpriteFactory;
 import lindefense.ui.sprites.towers.TowerIcons;
 
 /**
- * The Catalog (main menu): every enemy, boss, tower and hero with its sprite and what it does. Four tabs, a list of
- * entries on the left and a detail card on the right. Every number and description is read from the data tables
- * ({@link EnemyType}, {@link TowerCatalog}), so the catalog always matches the game.
+ * The Catalog (main menu): every enemy, boss, tower and hero with its sprite and what it does. Four tabs, and a
+ * full-width grid of name + sprite cards; clicking one pops the detail card (full stats, description, upgrade
+ * path) up over the grid. Every number and description is read from the data tables ({@link EnemyType},
+ * {@link TowerCatalog}), so the catalog always matches the game.
  */
 public final class CatalogScreen extends GCompound {
     private static final long serialVersionUID = 1L;
@@ -35,24 +36,31 @@ public final class CatalogScreen extends GCompound {
     public enum Tab { ENEMIES("ENEMIES"), BOSSES("BOSSES"), TOWERS("TOWERS"), HEROES("HEROES");
         final String label; Tab(String l) { label = l; } }
 
-    private static final double LIST_X = 50, LIST_W = 420, LIST_Y = 168, ROW_H = 36;
+    private static final double LIST_X = 50, LIST_Y = 168;
     private static final double CARD_X = 500, CARD_Y = 150, CARD_W = 1050, CARD_H = 800;
+    // the grid spans the full width the list + card used to split between them
+    private static final double GRID_X = LIST_X, GRID_W = CARD_X + CARD_W - LIST_X, GRID_Y = LIST_Y;
+    private static final double CELL_W = 160, CELL_H = 148, CELL_GAP = 16, ROW_GAP = 16, ICON_SIZE = 92;
 
     private final Runnable onClose;
     private final List<UIButton> chrome = new ArrayList<>();
-    private final List<UIButton> rows = new ArrayList<>();
-    private final GCompound listLayer = new GCompound();
+    private final List<UIButton> gridButtons = new ArrayList<>();
+    private final GCompound gridLayer = new GCompound();
+    private final Cyber.Chamfer cardFrame;
     private final GCompound card = new GCompound();
+    private final UIButton closeDetailBtn;
     private final List<UIButton> tabs = new ArrayList<>();
     private Tab tab = Tab.ENEMIES;
     private int selected;
+    private boolean detailOpen;
     private EnemySprite liveSprite;
     private Enemy liveEnemy;
     private double time;
 
     /**
      * Builds the catalog as a pop-up panel (it is added on top of whatever screen opened it, dimming it, rather
-     * than replacing it): {@code onClose} is called by BACK / Esc to dismiss the panel.
+     * than replacing it): {@code onClose} is called by BACK / Esc to dismiss the panel (or, while a detail card is
+     * open, to dismiss just that card instead).
      */
     public CatalogScreen(Runnable onClose) {
         this.onClose = onClose;
@@ -61,7 +69,7 @@ public final class CatalogScreen extends GCompound {
         add(new Cyber.Chamfer(20, 20, Ui.W - 40, Ui.H - 40, 26).fill(new Color(6, 10, 24, 248)).border(Cyber.alpha(Cyber.CYAN, 160)).glow(0.8).lineWidth(2).ticks(true));
         add(Ui.label(Cyber.spaced("// field database"), LIST_X, 50, Cyber.mono(Font.BOLD, 12), Cyber.alpha(Cyber.MAGENTA, 230)));
         add(Ui.label("CATALOG", LIST_X, 98, Cyber.display(Font.BOLD, 48), Cyber.TEXT));
-        UIButton back = new UIButton(Ui.W - 50 - 180, 52, 180, 46, "BACK  [ESC]", Cyber.display(Font.BOLD, 18), onClose);
+        UIButton back = new UIButton(Ui.W - 50 - 180, 52, 180, 46, "BACK  [ESC]", Cyber.display(Font.BOLD, 18), () -> { if (detailOpen) closeDetail(); else onClose.run(); });
         back.setAccent(Cyber.MAGENTA);
         add(back); chrome.add(back);
         double tx = 330;
@@ -71,9 +79,13 @@ public final class CatalogScreen extends GCompound {
             add(b); chrome.add(b); tabs.add(b);
             tx += 158;
         }
-        add(listLayer);
-        add(new Cyber.Chamfer(CARD_X, CARD_Y, CARD_W, CARD_H, 22).fill(new Color(6, 10, 24, 240)).border(Cyber.alpha(Cyber.CYAN, 160)).glow(0.6).ticks(true));
+        add(gridLayer);
+        cardFrame = new Cyber.Chamfer(CARD_X, CARD_Y, CARD_W, CARD_H, 22).fill(new Color(6, 10, 24, 240)).border(Cyber.alpha(Cyber.CYAN, 160)).glow(0.6).ticks(true);
+        add(cardFrame);
         add(card);
+        closeDetailBtn = new UIButton(CARD_X + CARD_W - 46, CARD_Y + 14, 32, 32, "X", Cyber.display(Font.BOLD, 16), this::closeDetail);
+        closeDetailBtn.setAccent(Cyber.MAGENTA);
+        add(closeDetailBtn); chrome.add(closeDetailBtn);
         setTab(Tab.ENEMIES);
     }
 
@@ -96,32 +108,83 @@ public final class CatalogScreen extends GCompound {
         tab = t;
         selected = 0;
         for (int i = 0; i < tabs.size(); i++) tabs.get(i).setSelected(Tab.values()[i] == t);
-        rebuildList();
-        rebuildCard();
+        closeDetail();
+        rebuildGrid();
     }
 
+    /** Selects entry {@code i} and pops its detail card up over the grid. */
     public void select(int i) {
         selected = Math.max(0, Math.min(entries(tab).size() - 1, i));
-        rebuildList();
+        detailOpen = true;
         rebuildCard();
+        updateDetailVisibility();
     }
 
-    private void rebuildList() {
-        listLayer.removeAll();
-        rows.clear();
+    /** Dismisses the detail card, returning to the name + sprite grid. */
+    private void closeDetail() {
+        detailOpen = false;
+        updateDetailVisibility();
+    }
+
+    private void updateDetailVisibility() {
+        gridLayer.setVisible(!detailOpen);
+        cardFrame.setVisible(detailOpen);
+        card.setVisible(detailOpen);
+        closeDetailBtn.setVisible(detailOpen);
+    }
+
+    private void rebuildGrid() {
+        gridLayer.removeAll();
+        gridButtons.clear();
         List<Object> es = entries(tab);
-        double rh = Math.min(ROW_H, (Ui.H - 30 - LIST_Y) / Math.max(1, es.size()));
+        if (es.isEmpty()) return;
+        int cols = Math.max(1, Math.min((int) ((GRID_W + CELL_GAP) / (CELL_W + CELL_GAP)), es.size()));
+        double rowW = cols * CELL_W + (cols - 1) * CELL_GAP;
+        double x0 = GRID_X + (GRID_W - rowW) / 2;
         for (int i = 0; i < es.size(); i++) {
             final int idx = i;
+            int col = i % cols, row = i / cols;
+            double cx = x0 + col * (CELL_W + CELL_GAP), cy = GRID_Y + row * (CELL_H + ROW_GAP);
             Object o = es.get(i);
             String name = o instanceof EnemyType ? ((EnemyType) o).displayName : ((TowerType) o).displayName;
-            UIButton b = new UIButton(LIST_X, LIST_Y + i * rh, LIST_W, rh - 4, name, Cyber.display(Font.BOLD, 16), () -> select(idx));
-            b.setSelected(i == selected);
+            UIButton b = new UIButton(cx, cy, CELL_W, CELL_H, "", () -> select(idx));
             if (o instanceof TowerType) b.setAccent(Cyber.lerp(Ui.c(((TowerType) o).primaryRgb), Cyber.CYAN, 0.3));
             else if (((EnemyType) o).isBoss()) b.setAccent(Cyber.RED);
-            listLayer.add(b);
-            rows.add(b);
+            gridLayer.add(b);
+            gridButtons.add(b);
+            acm.graphics.GObject icon = o instanceof TowerType ? TowerIcons.create((TowerType) o, 0, ICON_SIZE) : buildEnemyIcon((EnemyType) o, ICON_SIZE);
+            icon.setLocation(cx + CELL_W / 2, cy + 14 + ICON_SIZE / 2);
+            gridLayer.add(icon);
+            Font nf = fitFont(name, Cyber.display(Font.BOLD, 15), CELL_W - 12, 9);
+            GLabel nl = Ui.label(name, 0, cy + CELL_H - 14, nf, Cyber.TEXT);
+            nl.setLocation(cx + (CELL_W - nl.getWidth()) / 2, cy + CELL_H - 14);
+            gridLayer.add(nl);
         }
+    }
+
+    /** A static, centred enemy/boss sprite fit roughly into a {@code size x size} box (matches {@link TowerIcons#create}'s framing). */
+    private static GCompound buildEnemyIcon(EnemyType t, double size) {
+        Path p = new Path("catalog", -1, -1, 1, -1, 1, 1, -1, 1, -1, -1);
+        Enemy e = t.isBoss() ? new Boss(t, EnumSet.noneOf(Modifier.class), p, 0, 0, 1.0, 1.0) : new Enemy(t, EnumSet.noneOf(Modifier.class), p, 0, 0, 1.0, 1.0);
+        EnemySprite sprite = SpriteFactory.create(e);
+        sprite.sync(e, 0);
+        double scale = (t.isBoss() ? Math.min(1.1, 42.0 / Math.max(6, t.radius)) : Math.min(5.0, 95.0 / Math.max(6, t.radius))) * (size / 200.0);
+        GCompound g = new GCompound();
+        g.add(sprite);
+        g.scale(scale);
+        return g;
+    }
+
+    /** Shrinks a font (never truncates) until the text fits maxWidth, down to minSize. */
+    private static Font fitFont(String text, Font f, double maxWidth, int minSize) {
+        GLabel probe = new Cyber.Text(text);
+        Font cur = f;
+        probe.setFont(cur);
+        while (probe.getWidth() > maxWidth && cur.getSize() > minSize) {
+            cur = cur.deriveFont((float) (cur.getSize() - 1));
+            probe.setFont(cur);
+        }
+        return cur;
     }
 
     // ------------------------------------------------------------------ detail card
@@ -278,7 +341,11 @@ public final class CatalogScreen extends GCompound {
     }
 
     // ------------------------------------------------------------------ input / frame
-    private List<UIButton> buttons() { List<UIButton> l = new ArrayList<>(chrome); l.addAll(rows); return l; }
+    private List<UIButton> buttons() {
+        List<UIButton> l = new ArrayList<>(chrome);
+        if (!detailOpen) l.addAll(gridButtons);
+        return l;
+    }
 
     public void mousePressed(double lx, double ly) {
         for (UIButton b : buttons()) if (b.hit(lx, ly) && b.click()) return;
@@ -291,7 +358,7 @@ public final class CatalogScreen extends GCompound {
     /** Up / down step through the list, left / right switch tabs, Esc goes back. */
     public void keyPressed(java.awt.event.KeyEvent e) {
         switch (e.getKeyCode()) {
-            case java.awt.event.KeyEvent.VK_ESCAPE: onClose.run(); break;
+            case java.awt.event.KeyEvent.VK_ESCAPE: if (detailOpen) closeDetail(); else onClose.run(); break;
             case java.awt.event.KeyEvent.VK_DOWN: select(selected + 1); break;
             case java.awt.event.KeyEvent.VK_UP: select(selected - 1); break;
             case java.awt.event.KeyEvent.VK_RIGHT: setTab(Tab.values()[(tab.ordinal() + 1) % Tab.values().length]); break;
