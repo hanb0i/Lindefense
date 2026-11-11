@@ -398,7 +398,8 @@ class LindefenseApp:
         from lindefense.sim.difficulty import Difficulty
         from lindefense.sim.misc import AdminMode, AdminOption
         AudioManager.sfx(Sfx.UI_SELECT)
-        g = ReverseMatch.create(map_index, time.perf_counter_ns(), Difficulty.get_selected())
+        from lindefense.ai.units import selected_doctrine
+        g = ReverseMatch.create(map_index, time.perf_counter_ns(), Difficulty.get_selected(), selected_doctrine())
         g.get_reverse().set_unlimited_credits(AdminMode.is_on(AdminOption.INFINITE_MONEY))
         self._start(g, False)
 

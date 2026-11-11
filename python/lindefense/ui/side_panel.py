@@ -799,6 +799,12 @@ targeting, sell), so the upgrade preview never pushes the panel past the bottom 
             return None
         m = self.screen.get_mouse_logical()
         return t if b.hit(m[0], m[1]) else None
+    def lives_cost(self, e):
+        """The integrity enemy e costs if it leaks: its type's cost, capped for bosses in a campaign level (BALANCE
+        boss_leak)."""
+        n = e.get_type().lives
+        c = self.game.get_campaign() if self.game is not None else None
+        return n if c is None else c.leak_cost(e.get_type(), n)
     def build_enemy_info(self, e):
         nc = (Cyber.RED if e.is_boss() else Cyber.TEXT)
         self.header(e.get_type().display_name, nc, (_j.cat(e.get_type().get_boss_class().label, ' BOSS') if e.is_boss() else 'ENEMY'), (Cyber.RED if e.is_boss() else Cyber.MAGENTA))
@@ -823,7 +829,7 @@ targeting, sell), so the upgrade preview never pushes the panel past the bottom 
         yy = self.y
         self.stat_cell(self.x0, yy, 'speed', _j.Fn(lambda : _j.cat(Ui.fmt(e.get_type().speed), 'x')), Cyber.TEXT)
         self.stat_cell((self.x0 + 180), yy, 'reward', _j.Fn(lambda : _j.cat('$', e.get_type().reward)), Cyber.YELLOW)
-        self.stat_cell(self.x0, (yy + 34), 'lives cost', _j.Fn(lambda : _j.s(e.get_type().lives)), Cyber.RED)
+        self.stat_cell(self.x0, (yy + 34), 'lives cost', _j.Fn(lambda : _j.s(self.lives_cost(e))), Cyber.RED)
         self.stat_cell((self.x0 + 180), (yy + 34), 'armour', _j.Fn(lambda : _j.cat(_j.to_int((e.get_type().get_armor() * 100)), '%')), Cyber.TEXT)
         self.y += 68
         if e.is_lead_type():

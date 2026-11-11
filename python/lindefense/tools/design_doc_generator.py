@@ -11,7 +11,8 @@ from lindefense.ui.acm import *  # noqa: F401,F403
 from lindefense.ai.reverse_match import ReverseMatch
 from lindefense.ai.units import AttackAbility
 from lindefense.ai.units import AttackUnit
-from lindefense.ai.units import DefenderProfile
+from lindefense.ai.units import DefenderProfile, Doctrine, Role
+from lindefense.javacompat import jround
 from lindefense.enemy import boss_abilities
 from lindefense.enemy.boss import Boss
 from lindefense.enemy.boss import PalantirProtocols
@@ -118,14 +119,18 @@ Usage: .venv/bin/python -m lindefense.tools.design_doc_generator ../DESIGN.md   
         w.println("its wave n is base wave n's enemies with that base wave's HP / speed / reward scaling and end-of-wave bonus. Every level")
         w.println('starts fresh (its own cash and integrity, nothing carried over), on O(1), without Patch Notes, Breaking News or Freeplay;')
         w.println('it is won when its last wave is cleared (the finale: when Palantir dies). "Enemy health" is the level\'s multiplier on')
-        w.println("top of the base waves' HP scaling (bosses and Palantir included, kill rewards unchanged), from its first wave to its")
-        w.println(_j.cat('last: it keeps every starting budget small (at most $', '{:,}'.format(campaign.CASH_CAP), ', the finale $', '{:,}'.format(campaign.FINALE_CASH_CAP), ') while the late levels keep their'))
-        w.println("enemy types, mechanics and bosses; the level's income grows the build. All of a level's numbers are the `BALANCE` table.")
-        w.println('Stars by integrity left: 3 with at least 90%,')
-        w.println(_j.cat('2 with at least 50%, else 1. The first clear of a level unlocks its reward. Starter towers: ', ', '.join(t.display_name for t in campaign.STARTER), '.'))
+        w.println("top of the base waves' HP scaling (bosses and Palantir included, kill rewards unchanged), rising from its first wave")
+        w.println(_j.cat('to its last along t^', campaign.HP_RAMP, ' (t: 0 on the first wave, 1 on the last; most of the rise comes late). It keeps every'))
+        w.println(_j.cat('starting budget small (at most $', '{:,}'.format(campaign.CASH_CAP), ', the finale $', '{:,}'.format(campaign.FINALE_CASH_CAP), ') while the late levels keep their enemy types,'))
+        w.println("mechanics and bosses, and it climbs above 100% in the early levels, whose waves are easy in CLASSIC;")
+        w.println("the pressure grows through the level as the level's income grows the build. \"Boss leak\" is a campaign-only rule: one")
+        w.println("corporate boss that gets through costs at most that much integrity (its own cost otherwise, e.g. 3Com 100), so a single")
+        w.println("leak hurts without deciding the level; Palantir is never capped and ends the finale. All of a level's numbers are the")
+        w.println(_j.cat('`BALANCE` table. Stars by integrity left (`STAR_PERCENT`): 3 with at least ', campaign.STAR_PERCENT[0], '% (near-flawless), 2 with at least ', campaign.STAR_PERCENT[1], '%,'))
+        w.println(_j.cat('else 1; the briefing shows both in integrity. The first clear of a level unlocks its reward. Starter towers: ', ', '.join(t.display_name for t in campaign.STARTER), '.'))
         w.println()
-        w.println('| # | Level | Map | Waves | War waves | Start cash | Integrity | Enemy health | Bosses | Towers | First clear unlocks |')
-        w.println('|---|---|---|---|---|---|---|---|---|---|---|')
+        w.println('| # | Level | Map | Waves | War waves | Start cash | Integrity | Enemy health | Boss leak | Bosses | Towers | First clear unlocks |')
+        w.println('|---|---|---|---|---|---|---|---|---|---|---|---|')
         for lv in campaign.LEVELS:
             bosses = []
             for _, t in lv.threats()['bosses']:
@@ -133,13 +138,31 @@ Usage: .venv/bin/python -m lindefense.tools.design_doc_generator ../DESIGN.md   
                     bosses.append(t.display_name)
             w.println(_j.cat('| ', lv.index, ' | ', lv.title, ' | ', _maps.create(lv.map_index).get_name(), ' | ', lv.wave_count(), ' ', lv.kind().lower(), ' | ',
                              lv.bases[0], '-', lv.bases[-1], ' | $', '{:,}'.format(lv.start_cash), ' | ', lv.start_lives, ' | ', lv.hp_text(), ' | ',
+                             (lv.boss_leak() if bosses and lv.boss_leak() is not None else '-'), ' | ',
                              (', '.join(bosses) if bosses else '-'), ' | ', len(lv.towers()), ' | ', (lv.reward_text() or 'campaign complete'), ' |'))
         w.println()
         w.println(_j.cat('The Hero Store opens after level ', campaign.heroes_level().index, ' and the $15,000 ability unlocks after level ', campaign.abilities_level().index, '.'))
         w.println('Progress (best stars per level, unlocked towers) is saved in the prefs node `lindefense/campaign`. Campaign levels count')
         w.println('toward the career totals and the boss / hero / career achievements, plus three campaign achievements (Fully Trained,')
         w.println('State of the Art, Base Model); never toward the classic map records, run history or classic-run achievements.')
-        w.println('Calibration: `python -m lindefense.tools.auto_player campaign` (the balance bot limited to each level\'s towers, two seeds).')
+        w.println('Calibration: `python -m lindefense.tools.auto_player campaign` (the near-optimal balance bot limited to each level\'s')
+        w.println('towers, seeds 1234 / 2000 / 2766). Targets for the bot: levels 1-2 won with roughly 60-90% integrity left, levels 3-9 with')
+        w.println('30-70%, levels 10-14 won on about two seeds in three, often under 40%, and the finale won on at most two seeds in three,')
+        w.println("with Palantir past three quarters of its route on wins. A player using heroes and abilities well beats the bot.")
+        w.println()
+        w.println('### Story')
+        w.println()
+        w.println("The campaign's narrative is data (`sim/campaign_story.py`, keyed by level id) and presentation (`ui/story_view.py`); it")
+        w.println('never touches a Game. Four acts: I Hello, World (1-3), II Corporate Takeover (4-8: Bellarmine College Prep, then the SW')
+        w.println('Resource Consultant, whose invoice names Palantir at the end of 7; the midpoint twist at the end of 8: the war is')
+        w.println("Palantir's training run), III Out of Distribution (9-13: 3Com, data poisoning, Lockheed Martin, every boss at once), IV")
+        w.println('The Last Line (14-15: Zethos joins, Palantir comes in person). Per level: a briefing line, a 2-4 line dialogue before')
+        w.println('the level (once), radio chatter whose triggers are a wave number, "mid", "last", a boss type or a modifier (resolved')
+        w.println("against the level's wave list), a 1-2 line outcome and each new tower's first line on the end panel; the prologue on the")
+        w.println('first visit and the campaign ending (instead of the classic epilogue, once) after the finale. Seen scenes and heard radio')
+        w.println('lines are kept in the prefs node `lindefense/story` (`StoryLog`, in memory for tests). The chatter bubble reads only the')
+        w.println('wave number and state, and its portraits hand back the enemy ids they borrow, so a level plays bit-identically with or')
+        w.println('without it.')
     @staticmethod
     def injection_and_protocols(w):
         w.println()
@@ -198,10 +221,28 @@ Usage: .venv/bin/python -m lindefense.tools.design_doc_generator ../DESIGN.md   
         return sb.to_string()
     @staticmethod
     def reverse_mode(w):
+        RM = _m_reverse_match
+        f = DesignDocGenerator.f
         w.println()
         w.println('## 10. Adversarial Training (reverse mode)')
         w.println()
-        w.println(_j.cat('The player attacks, an AI defender (`ai/DefenderAI`, shared with the balance bot) builds. Match: ', ReverseMatch.EPOCHS, ' epochs of ', DesignDocGenerator.f(ReverseMatch.EPOCH_SECONDS), ' s (+', DesignDocGenerator.f(ReverseMatch.OVERTIME), ' s overtime for units already sent), ', DesignDocGenerator.f(ReverseMatch.HANDSHAKE), ' s setup. Start with ', _m_reverse_match.START_CREDITS, ' compute credits; each integrity point a leak costs pays ', _m_reverse_match.LEAK_BONUS_PER_LIFE, '; SCALE COMPUTE adds +', _m_reverse_match.COMPUTE_STEP, '/s (from $', _m_reverse_match.COMPUTE_BASE_PRICE, ', x', DesignDocGenerator.f(_m_reverse_match.COMPUTE_PRICE_GROWTH), ' each, max ', ReverseMatch.COMPUTE_MAX, '). Queue: ', ReverseMatch.MAX_QUEUE, ' units, one every ', DesignDocGenerator.f(_m_reverse_match.SPAWN_GAP), ' s.'))
+        w.println(_j.cat('The player attacks, an AI defender (`ai/DefenderAI`, shared with the balance bot) builds. Match: ', ReverseMatch.ROUNDS, ' rounds of ', f(ReverseMatch.ROUND_SECONDS), ' s, ', f(ReverseMatch.HANDSHAKE), ' s setup. Each round has a breach objective (take ', ', '.join(_j.cat(jround(100 * x), '%') for x in RM.GOALS), ' of the AI\'s integrity before the round ends) that pays ', f(RM.OBJECTIVE_SECONDS), ' s of income. An AI at ', jround(100 * RM.OVERTIME_LINE), '% integrity or less at the end of round ', ReverseMatch.ROUNDS, ' goes to sudden-death overtime: the uplink stays open ', f(ReverseMatch.OVERTIME), ' s more, income x', f(RM.OVERTIME_INCOME), ', every exploit recharged. Once the uplink closes, units already sent get ', f(ReverseMatch.DRAIN), ' s to finish.'))
+        w.println()
+        w.println(_j.cat('Compute income per second: (', f(RM.INCOME_BASE), ' + ', f(RM.INCOME_LINEAR), ' m + ', f(RM.INCOME_SQUARE), ' m^2) x the long-track bonus x the doctrine, m = minutes played (capped at round ', ReverseMatch.ROUNDS, '); the AI is funded the same curve x its profile. Each integrity point a leak costs pays ', RM.LEAK_BONUS_PER_LIFE, '; SCALE COMPUTE adds +', RM.COMPUTE_STEP, '/s (from $', RM.COMPUTE_BASE_PRICE, ', x', f(RM.COMPUTE_PRICE_GROWTH), ' each, max ', RM.COMPUTE_MAX, '). Queue: ', RM.MAX_QUEUE, ' units, one every ', f(RM.SPAWN_GAP), ' s.'))
+        w.println()
+        w.println('| Doctrine | Start | Perks | Cost |')
+        w.println('|---|---|---|---|')
+        for d in Doctrine.values():
+            w.println(_j.cat('| ', d.display_name, ' | ', d.start_credits, ' | ', '; '.join(d.perks), ' | ', d.drawback, ' |'))
+        w.println()
+        w.println(_j.cat('The AI adapts: from ', f(RM.ADAPT_START), ' s, every few seconds (its profile\'s interval) it looks at what the player spent over the last ', f(RM.ADAPT_WINDOW), ' s; a role with at least ', jround(100 * RM.ADAPT_SHARE), '% of it gets its counter tower built (or upgraded) before the AI\'s plan. A boss on the track (for an AI that anticipates: the MOAB unlocking within ', f(RM.BOSS_NOTICE), ' s) makes it build a railgun at once.'))
+        w.println()
+        w.println('| Role | Units | AI counter | Answered by |')
+        w.println('|---|---|---|---|')
+        for r in Role.values():
+            us = ', '.join(u.type.display_name for u in AttackUnit.values() if u.role is r) if r is not Role.CAMO else 'Camo modifier, Lockheed Martin'
+            ans = ', '.join(t.display_name for t in r.answers) if r.answers else 'camo detection'
+            w.println(_j.cat('| ', r.label, ' | ', us, ' | ', r.counter.display_name, ' T', r.counter_tier, ' | ', ans, ' |'))
         w.println()
         w.println('| Unit | Price | Base HP | Unlocks at |')
         w.println('|---|---|---|---|')
@@ -214,22 +255,22 @@ Usage: .venv/bin/python -m lindefense.tools.design_doc_generator ../DESIGN.md   
         w.println('| Modifier | Price factor | Unlocks at |')
         w.println('|---|---|---|')
         for m in Modifier.values():
-            w.println(_j.cat('| ', m.label, ' | x', DesignDocGenerator.f(AttackUnit.modifier_factor(m)), ' | ', ReverseMatch.clock(AttackUnit.modifier_unlock_at(m)), ' |'))
+            w.println(_j.cat('| ', m.label, ' | x', f(AttackUnit.modifier_factor(m)), ' | ', ReverseMatch.clock(AttackUnit.modifier_unlock_at(m)), ' |'))
         w.println()
         w.println('| Exploit | Cost | Cooldown | Unlocks at | Effect |')
         w.println('|---|---|---|---|---|')
         for a in AttackAbility.values():
-            w.println(_j.cat('| ', a.display_name, ' | $', a.cost, ' | ', DesignDocGenerator.f(a.cooldown), ' s | ', ReverseMatch.clock(a.unlock_at), ' | ', a.description, ' |'))
+            w.println(_j.cat('| ', a.display_name, ' | $', a.cost, ' | ', f(a.cooldown), ' s | ', ReverseMatch.clock(a.unlock_at), ' | ', a.description, ' |'))
         w.println()
         w.println("Each Difficulty Growth mode picks the AI and the match rules: the harder the mode, the more damage the AI's towers deal and")
         w.println("the more integrity it has, and the less health the player's units have and the less compute the player earns (passive income,")
         w.println('SCALE COMPUTE and leak bounties). O(N) is the neutral baseline.')
         w.println()
-        w.println('| Difficulty Growth | AI | AI tower damage | AI integrity | Your unit health | Your income | AI funding | AI start cash | Notes |')
-        w.println('|---|---|---|---|---|---|---|---|---|')
+        w.println('| Difficulty Growth | AI | AI tower damage | AI integrity | Your unit health | Your income | AI funding | AI start cash | Adapts every | Notes |')
+        w.println('|---|---|---|---|---|---|---|---|---|---|')
         for d in Difficulty.values():
             pr = DefenderProfile.of(d)
-            w.println(_j.cat('| ', d.ascii_label, ' | ', pr.display_name, ' | x', DesignDocGenerator.f(pr.tower_damage), ' | ', pr.integrity, ' | x', DesignDocGenerator.f(pr.unit_hp), ' | x', DesignDocGenerator.f(pr.attacker_income), ' | x', DesignDocGenerator.f(pr.income), ' | x', DesignDocGenerator.f(pr.start_cash), ' | ', pr.description, ' |'))
+            w.println(_j.cat('| ', d.ascii_label, ' | ', pr.display_name, ' | x', f(pr.tower_damage), ' | ', pr.integrity, ' | x', f(pr.unit_hp), ' | x', f(pr.attacker_income), ' | x', f(pr.income), ' | x', f(pr.start_cash), ' | ', f(pr.adapt_interval), ' s | ', pr.description, ' |'))
     @staticmethod
     def global_rules(w):
         w.println('## 1. Global rules')

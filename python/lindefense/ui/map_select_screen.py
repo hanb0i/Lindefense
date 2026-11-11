@@ -39,6 +39,7 @@ coordinates so hit-testing stays correct at any window size."""
         self.briefing_reverse = False
         self.briefing_daily = False
         self.run_setup = None
+        self.doctrine_picker = None
         self.daily = DailyRun.today()
         GCompound.__init__(self)
         self.buttons = _j.ArrayList()
@@ -49,8 +50,8 @@ coordinates so hit-testing stays correct at any window size."""
         self.best_labels = []        # (label, map name, right edge, baseline) of each card's BEST readout
         self.medal_marks = {}        # map name -> its card's four medal frames (Difficulty order)
         self.app = app
-        self.add(Ui.rect(0, 0, Ui.W, Ui.H, MenuScreen.BG, MenuScreen.BG))
-        self.add(Cyber.Grid(0, 0, Ui.W, Ui.H, 40, Ui.with_alpha(MenuScreen.CYAN, 6)))
+        self.backdrop = Backdrop()   # the title screen's cyberpunk night scene, shared by every menu screen
+        self.add(self.backdrop)
         title = Ui.label('SELECT A MAP', 0, 0, MenuScreen.menu_font(Font.BOLD, 30), Cyber.TEXT)
         title.set_location((((Ui.W - title.get_width()) / 2) + 30), 64)
         self.add(title)
@@ -391,8 +392,7 @@ ATTACK (or Enter) starts the reverse match; DEFEND INSTEAD goes back to the norm
         ty += 2
         self.briefing.add(Ui.label('Reverse mode  ·  you attack', rx, ty, Cyber.body(Font.BOLD, 16), dc))
         ty += 40
-        mins = _j.to_int((ReverseMatch.DURATION / 60))
-        ty = self.briefing_section('Adversarial training', _j.cat('Roles reversed: you send the enemies, a defender AI builds and upgrades the towers. Spend compute credits on ', 'units, modifiers and exploits, and drop its integrity to 0 before the ', mins, ':00 training run ends.'), MenuScreen.MAGENTA, rx, ty, rw)
+        ty = self.briefing_section('Adversarial training', _j.cat('You send the enemies, an AI builds the towers and adapts. Break its integrity within ', ReverseMatch.ROUNDS, ' rounds of 1:00: each round\'s breach objective pays compute; an AI at 25% or less at the end goes to overtime.'), MenuScreen.MAGENTA, rx, ty, rw)
         d = Difficulty.get_selected()
         prof = DefenderProfile.of(d)
         ty = self.briefing_section(_j.cat('Defender AI: ', prof.display_name), _j.cat(DifficultySelector.display(d, Cyber.body(Font.PLAIN, 16)), '  -  ', prof.description), MenuScreen.YELLOW, rx, ty, rw)
@@ -411,7 +411,10 @@ ATTACK (or Enter) starts the reverse match; DEFEND INSTEAD goes back to the norm
         self.briefing.add(back)
         self.briefing.add(go)
         self.add_mode_switch(idx, ax, aw, True)
-        RunSetupView.reverse_band(self.briefing, ax, MapSelectScreen.band_y(), (pw - (2 * MapSelectScreen.BRIEF_PAD)))
+        self.doctrine_picker = DoctrinePicker(ax, MapSelectScreen.band_y(), (pw - (2 * MapSelectScreen.BRIEF_PAD)))
+        self.briefing.add(self.doctrine_picker)
+        for b in self.doctrine_picker.buttons():
+            _j_add(self.briefing_buttons, b)
         self.add(self.briefing)
     @staticmethod
     def band_y():
@@ -464,6 +467,7 @@ or the daily run). A seed that does not parse is refused and its error stays on 
         self.briefing_reverse = False
         self.briefing_daily = False
         self.run_setup = None
+        self.doctrine_picker = None
     def key_pressed(self, e):
         """Esc closes the briefing popup, or goes back to the main menu; Enter deploys from an open briefing."""
         k = e.get_key_code()
@@ -479,6 +483,9 @@ or the daily run). A seed that does not parse is refused and its error stays on 
                 self.close_briefing()
             else:
                 self.app.show_menu()
+        elif (self.doctrine_picker is not None) and self.briefing_reverse and (KeyEvent.VK_1 <= k <= KeyEvent.VK_3):
+            AudioManager.sfx(Sfx.UI_CLICK)
+            self.doctrine_picker.pick_index(k - KeyEvent.VK_1)
         elif (k == KeyEvent.VK_ENTER) and (self.briefing is not None):
             idx = self.briefing_map
             if self.briefing_reverse:
@@ -524,6 +531,8 @@ or the daily run). A seed that does not parse is refused and its error stays on 
             c.set_hover(c.hit(lx, ly))
     def frame(self, dt):
         self.t += dt
+        self.backdrop.frame(dt)
+        self.mark.animate(self.t, display_settings.reduced_motion())
         for b in self.buttons:
             b.animate(dt)
         for b in self.briefing_buttons:
@@ -539,8 +548,10 @@ or the daily run). A seed that does not parse is refused and its error stays on 
 from lindefense.audio.audio_manager import AudioManager  # noqa: E402
 from lindefense.audio.sfx import Sfx  # noqa: E402
 from lindefense.ui.audio_toggle import AudioToggle  # noqa: E402
+from lindefense.ui.backdrop import Backdrop  # noqa: E402
 from lindefense.ui.cyber import Cyber  # noqa: E402
 from lindefense.ui.difficulty_selector import DifficultySelector  # noqa: E402
+from lindefense.ui import display_settings  # noqa: E402
 from lindefense.ui.logo_emblem import LogoEmblem  # noqa: E402
 from lindefense.ui.logo_wordmark import LogoWordmark  # noqa: E402
 from lindefense.ui.map_art import MapArt  # noqa: E402
@@ -548,6 +559,7 @@ from lindefense.ui.menu_screen import MenuScreen  # noqa: E402
 from lindefense.ui.neon_button import NeonButton  # noqa: E402
 from lindefense.ui import run_report_view as RunReportView  # noqa: E402
 from lindefense.ui import run_setup_view as RunSetupView  # noqa: E402
+from lindefense.ui.doctrine_picker import DoctrinePicker  # noqa: E402
 
 MapSelectScreen.serial_version_uid = 1
 MapSelectScreen.COLS = 4

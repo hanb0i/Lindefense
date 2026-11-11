@@ -179,11 +179,13 @@ map select once left the menu's buttons dead)."""
         self.start_game(Game.fresh_copy(old, old.get_seed()))
     def start_reverse(self, map_index):
         """ATTACK (reverse mode, "Adversarial Training", from the mission briefing): the player sends the enemies and a
-defender AI builds the towers on map mapIndex; the selected Difficulty Growth mode picks the AI. The AI's
+defender AI builds the towers on map mapIndex; the selected Difficulty Growth mode picks the AI and the briefing's
+doctrine card the attacker's perks. The AI's
 Hero Store collection is in memory (saved unlocks are never used or changed); the admin "infinite money" cheat
 gives the attacker unlimited compute credits instead."""
         AudioManager.sfx(Sfx.UI_SELECT)
-        g = ReverseMatch.create(map_index, _j.nano_time(), Difficulty.get_selected())
+        from lindefense.ai.units import selected_doctrine
+        g = ReverseMatch.create(map_index, _j.nano_time(), Difficulty.get_selected(), selected_doctrine())
         g.get_reverse().set_unlimited_credits(AdminMode.is_on(AdminMode.Option.INFINITE_MONEY))
         self.start_game(g)
     def start_tutorial(self):

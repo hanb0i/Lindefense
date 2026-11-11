@@ -4,7 +4,7 @@ Save & Continue of a level, records and the campaign achievements, the campaign 
 panel painted offscreen, and the classic game staying untouched. Every test uses temp folders."""
 import pytest
 
-from kit import DT, force_place, kill_outright
+from kit import DT, force_place, kill_outright, spawn_at
 from lindefense import prefs, savegame
 from lindefense.ai.defender_ai import EFFICIENT_PLAN, DefenderAI, Options
 from lindefense.enemy.types import EnemyType, Modifier
@@ -12,6 +12,7 @@ from lindefense.map import maps
 from lindefense.sim import campaign
 from lindefense.sim import records as R
 from lindefense.sim.campaign import CampaignProgress, LEVELS, STARTER
+from lindefense.sim.campaign_story import StoryLog, scene_keys
 from lindefense.sim.game import Game, State
 from lindefense.sim.misc import HeroCollection
 from lindefense.sim.vec import Vec
@@ -25,11 +26,11 @@ SHOP = T.shop_towers()
 def _temp_prefs(tmp_path, monkeypatch):
     monkeypatch.setenv("LINDEFENSE_PREFS_DIR", str(tmp_path / "prefs"))
     prefs._nodes.clear()
-    shared = (CampaignProgress._shared, HeroCollection._shared, R.Records._shared)
-    CampaignProgress._shared = HeroCollection._shared = R.Records._shared = None
+    shared = (CampaignProgress._shared, HeroCollection._shared, R.Records._shared, StoryLog._shared)
+    CampaignProgress._shared = HeroCollection._shared = R.Records._shared = StoryLog._shared = None
     yield
     prefs._nodes.clear()
-    CampaignProgress._shared, HeroCollection._shared, R.Records._shared = shared
+    CampaignProgress._shared, HeroCollection._shared, R.Records._shared, StoryLog._shared = shared
 
 
 # ====================================================================== the level table
@@ -53,9 +54,13 @@ def test_levels_vary_and_span_the_war(check):
         cap = campaign.FINALE_CASH_CAP if lv.is_finale() else campaign.CASH_CAP
         check(lv.start_cash <= cap, "%s starts with a manageable build ($%d <= $%d)" % (lv.id, lv.start_cash, cap))
         a, b = lv.hp_range()
-        check(0 < a <= b <= 1, "%s: enemy health multiplier %s-%s rises within (0, 1]" % (lv.id, a, b))
+        check(0 < a < b <= 8, "%s: enemy health multiplier %s-%s rises through the level" % (lv.id, a, b))
+        check(lv.start_lives == 100, "%s: 100 integrity, no padding (%d)" % (lv.id, lv.start_lives))
     check(set(campaign.BALANCE) == {lv.id for lv in LEVELS}, "one BALANCE entry per level")
     check([lv.start_cash for lv in LEVELS[:4]] == sorted(lv.start_cash for lv in LEVELS[:4]), "early levels start small")
+    early = [lv for lv in LEVELS if lv.bases[-1] <= 40]
+    check(early and all(lv.hp_range()[0] > 1 for lv in early),
+          "the early levels' easy waves are tougher than in CLASSIC (%s)" % [lv.hp_range() for lv in early])
     ends = [lv.bases[-1] for lv in LEVELS]
     check(ends[0] <= 15 and ends[-1] == waves.WAVE_COUNT, "from the first waves to wave 100 (%s)" % ends)
     check(sum(1 for a, b in zip(ends, ends[1:]) if b < a) <= 2, "the war mostly advances level by level (%s)" % ends)
@@ -87,6 +92,9 @@ def test_level_waves_are_deterministic_and_scaled_by_their_base_wave(check):
     check(abs(e.get_hp_scale() - waves.hp_scale(base) * hp0) < 1e-12, "spawned enemies carry it")
     check(abs(c.hp_at(16) - hp1) < 1e-12 and abs(c.hp_at(1) - hp0) < 1e-12, "the multiplier runs from the first to the last wave")
     check(all(c.hp_at(n) <= c.hp_at(n + 1) for n in range(1, 16)), "and never falls")
+    t = 8 / 15.0
+    check(hp1 > hp0 and abs(c.hp_at(9) - (hp0 + (hp1 - hp0) * t ** campaign.HP_RAMP)) < 1e-12 and c.hp_at(9) < (hp0 + hp1) / 2,
+          "most of the rise comes in the second half (wave 9: %.3f)" % c.hp_at(9))
     check(abs(g.get_wave_speed_scale() - waves.speed_scale(base)) < 1e-12, "speed scale of the base wave")
     check(abs(g.get_reward_scale() - waves.reward_scale(base)) < 1e-12, "reward scale of the base wave")
     check(waves.for_game(g, 3) is c.wave(3) and waves.exists(g, 16) and not waves.exists(g, 17), "the level's waves only")
@@ -177,6 +185,69 @@ def test_intel_raises_no_camo_or_lead_alarm_with_the_levels_towers(check):
         check(not bad, "%s: alarms on %s" % (lv.id, bad))
 
 
+def test_star_thresholds_are_one_near_flawless_rule(check):
+    """STAR_PERCENT is the one place the thresholds live: 3 stars only for a near-flawless win (at most 5% of the
+    integrity lost), 2 for most of it kept; star_lives gives them in integrity, as the briefing shows them."""
+    three, two = campaign.STAR_PERCENT
+    check(three >= 95 and 50 <= two < three, "3 stars: lose at most 5%%; 2 stars below that (%s)" % (campaign.STAR_PERCENT,))
+    check(campaign.star_lives(100) == (three, two), "in a 100-integrity level: %s" % (campaign.star_lives(100),))
+    for n in (100, 80, 60, 33, 7):
+        a, b = campaign.star_lives(n)
+        check(campaign.stars_for(a, n) == 3 and campaign.stars_for(a - 1, n) == 2, "%d integrity: 3 stars from %d" % (n, a))
+        check(campaign.stars_for(b, n) == 2 and campaign.stars_for(b - 1, n) <= 1, "%d integrity: 2 stars from %d" % (n, b))
+        check(a * 100 >= three * n > (a - 1) * 100 and b * 100 >= two * n > (b - 1) * 100, "%d integrity: exact percentages" % n)
+    for lv in LEVELS:
+        check(lv.star_lives() == campaign.star_lives(lv.start_lives), "%s: its thresholds follow its integrity" % lv.id)
+        check(lv.start_lives - lv.star_lives()[0] <= 0.05 * lv.start_lives, "%s: 3 stars are near-flawless" % lv.id)
+
+
+def test_a_leaking_boss_costs_at_most_the_levels_cap(check):
+    """Campaign rule (BALANCE boss_leak): one corporate boss that gets through costs at most the level's cap, so a
+    single leak hurts without deciding the level. Palantir is never capped (it ends the finale), regular enemies pay
+    their own cost, and CLASSIC games are untouched."""
+    for lv in LEVELS:
+        cap = lv.boss_leak()
+        if lv.threats()["bosses"]:
+            check(cap is not None and 10 <= cap <= 0.4 * lv.start_lives,
+                  "%s: a boss leak costs at most %s of %d integrity" % (lv.id, cap, lv.start_lives))
+    fin = campaign.finale()
+    check(fin.start_lives <= EnemyType.PALANTIR.lives, "Palantir reaching the core still ends the finale")
+    check(fin.balance().boss_leak is not None and
+          campaign.CampaignRun(fin).leak_cost(EnemyType.PALANTIR, EnemyType.PALANTIR.lives) == EnemyType.PALANTIR.lives,
+          "Palantir is never capped")
+
+    lv = campaign.level("network_effect")
+    cap = lv.boss_leak()
+    g = campaign.new_game(lv, 3)
+    end = g.get_map().get_routes()[0].get_total_length()
+    spawn_at(g, EnemyType.THREE_COM, None, 0, end - 2)
+    g.run(20)
+    check(g.get_lives() == lv.start_lives - cap, "3Com (%d lives) costs %d here: %d left" % (EnemyType.THREE_COM.lives, cap, g.get_lives()))
+    spawn_at(g, EnemyType.BELLARMINE_COLLEGE_PREP, None, 0, end - 2)
+    g.run(20)
+    check(g.get_lives() == lv.start_lives - cap - min(cap, EnemyType.BELLARMINE_COLLEGE_PREP.lives), "a second boss too")
+    before = g.get_lives()
+    spawn_at(g, EnemyType.TIMSORT, None, 0, end - 2)
+    g.run(10)
+    check(g.get_lives() == before - EnemyType.TIMSORT.lives, "regular enemies pay their own cost")
+    c = Game(maps.create(lv.map_index), 3)
+    spawn_at(c, EnemyType.SW_RESOURCE_CONSULTANT, None, 0, c.get_map().get_routes()[0].get_total_length() - 2)
+    c.run(20)
+    check(c.get_lives() == c.get_max_lives() - EnemyType.SW_RESOURCE_CONSULTANT.lives, "CLASSIC: the full cost (%d)" % c.get_lives())
+
+    # the enemy panel shows what a leak would cost here
+    from lindefense.ui.acm import GLabel
+    from lindefense.ui.game_screen import GameScreen
+    for game, want in ((campaign.new_game(lv, 4), str(cap)), (Game(maps.create(lv.map_index), 4), str(EnemyType.THREE_COM.lives))):
+        sc = GameScreen(None, game)
+        game.start_next_wave()
+        sc.select_enemy(spawn_at(game, EnemyType.THREE_COM, None, 0, 200))
+        sc.frame(0.02)
+        texts = [o.get_label() for o in sc.side.info if isinstance(o, GLabel)]
+        i = texts.index("Lives cost") if "Lives cost" in texts else -1
+        check(i >= 0 and texts[i + 1] == want, "the 3Com panel says lives cost %s (%s)" % (want, texts[i:i + 2]))
+
+
 # ====================================================================== progress
 def test_progress_unlocks_levels_and_towers(check):
     p = CampaignProgress.in_memory()
@@ -191,7 +262,7 @@ def test_progress_unlocks_levels_and_towers(check):
     check(out.new_best and out.stars == 3 and not out.towers and not out.first_clear, "a replay can raise the stars")
     out = p.record(1, True, 10, 100)
     check(out.stars == 1 and out.best == 3 and p.best_stars(1) == 3, "the best is kept")
-    check([campaign.stars_for(l, 100) for l in (100, 90, 89, 50, 49, 1)] == [3, 3, 2, 2, 1, 1], "stars by lives left")
+    check([campaign.stars_for(l, 100) for l in (100, 95, 94, 60, 59, 1)] == [3, 3, 2, 2, 1, 1], "stars by lives left")
     hl = campaign.heroes_level()
     for lv in LEVELS[:hl.index - 1]:
         p.record(lv, True, 100, 100)
@@ -530,7 +601,7 @@ def test_campaign_screen_states_and_clicks(check):
     from lindefense.ui.jawt import KeyEvent
     app = _App()
     p = CampaignProgress.in_memory({"hello_world": 3, "garbage_collection": 1})
-    s = CampaignScreen(app, p)
+    s = CampaignScreen(app, p, story=StoryLog.in_memory(scene_keys()))   # every scene seen: no story in the way
     s.frame(0.05)
     _paint(s)
     nodes = [n for _r, n, *_ in s.cards]
@@ -571,6 +642,29 @@ def test_campaign_screen_states_and_clicks(check):
     _paint(done)
     fresh = CampaignScreen(app, CampaignProgress.in_memory(), "outsourced")
     check(not fresh.is_briefing_open(), "never for a locked level")
+
+
+def test_briefing_shows_the_star_thresholds_and_the_boss_leak_cap(check):
+    """Every briefing has a Stars block (the integrity a win must keep for 3 and 2 stars) and, in a level with bosses,
+    the boss leak cap (the finale adds that Palantir costs all of it), above the Best row and the buttons."""
+    from lindefense.ui.campaign_screen import BRIEF_H, BRIEF_Y, CampaignScreen
+    s = CampaignScreen(_App(), CampaignProgress.in_memory({lv.id: 2 for lv in LEVELS}))
+    for lv in LEVELS:
+        s.open_briefing(lv)
+        texts = [o.get_label() for o in s.briefing if hasattr(o, "get_label")]
+        three, two = lv.star_lives()
+        check("Stars" in texts and "lose at most %d integrity" % (lv.start_lives - three) in texts
+              and "at most %d" % (lv.start_lives - two) in texts and "any win" in texts, "%s: the star thresholds" % lv.id)
+        cap = [t for t in texts if t.startswith("A boss that gets through")]
+        if lv.threats()["bosses"]:
+            check(len(cap) == 1 and ("at most %d integrity" % lv.boss_leak()) in cap[0], "%s: the boss leak cap (%s)" % (lv.id, cap))
+            check(("Palantir costs all of it" in cap[0]) == lv.is_finale(), "%s: Palantir named in the finale only" % lv.id)
+        else:
+            check(not cap, "%s: no boss line without bosses" % lv.id)
+        check(s.scoring_bottom <= BRIEF_Y + BRIEF_H - 118, "%s: above the Best row (%.0f)" % (lv.id, s.scoring_bottom))
+        hp = [t for t in texts if t.startswith("Enemies have")]
+        check(len(hp) == 1 and lv.hp_text() in hp[0], "%s: the enemy health line" % lv.id)
+    _paint(s)
 
 
 def test_level_complete_and_defeat_panels(check):
@@ -663,8 +757,12 @@ def test_app_flow_campaign_to_level_and_back(check):
     app = _real_app()
     app.show_campaign()
     check(isinstance(app.get_map_select(), CampaignScreen), "CAMPAIGN opens the level path")
-    app.get_map_select().open_briefing(1)
-    app.get_map_select().start(1)
+    cs = app.get_map_select()
+    check(cs.is_story_open(), "the first visit plays the prologue")
+    cs.open_briefing(1)
+    cs.start(1)
+    check(cs.is_story_open() and app.get_game() is None, "the first START plays the level's dialogue")
+    cs.story_overlay.skip()
     g = app.get_game()
     check(g is not None and g.get_campaign().level_id == "hello_world", "START plays level 1")
     check(g.get_hero_collection() is HeroCollection.persistent(), "with the saved Hero Store collection")

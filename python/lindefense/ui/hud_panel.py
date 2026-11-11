@@ -9,6 +9,7 @@ from lindefense.ui.jrt import (_j_add, _j_compute_if_absent, _j_for_each, _j_ite
 from lindefense.ui.jawt import *  # noqa: F401,F403
 from lindefense.ui.acm import *  # noqa: F401,F403
 from lindefense.ai.reverse_match import ReverseMatch
+import lindefense.ai.reverse_match as _m_reverse_match
 from lindefense.ai.units import AttackUnit
 from lindefense.enemy.types import Modifier
 from lindefense.sim.game import Game
@@ -83,6 +84,7 @@ the training run's last minute)."""
         self.rev = None
         self.timer_chip = None
         self.ai_chip = None
+        self.breach_bar = None
         self.life_flash = 0.0
         self.time = 0.0
         self.freeplay_tag = None
@@ -177,7 +179,8 @@ the training run's last minute)."""
         if self.rev is not None:
             self.build_reverse()
     def build_reverse(self):
-        """The attacker's HUD: compute credits, the AI's integrity, the epoch, the training-run timer and the AI's cash."""
+        """The attacker's HUD: compute credits, the AI's integrity with the breach meter (a bar of the integrity left, ticked
+at the overtime line), the round, the training-run timer and the AI's cash."""
         self.start_btn.set_visible(False)
         self.auto_btn.set_visible(False)
         self.hero_btn.set_visible(False)
@@ -189,52 +192,53 @@ the training run's last minute)."""
         self.ai_chip.icon.set_visible(False)
         self.ai_chip.value.set_location(9, self.ai_chip.value.get_y())
         self.add(self.ai_chip)
-        Cyber.set_text(self.map_micro, _j.cat('Adversarial training  ·  AI ', DifficultySelector.display(self.rev.get_level(), HudPanel.CHIP_LABEL), ' ', self.rev.get_profile().display_name))
+        bw = ((104 - 36) - 10)
+        self.breach_bar = Cyber.Bar(36, (HudPanel.CHIP_H - 6), bw, 2, 0).colors(Cyber.alpha(Cyber.RED, 210), Color(255, 255, 255, 22), None)
+        self.breach_bar.set_value(1)
+        self.lives_chip.add(self.breach_bar)
+        line = _m_reverse_match.OVERTIME_LINE
+        self.lives_chip.add(Ui.rect((36 + (bw * line)), (HudPanel.CHIP_H - 9), 1, 8, Cyber.alpha(Cyber.YELLOW, 200), None))
+        Cyber.set_text(self.map_micro, _j.cat('Adversarial training  ·  AI ', DifficultySelector.display(self.rev.get_level(), HudPanel.CHIP_LABEL), ' ', self.rev.get_profile().display_name, '  ·  ', self.rev.get_doctrine().display_name))
         self.boss_tag.set_visible(False)
         self.boss_tag_label.set_visible(False)
         self.next_wave.set_visible(False)
     def update_reverse(self):
         """Per-frame reverse-mode chips and bottom strip (the AI's latest action, the next unlock)."""
-        self.cash_chip.set(('ADMIN ∞' if self.rev.has_unlimited_credits() else HudPanel.compact_money(self.rev.get_credits())), Cyber.YELLOW)
-        self.wave_chip.set(_j.cat(self.rev.get_epoch(), ' / ', ReverseMatch.EPOCHS), Cyber.TEXT)
-        self.wave_bar.set_value(_j.dmin(1, (self.rev.get_elapsed() / ReverseMatch.DURATION)))
-        alive = self.game.get_enemy_manager().get_alive_count()
-        queued = self.rev.get_queued()
-        self.enemy_chip.set(_j.cat(alive, ' / ', (alive + queued)), (Cyber.TEXT if ((alive + queued) > 0) else Cyber.MUTED))
-        closing = ((not self.rev.is_uplink_closed()) and (self.rev.get_time_left() <= 60))
-        pulse = ((0.5 + (0.5 * math.sin((self.time * 6)))) if closing else 0)
-        if self.rev.is_uplink_closed():
-            self.timer_chip.set(_j.cat('OVERTIME  ', ReverseMatch.clock(self.rev.get_overtime_left())), Cyber.YELLOW)
+        r = self.rev
+        self.cash_chip.set(('ADMIN ∞' if r.has_unlimited_credits() else HudPanel.compact_money(r.get_credits())), Cyber.YELLOW)
+        if r.is_overtime():
+            self.wave_chip.set('OVERTIME', Cyber.RED)
         else:
-            self.timer_chip.set(_j.cat(ReverseMatch.clock(self.rev.get_time_left()), '  LEFT'), (Cyber.lerp(Cyber.MAGENTA, Color.WHITE, (pulse * 0.5)) if closing else Cyber.TEXT))
-        self.timer_chip.frame.fill((Cyber.alpha(Cyber.MAGENTA, _j.to_int((20 + (40 * pulse)))) if closing else None))
+            self.wave_chip.set(_j.cat('R', r.get_round(), ' / ', ReverseMatch.ROUNDS), (Cyber.lerp(Cyber.RED, Color.WHITE, 0.3) if r.is_final_round() else Cyber.TEXT))
+        self.wave_bar.set_value(_j.dmin(1, (r.get_elapsed() / ReverseMatch.DURATION)))
+        self.breach_bar.set_value(self.game.get_lives() / float(max(1, self.game.get_max_lives())))
+        alive = self.game.get_enemy_manager().get_alive_count()
+        queued = r.get_queued()
+        self.enemy_chip.set(_j.cat(alive, ' / ', (alive + queued)), (Cyber.TEXT if ((alive + queued) > 0) else Cyber.MUTED))
+        closing = (not r.is_uplink_closed()) and (r.is_final_round() or r.is_overtime())
+        pulse = (display_settings.calm((0.5 + (0.5 * math.sin((self.time * 6)))), 0.6) if closing else 0)
+        if self.game.get_state() is not Game.State.PLAYING:
+            self.timer_chip.set('TRAINING OVER', Cyber.MUTED)
+        elif r.is_uplink_closed():
+            self.timer_chip.set(_j.cat('CLOSED  ', ReverseMatch.clock(r.get_drain_left())), Cyber.YELLOW)
+        elif r.is_overtime():
+            self.timer_chip.set(_j.cat('OVERTIME  ', ReverseMatch.clock(r.get_time_left())), Cyber.lerp(Cyber.RED, Color.WHITE, (pulse * 0.5)))
+        else:
+            self.timer_chip.set(_j.cat(ReverseMatch.clock(r.get_time_left()), '  LEFT'), (Cyber.lerp(Cyber.MAGENTA, Color.WHITE, (pulse * 0.5)) if closing else Cyber.TEXT))
+        self.timer_chip.frame.fill((Cyber.alpha((Cyber.RED if r.is_overtime() else Cyber.MAGENTA), _j.to_int((20 + (40 * pulse)))) if closing else None))
         self.ai_chip.set(HudPanel.compact_money(self.game.get_cash()), Cyber.YELLOW)
         cx_event = (Ui.WORLD_W / 2.0)
         ev = self.game.get_map().get_event_text()
         Cyber.set_text(self.event_label, ('' if (ev is None) else ev))
         self.event_label.set_location((cx_event - (self.event_label.get_width() / 2)), self.event_label.get_y())
-        last = self.rev.get_last_ai_action()
+        last = r.get_last_ai_action()
         Cyber.set_text(self.note_label, ('THE DEFENDER AI IS ONLINE' if (last is None) else last.text.upper()))
         Cyber.set_color(self.note_label, (Cyber.MUTED if (last is None) else Cyber.lerp(Ui.c(last.rgb), Cyber.TEXT, 0.25)))
         self.note_label.set_location((cx_event - (self.note_label.get_width() / 2)), ((Ui.BOTTOM_Y + 32) if ((ev is None) or (len(ev) == 0)) else (Ui.BOTTOM_Y + 41)))
-        next_ = _j.MAX_DOUBLE
-        names = _j.ArrayList()
-        now = self.rev.get_elapsed()
-        for u in AttackUnit.values():
-            if u.unlock_at > now:
-                next_ = _j.dmin(next_, u.unlock_at)
-        for m in Modifier.values():
-            if AttackUnit.modifier_unlock_at(m) > now:
-                next_ = _j.dmin(next_, AttackUnit.modifier_unlock_at(m))
-        for u in AttackUnit.values():
-            if u.unlock_at == next_:
-                _j_add(names, u.type.display_name)
-        for m in Modifier.values():
-            if AttackUnit.modifier_unlock_at(m) == next_:
-                _j_add(names, m.label)
-        if next_ == _j.MAX_DOUBLE:
+        next_, names = r.next_unlock()
+        if next_ is None:
             micro = 'Uplink'
-            line = ('closed' if self.rev.is_uplink_closed() else 'everything unlocked')
+            line = ('closed' if r.is_uplink_closed() else 'everything unlocked')
         else:
             micro = _j.cat('Next unlock at ', ReverseMatch.clock(next_))
             line = _j.cat(names[0], (_j.cat('  +', (len(names) - 1)) if (len(names) > 1) else ''))

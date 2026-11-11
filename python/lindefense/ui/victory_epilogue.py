@@ -8,6 +8,7 @@ from lindefense.ui.jawt import Color, Font
 
 
 class VictoryEpilogue(GCompound):
+    TITLE = "THE LAST LINE HOLDS"   # subclasses (ui/story_view.CampaignEnding) replace TITLE and STORY
     STORY = (
         "Wave 100. Palantir's final prediction returns null.",
         "Its core goes dark, and the surveillance network it wove through every server collapses, node by node, "
@@ -39,19 +40,15 @@ class VictoryEpilogue(GCompound):
         cx = x + w / 2
         t = 0.2
         yy = 98.0
-        self.title = self._centered('THE LAST LINE HOLDS', Cyber.display(Font.BOLD, 46), Cyber.lerp(Cyber.YELLOW, Color.WHITE, 0.2), cx, yy, t)
+        self.title = self._centered(type(self).TITLE, Cyber.display(Font.BOLD, 46), Cyber.lerp(Cyber.YELLOW, Color.WHITE, 0.2), cx, yy, t)
         yy += 52
-        body = Cyber.body(Font.PLAIN, 18)
-        for i, para in enumerate(VictoryEpilogue.STORY):
+        for i, para in enumerate(type(self).STORY):
             t += VictoryEpilogue.LINE_DELAY
-            last = i == len(VictoryEpilogue.STORY) - 1
-            f = Cyber.display(Font.BOLD, 24) if last else body
-            col = Cyber.lerp(Cyber.YELLOW, Color.WHITE, 0.45) if last else Cyber.lerp(Cyber.TEXT, Cyber.MUTED, 0.2)
-            if last:
-                yy += 12
+            f, col, gap = self.story_style(i, para)
+            yy += gap
             for line in Ui.wrap(para, f, pw - 120):
                 self._centered(line, f, col, cx, yy, t)
-                yy += 26
+                yy += max(26, f.get_size() + 2)
             yy += 8
         t += VictoryEpilogue.LINE_DELAY
         yy += 14
@@ -91,6 +88,12 @@ class VictoryEpilogue(GCompound):
         self.top = py
         self.height = ph
         self.update(0)
+
+    def story_style(self, i, para):
+        """(font, colour, extra space above) of story paragraph i: the last one stands out."""
+        if i == len(type(self).STORY) - 1:
+            return Cyber.display(Font.BOLD, 24), Cyber.lerp(Cyber.YELLOW, Color.WHITE, 0.45), 12
+        return Cyber.body(Font.PLAIN, 18), Cyber.lerp(Cyber.TEXT, Cyber.MUTED, 0.2), 0
 
     def _centered(self, text, font, col, cx, y, t):
         l = Ui.label(text, 0, y, font, col)

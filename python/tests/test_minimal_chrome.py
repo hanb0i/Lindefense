@@ -1,6 +1,6 @@
 """The minimal UI chrome: flat panels with one thin border, flat buttons with distinct hover / selected / pressed / primary /
-disabled states, labels that fit their buttons, no decorative "// micro" labels, and a quiet title screen. Screens are
-built and painted offscreen; nothing opens a window."""
+disabled states, labels that fit their buttons, no decorative "// micro" labels, and a title screen without the old busy
+props or blinking text. Screens are built and painted offscreen; nothing opens a window."""
 import skia
 import pytest
 
@@ -11,6 +11,7 @@ from lindefense.sim.game import Game, State
 from lindefense.sim.vec import Vec
 from lindefense.tower.tower_type import TowerType as T
 from lindefense.ui.acm import GCompound, GLabel, GLine
+from lindefense.ui.backdrop import Backdrop
 from lindefense.ui.catalog_screen import CatalogScreen
 from lindefense.ui.cyber import Cyber
 from lindefense.ui.game_screen import GameScreen
@@ -193,12 +194,16 @@ def test_labels_fit_and_no_decorative_micro_labels(check):
                       "%s: %r stays inside the 1600 px layout (x %.0f .. %.0f)" % (name, o.get_label(), x, x + o.get_width()))
 
 
-def test_title_screen_is_quiet(check):
+def test_title_screen_keeps_its_chrome_quiet(check):
+    """The beta 4.0 title effects are back (see test_title_backdrop.py), over one shared backdrop object; the
+    old busy props stay gone and no text blinks."""
     m = MenuScreen(_App())
     m.skip_intro()
     top = list(m)
     lines = [o for o in top if isinstance(o, GLine)]
     check(not lines, "no full-screen scanlines, perspective grid or bracket lines (%d lines)" % len(lines))
+    backdrops = [o for o in top if isinstance(o, Backdrop)]
+    check(len(backdrops) == 1 and top[0] is backdrops[0], "the backdrop is one object, painted first")
     def shown(node, out):
         if node.is_visible():
             out.append(node)
@@ -207,8 +212,9 @@ def test_title_screen_is_quiet(check):
                     shown(o, out)
         return out
     n = len(shown(m, []))
-    check(n < 200, "the title screen shows ~100 objects, not the old rain / skyline / grid (~1000): %d" % n)
-    for name in ("rain_cols", "grid_rows", "windows", "chroma_m", "slices", "shimmer", "sys_label", "threat_label", "scan_bar"):
+    check(n < 300, "the title screen shows ~250 objects (the logo's glow stack included), not the old rain / skyline / "
+                   "grid (~1000): %d" % n)
+    for name in ("rain_cols", "grid_rows", "windows", "sys_label", "threat_label", "ticker_label", "scan_bar", "sun_glow"):
         check(not hasattr(m, name), "no %s on the title screen" % name)
     for _ in range(10):
         m.frame(0.05)   # buttons settle into their resting look
@@ -216,4 +222,4 @@ def test_title_screen_is_quiet(check):
     for _ in range(40):
         m.frame(0.05)
     after = [o.get_color() for o in _walk(m, []) if isinstance(o, GLabel)]
-    check(before == after, "after the intro nothing on the title screen blinks or pulses")
+    check(before == after, "after the intro no text on the title screen blinks or pulses (only the logo and backdrop move)")

@@ -2,12 +2,16 @@
 for each reward (the tower's art, name and role), then NEXT LEVEL / CAMPAIGN / RETRY; or DEFEAT with RETRY / CAMPAIGN.
 The finale says CAMPAIGN COMPLETE (after the epilogue) and offers CAMPAIGN / RETRY / MAIN MENU.
 
+Below them, the story (ui/story_view.py): the level's outcome and the new towers' first lines, or Mr. Lindemann's retry
+nudge after a defeat.
+
 What the level changed comes from the run session's campaign Outcome (sim/campaign.py: stars, first clear, unlocks);
 a screen without a session (tests, snapshots) shows what a first clear would give. Drawn flat with the shared helpers
 (UIButton, Cyber, Ui)."""
 from lindefense.sim import campaign
 from lindefense.sim.campaign import CampaignProgress
 from lindefense.tower import catalog
+from lindefense.ui import story_view as StoryView
 from lindefense.ui.cyber import Cyber
 from lindefense.ui.jawt import Color, Font
 from lindefense.ui.ui import Ui
@@ -116,6 +120,9 @@ def build(screen):
     ach = achievements_line(screen)
     card_h = 116.0
     ph = 336.0 if not won else (430.0 + (card_h + 18 if towers else 0) + 24 * len(extras))
+    tale, tale_h = StoryView.story_block(StoryView.outcome_lines(lv, won, out), PANEL_W - 64)
+    if tale is not None:
+        ph += tale_h + 6
     if ach:
         ph += 26
     px, pw = cx - PANEL_W / 2, PANEL_W
@@ -179,6 +186,11 @@ def build(screen):
     for e in extras:
         _centered(ov, e, cx, y + 14, Cyber.body(Font.BOLD, 15), Cyber.alpha(Cyber.CYAN, 235))
         y += 24
+    if tale is not None:   # the story: what happened, who joined
+        tale.set_location(px + 32, y + (6 if (extras or (won and not towers)) else 0))
+        ov.add(tale)
+        screen.story_block = tale
+        y += tale_h + 6
     if ach:   # the campaign achievements unlock when the level is recorded: say so here (no toast comes after)
         from lindefense.ui.catalog_screen import CatalogScreen
         _centered(ov, ach, cx, y + 14, CatalogScreen.fit_font(ach, Cyber.body(Font.BOLD, 15), pw - 64, 11), Cyber.YELLOW)

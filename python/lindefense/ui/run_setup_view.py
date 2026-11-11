@@ -350,18 +350,6 @@ def _fit(text, f, w):
     return text.rstrip() + "..."
 
 
-def reverse_band(into, x, y, w):
-    """The band's place in the Adversarial Training briefing: says the run setup does not apply there."""
-    head = Ui.label("Run setup", x, y, Cyber.body(Font.BOLD, 14), Cyber.MUTED)
-    into.add(head)
-    lx = x + head.get_width() + 14
-    into.add(Ui.rect(lx, y - 5, x + w - lx, 1, Cyber.EDGE, Cyber.EDGE))
-    f = Cyber.body(Font.PLAIN, 15)
-    into.add(Ui.label("Seeds, challenge rules and Patch Notes are for defense runs. In Adversarial Training the defender AI",
-                      x, y + 30, f, Cyber.MUTED))
-    into.add(Ui.label("plays the standard rules on a fresh seed every match.", x, y + 52, f, Cyber.MUTED))
-
-
 # ====================================================================== DAILY card + briefing
 def best_text(best):
     return "Today's best: wave " + str(best) if best > 0 else "Not played today"

@@ -1049,58 +1049,76 @@ Off in tools and tests, on for players (`LINDEFENSE_VARIANCE=off` disables it). 
 
 ## 10. Adversarial Training (reverse mode)
 
-The player attacks, an AI defender (`ai/DefenderAI`, shared with the balance bot) builds. Match: 15 epochs of 60 s (+60 s overtime for units already sent), 15 s setup. Start with 250 compute credits; each integrity point a leak costs pays 8; SCALE COMPUTE adds +4/s (from $300, x1.28 each, max 8). Queue: 150 units, one every 0.15 s.
+The player attacks, an AI defender (`ai/DefenderAI`, shared with the balance bot) builds. Match: 8 rounds of 60 s, 5 s setup. Each round has a breach objective (take 4%, 5%, 6%, 8%, 10%, 12%, 14%, 16% of the AI's integrity before the round ends) that pays 8 s of income. An AI at 25% integrity or less at the end of round 8 goes to sudden-death overtime: the uplink stays open 60 s more, income x2, every exploit recharged. Once the uplink closes, units already sent get 45 s to finish.
+
+Compute income per second: (30 + 12 m + 1.5 m^2) x the long-track bonus x the doctrine, m = minutes played (capped at round 8); the AI is funded the same curve x its profile. Each integrity point a leak costs pays 8; SCALE COMPUTE adds +5/s (from $300, x1.3 each, max 8). Queue: 150 units, one every 0.15 s.
+
+| Doctrine | Start | Perks | Cost |
+|---|---|---|---|
+| Rush | 1000 | Start with 1,000 compute; Exploits recharge 40% faster, cost 25% less; Bosses unlock 30 s earlier | Income -10% |
+| Swarm | 600 | Regular units cost 25% less; Regular units +25% health; Uplink twice as fast, queue 250 | Bosses cost 10% more |
+| Heist | 400 | Leaks pay 2x compute; SCALE COMPUTE 35% cheaper, 10 levels; Round objectives pay 50% more | Start with 400 compute |
+
+The AI adapts: from 40 s, every few seconds (its profile's interval) it looks at what the player spent over the last 40 s; a role with at least 45% of it gets its counter tower built (or upgraded) before the AI's plan. A boss on the track (for an AI that anticipates: the MOAB unlocking within 15 s) makes it build a railgun at once.
+
+| Role | Units | AI counter | Answered by |
+|---|---|---|---|
+| Swarm | Primitive Variable, Static Array, Bubble Sort, Counting Sort, Bucket Sort | Gemini T2 | Gemini, GPT, Suno, DALL·E |
+| Speed | Dynamic Array, Singly Linked List, Doubly Linked List, Selection Sort, Insertion Sort, Shell Sort, TimSort | Claude T2 | Claude, Sora, GLM, Mistral |
+| Armour | Merge Sort, Quick Sort, Heap Sort, Radix Sort | Cohere T2 | Cohere, Qwen, DeepSeek |
+| Boss | Bellarmine College Prep, SW Resource Consultant, Lockheed Martin, 3Com, Palantir | DeepSeek T2 | DeepSeek, Nik-Scope, Mr. Lindemann |
+| Camo | Camo modifier, Lockheed Martin | Perplexity T1 | camo detection |
 
 | Unit | Price | Base HP | Unlocks at |
 |---|---|---|---|
 | Primitive Variable | $10 | 1 | 0:00 |
 | Static Array | $22 | 2 | 0:00 |
 | Dynamic Array | $38 | 3 | 0:00 |
-| Singly Linked List | $34 | 4 | 1:00 |
-| Doubly Linked List | $42 | 5 | 1:00 |
-| Bubble Sort | $30 | 3 | 1:00 |
-| Selection Sort | $38 | 4 | 1:40 |
-| Insertion Sort | $38 | 4 | 1:40 |
-| Shell Sort | $42 | 5 | 1:40 |
-| Merge Sort | $72 | 6 | 2:30 |
-| Quick Sort | $72 | 7 | 2:30 |
-| Counting Sort | $60 | 1 | 2:30 |
-| Heap Sort | $65 | 8 | 3:20 |
-| Radix Sort | $75 | 8 | 3:20 |
-| Bucket Sort | $68 | 6 | 3:20 |
-| TimSort | $140 | 10 | 4:10 |
-| Bellarmine College Prep | $1400 | 1,300 | 4:20 |
-| SW Resource Consultant | $5200 | 7,500 | 5:40 |
-| Lockheed Martin | $3000 | 850 | 7:20 |
-| 3Com | $16000 | 8,000 | 9:20 |
-| Palantir | $30000 | 50,000 | 11:20 |
+| Singly Linked List | $34 | 4 | 0:00 |
+| Doubly Linked List | $42 | 5 | 0:30 |
+| Bubble Sort | $30 | 3 | 0:00 |
+| Selection Sort | $38 | 4 | 0:30 |
+| Insertion Sort | $38 | 4 | 0:30 |
+| Shell Sort | $42 | 5 | 0:30 |
+| Merge Sort | $72 | 6 | 1:00 |
+| Quick Sort | $72 | 7 | 1:00 |
+| Counting Sort | $60 | 1 | 1:00 |
+| Heap Sort | $65 | 8 | 1:30 |
+| Radix Sort | $75 | 8 | 1:30 |
+| Bucket Sort | $68 | 6 | 1:30 |
+| TimSort | $140 | 10 | 2:00 |
+| Bellarmine College Prep | $1400 | 1,300 | 2:30 |
+| SW Resource Consultant | $5200 | 7,500 | 3:30 |
+| Lockheed Martin | $4000 | 850 | 5:00 |
+| 3Com | $16000 | 8,000 | 6:00 |
+| Palantir | $30000 | 50,000 | 7:00 |
 
 Boss units keep their beta 3.0 base HP here (the campaign's buffed bosses are a campaign rule) but bring their signature
 abilities, which their prices include; Palantir launches no free escorts in this mode.
 
 | Modifier | Price factor | Unlocks at |
 |---|---|---|
-| Camo | x1.5 | 3:00 |
-| Regrow | x1.3 | 1:30 |
-| Fortified | x2 | 4:00 |
-| Prompt Injection | x1.6 | 6:00 |
+| Camo | x1.5 | 1:00 |
+| Regrow | x1.3 | 0:30 |
+| Fortified | x2 | 1:30 |
+| Prompt Injection | x1.6 | 3:00 |
 
 | Exploit | Cost | Cooldown | Unlocks at | Effect |
 |---|---|---|---|---|
-| Overclock | $300 | 40 s | 2:00 | All units on the track move 50% faster for 6 s. |
-| Hotfix | $600 | 45 s | 3:00 | Every unit on the track heals to full health. |
-| Zero-Day | $900 | 60 s | 4:00 | Jams the AI's 3 most expensive towers for 6 s. |
+| Overclock | $100 | 25 s | 0:00 | All units on the track move 50% faster for 6 s. |
+| Hotfix | $350 | 40 s | 0:45 | Every unit on the track heals to full health. |
+| Zero-Day | $600 | 50 s | 1:30 | Jams the AI's 3 most expensive towers for 6 s. |
 
 Each Difficulty Growth mode picks the AI and the match rules: the harder the mode, the more damage the AI's towers deal and
 the more integrity it has, and the less health the player's units have and the less compute the player earns (passive income,
 SCALE COMPUTE and leak bounties). O(N) is the neutral baseline.
 
-| Difficulty Growth | AI | AI tower damage | AI integrity | Your unit health | Your income | AI funding | AI start cash | Notes |
-|---|---|---|---|---|---|---|---|---|
-| O(1) | Novice | x0.9 | 80 | x1.1 | x1.1 | x0.9 | x1 | Builds casually: random placement, no ability micro, reacts to camo only after it gets through. 0.9x funding. |
-| O(N) | Competent | x1 | 100 | x1 | x1 | x1 | x1 | Efficient build, smart placement and ability micro, but it reacts to camo only once it sees some. |
-| O(N^2) | Expert | x1.1 | 125 | x0.95 | x0.95 | x1.3 | x1 | Builds detection the moment you can buy camo, saves greedily for $15,000 ability unlocks. 1.3x funding. |
-| O(N^N) | Superintelligence | x1.2 | 150 | x0.9 | x0.9 | x1.6 | x1 | Expert play without the greed (unlocks only on a wide tower base), 1.6x funding. Breaking it takes a real plan. |
+| Difficulty Growth | AI | AI tower damage | AI integrity | Your unit health | Your income | AI funding | AI start cash | Adapts every | Notes |
+|---|---|---|---|---|---|---|---|---|---|
+| O(1) | Novice | x0.9 | 90 | x1.1 | x1.1 | x0.9 | x7 | 75 s | Builds casually: random placement, no ability micro, slow to adapt, blind to camo until it leaks. 0.9x funding. |
+| O(N) | Competent | x1 | 100 | x1 | x1 | x1 | x5 | 50 s | Efficient build and ability micro; adapts to your army every 50 s, but only sees camo once it leaks. |
+| O(N^2) | Expert | x1.2 | 150 | x0.9 | x0.95 | x1.75 | x5.5 | 35 s | Detection the moment you can buy camo, adapts every 35 s, saves for $15,000 ability unlocks. 1.75x funding. |
+| O(N^N) | Superintelligence | x1.35 | 200 | x0.85 | x0.9 | x2 | x6 | 25 s | Expert play without the greed, adapts every 25 s, 2x funding. Breaking it takes a real plan. |
 
 ## 11. Campaign mode
 
@@ -1108,32 +1126,53 @@ SCALE COMPUTE and leak bounties). O(N) is the neutral baseline.
 its wave n is base wave n's enemies with that base wave's HP / speed / reward scaling and end-of-wave bonus. Every level
 starts fresh (its own cash and integrity, nothing carried over), on O(1), without Patch Notes, Breaking News or Freeplay;
 it is won when its last wave is cleared (the finale: when Palantir dies). "Enemy health" is the level's multiplier on
-top of the base waves' HP scaling (bosses and Palantir included, kill rewards unchanged), from its first wave to its
-last: it keeps every starting budget small (at most $25,000, the finale $60,000) while the late levels keep their
-enemy types, mechanics and bosses; the level's income grows the build. All of a level's numbers are the `BALANCE` table.
-Stars by integrity left: 3 with at least 90%,
-2 with at least 50%, else 1. The first clear of a level unlocks its reward. Starter towers: Gemini, Claude, GPT.
+top of the base waves' HP scaling (bosses and Palantir included, kill rewards unchanged), rising from its first wave
+to its last along t^2 (t: 0 on the first wave, 1 on the last; most of the rise comes late). It keeps every
+starting budget small (at most $25,000, the finale $60,000) while the late levels keep their enemy types,
+mechanics and bosses, and it climbs above 100% in the early levels, whose waves are easy in CLASSIC;
+the pressure grows through the level as the level's income grows the build. "Boss leak" is a campaign-only rule: one
+corporate boss that gets through costs at most that much integrity (its own cost otherwise, e.g. 3Com 100), so a single
+leak hurts without deciding the level; Palantir is never capped and ends the finale. All of a level's numbers are the
+`BALANCE` table. Stars by integrity left (`STAR_PERCENT`): 3 with at least 95% (near-flawless), 2 with at least 60%,
+else 1; the briefing shows both in integrity. The first clear of a level unlocks its reward. Starter towers: Gemini, Claude, GPT.
 
-| # | Level | Map | Waves | War waves | Start cash | Integrity | Enemy health | Bosses | Towers | First clear unlocks |
-|---|---|---|---|---|---|---|---|---|---|---|
-| 1 | Hello, World | The Silicon Circuit | 10 skirmish | 1-12 | $650 | 150 | 100% | - | 3 | Perplexity |
-| 2 | Garbage Collection | Abandoned Data Center | 18 battle | 4-21 | $750 | 150 | 100% | - | 4 | Mistral |
-| 3 | Legacy Code | The Legacy Monolith | 12 skirmish | 18-29 | $4,000 | 150 | 100% | - | 5 | DeepSeek |
-| 4 | Campus Tour | Silicon Valley | 24 siege | 17-40 | $5,000 | 100 | 100% | Bellarmine College Prep | 6 | Suno |
-| 5 | Hallucinations | The Hallucination Canyon | 8 skirmish | 41-52 | $8,000 | 100 | 20-30% | Bellarmine College Prep | 7 | Qwen |
-| 6 | Backpropagation | The Neural Network | 21 siege | 36-56 | $10,000 | 100 | 35-55% | Bellarmine College Prep | 8 | Copilot + Hero Store |
-| 7 | Outsourced | The Silicon Circuit | 14 battle | 47-60 | $12,000 | 100 | 20-30% | Bellarmine College Prep, SW Resource Consultant | 9 | Cohere, DALL·E |
-| 8 | Technical Debt | Abandoned Data Center | 30 siege | 41-70 | $8,000 | 100 | 100% | Bellarmine College Prep, SW Resource Consultant | 11 | Grok |
-| 9 | Event Horizon | The Singularity Core | 10 skirmish | 48-66 | $14,000 | 100 | 15-30% | Bellarmine College Prep, SW Resource Consultant | 12 | Sora |
-| 10 | Network Effect | The Legacy Monolith | 16 battle | 65-80 | $16,000 | 100 | 25-75% | Bellarmine College Prep, SW Resource Consultant, 3Com | 13 | GLM + $15,000 abilities |
-| 11 | Mass Hallucination | The Hallucination Canyon | 25 siege | 58-83 | $18,000 | 100 | 10-45% | Bellarmine College Prep, SW Resource Consultant | 14 | Llama |
-| 12 | Stealth Mode | Silicon Valley | 12 skirmish | 79-90 | $20,000 | 100 | 17-45% | 3Com, Bellarmine College Prep, SW Resource Consultant, Lockheed Martin | 15 | Kimi |
-| 13 | Deep Learning | The Neural Network | 28 siege | 67-94 | $22,000 | 100 | 12-45% | SW Resource Consultant, Bellarmine College Prep, 3Com, Lockheed Martin | 16 | MiniMax |
-| 14 | Singularity | The Singularity Core | 9 skirmish | 90-99 | $25,000 | 100 | 5-12% | Lockheed Martin, Bellarmine College Prep, SW Resource Consultant | 17 | Zethos |
-| 15 | The Last Line of Code | The Silicon Circuit | 22 siege | 79-100 | $60,000 | 100 | 10-26% | 3Com, Bellarmine College Prep, SW Resource Consultant, Lockheed Martin, Palantir | 18 | campaign complete |
+| # | Level | Map | Waves | War waves | Start cash | Integrity | Enemy health | Boss leak | Bosses | Towers | First clear unlocks |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | Hello, World | The Silicon Circuit | 10 skirmish | 1-12 | $650 | 100 | 120-400% | - | - | 3 | Perplexity |
+| 2 | Garbage Collection | Abandoned Data Center | 18 battle | 4-21 | $750 | 100 | 130-700% | - | - | 4 | Mistral |
+| 3 | Legacy Code | The Legacy Monolith | 12 skirmish | 18-29 | $4,000 | 100 | 140-600% | - | - | 5 | DeepSeek |
+| 4 | Campus Tour | Silicon Valley | 24 siege | 17-40 | $5,000 | 100 | 145-600% | 25 | Bellarmine College Prep | 6 | Suno |
+| 5 | Hallucinations | The Hallucination Canyon | 8 skirmish | 41-52 | $8,000 | 100 | 18-47% | 25 | Bellarmine College Prep | 7 | Qwen |
+| 6 | Backpropagation | The Neural Network | 21 siege | 36-56 | $10,000 | 100 | 33-83% | 25 | Bellarmine College Prep | 8 | Copilot + Hero Store |
+| 7 | Outsourced | The Silicon Circuit | 14 battle | 47-60 | $12,000 | 100 | 26-34% | 25 | Bellarmine College Prep, SW Resource Consultant | 9 | Cohere, DALL·E |
+| 8 | Technical Debt | Abandoned Data Center | 30 siege | 41-70 | $8,000 | 100 | 100-255% | 25 | Bellarmine College Prep, SW Resource Consultant | 11 | Grok |
+| 9 | Event Horizon | The Singularity Core | 10 skirmish | 48-66 | $14,000 | 100 | 15-46% | 25 | Bellarmine College Prep, SW Resource Consultant | 12 | Sora |
+| 10 | Network Effect | The Legacy Monolith | 16 battle | 65-80 | $16,000 | 100 | 22-162% | 25 | Bellarmine College Prep, SW Resource Consultant, 3Com | 13 | GLM + $15,000 abilities |
+| 11 | Mass Hallucination | The Hallucination Canyon | 25 siege | 58-83 | $18,000 | 100 | 10-130% | 25 | Bellarmine College Prep, SW Resource Consultant | 14 | Llama |
+| 12 | Stealth Mode | Silicon Valley | 12 skirmish | 79-90 | $20,000 | 100 | 14-145% | 25 | 3Com, Bellarmine College Prep, SW Resource Consultant, Lockheed Martin | 15 | Kimi |
+| 13 | Deep Learning | The Neural Network | 28 siege | 67-94 | $22,000 | 100 | 10-77% | 25 | SW Resource Consultant, Bellarmine College Prep, 3Com, Lockheed Martin | 16 | MiniMax |
+| 14 | Singularity | The Singularity Core | 9 skirmish | 90-99 | $25,000 | 100 | 4-24% | 25 | Lockheed Martin, Bellarmine College Prep, SW Resource Consultant | 17 | Zethos |
+| 15 | The Last Line of Code | The Silicon Circuit | 22 siege | 79-100 | $60,000 | 100 | 10-37% | 25 | 3Com, Bellarmine College Prep, SW Resource Consultant, Lockheed Martin, Palantir | 18 | campaign complete |
 
 The Hero Store opens after level 6 and the $15,000 ability unlocks after level 10.
 Progress (best stars per level, unlocked towers) is saved in the prefs node `lindefense/campaign`. Campaign levels count
 toward the career totals and the boss / hero / career achievements, plus three campaign achievements (Fully Trained,
 State of the Art, Base Model); never toward the classic map records, run history or classic-run achievements.
-Calibration: `python -m lindefense.tools.auto_player campaign` (the balance bot limited to each level's towers, two seeds).
+Calibration: `python -m lindefense.tools.auto_player campaign` (the near-optimal balance bot limited to each level's
+towers, seeds 1234 / 2000 / 2766). Targets for the bot: levels 1-2 won with roughly 60-90% integrity left, levels 3-9 with
+30-70%, levels 10-14 won on about two seeds in three, often under 40%, and the finale won on at most two seeds in three,
+with Palantir past three quarters of its route on wins. A player using heroes and abilities well beats the bot.
+
+### Story
+
+The campaign's narrative is data (`sim/campaign_story.py`, keyed by level id) and presentation (`ui/story_view.py`); it
+never touches a Game. Four acts: I Hello, World (1-3), II Corporate Takeover (4-8: Bellarmine College Prep, then the SW
+Resource Consultant, whose invoice names Palantir at the end of 7; the midpoint twist at the end of 8: the war is
+Palantir's training run), III Out of Distribution (9-13: 3Com, data poisoning, Lockheed Martin, every boss at once), IV
+The Last Line (14-15: Zethos joins, Palantir comes in person). Per level: a briefing line, a 2-4 line dialogue before
+the level (once), radio chatter whose triggers are a wave number, "mid", "last", a boss type or a modifier (resolved
+against the level's wave list), a 1-2 line outcome and each new tower's first line on the end panel; the prologue on the
+first visit and the campaign ending (instead of the classic epilogue, once) after the finale. Seen scenes and heard radio
+lines are kept in the prefs node `lindefense/story` (`StoryLog`, in memory for tests). The chatter bubble reads only the
+wave number and state, and its portraits hand back the enemy ids they borrow, so a level plays bit-identically with or
+without it.

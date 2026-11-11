@@ -14,7 +14,8 @@ class LogoWordmark(GCompound):
     """The LINDEFENSE wordmark built entirely from GPolygons: angular, cut-corner,
 slightly italic techno letterforms defined on a 10 x 14 grid, so the logo
 renders identically on every machine. The compound's origin is the centre
-of the word. Letters are grouped so the title screen can reveal them one by one."""
+of the word, which makes stacked copies at different heights line up for
+neon glow layers. Letters are grouped so individual ones can flicker."""
     def __init__(self, height, fill, outline, filled):
         self.height = 0.0
         self.width = 0.0
@@ -60,8 +61,34 @@ of the word. Letters are grouped so the title screen can reveal them one by one.
         if self.filled:
             p.set_fill_color(self.fill)
         p.set_color((self.outline if (self.outline is not None) else self.fill))
+    def set_tint(self, fill, outline):
+        """Recolours every polygon (used for glow pulsing, glitch tints and flicker)."""
+        self.fill = fill
+        self.outline = outline
+        for p in self.polys:
+            self.style(p)
     def set_letter_visible(self, i, v):
         self.letters[i].set_visible(v)
+    def set_letter_tint(self, i, fill, outline):
+        k = 0
+        while k < self.letters[i].get_element_count():
+            p = self.letters[i].get_element(k)
+            p.set_filled(self.filled)
+            if self.filled:
+                p.set_fill_color(fill)
+            p.set_color((outline if (outline is not None) else fill))
+            k += 1
+    def letter_center_x(self, i):
+        """Letter centre x in local coordinates (for shimmer/flicker effects)."""
+        unit = (self.height / 14.0)
+        total = 0.0
+        for ch in list(LogoWordmark.TEXT):
+            total += (LogoWordmark.advance(ch) + LogoWordmark.GAP)
+        total -= LogoWordmark.GAP
+        x = (((-total) / 2.0) - ((14 * LogoWordmark.ITALIC) / 2.0))
+        for k in range(i):
+            x += (LogoWordmark.advance(LogoWordmark.TEXT[k]) + LogoWordmark.GAP)
+        return ((x + (LogoWordmark.advance(LogoWordmark.TEXT[i]) / 2.0)) + (7 * LogoWordmark.ITALIC)) * unit
     @staticmethod
     def advance(ch):
         return 5.2 if (ch == 'I') else 10

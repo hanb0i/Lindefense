@@ -38,6 +38,8 @@ Not used in normal play."""
         # CONTINUE (records in memory, the save slot in the output folder; the menu is rebuilt without a CONTINUE)
         Records._shared = Records.in_memory()
         CampaignProgress._shared = CampaignProgress.in_memory()   # campaign stars / BOOT CAMP stay with the walkthrough
+        from lindefense.sim import campaign_story
+        campaign_story.StoryLog._shared = campaign_story.StoryLog.in_memory(campaign_story.scene_keys())   # no scenes
         savegame._default = savegame.SaveSlot(_j.File(self.out, 'demo_run_save.bin').get_path())
         savegame.slot().delete()
         if app.get_menu() is not None:

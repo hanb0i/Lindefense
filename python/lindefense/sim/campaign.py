@@ -6,15 +6,17 @@ base wave bases[i], with that base wave's enemies and the base wave's HP / speed
 bonus, so a level late in the path brings the late enemy types, mechanics and bosses. Its numbers are one BALANCE
 entry: a small starting budget (at most CASH_CAP, the finale FINALE_CASH_CAP) and integrity (nothing carries over),
 and an enemy health multiplier on top of the base waves' HP scaling that rises from the level's first wave to its last,
-so a fresh build can hold the first waves and the level's income grows it for the rest. No Patch Notes or Breaking News,
-Difficulty Growth O(1), no Freeplay. A level is won when its last wave is cleared; the finale when Palantir dies.
+so a fresh build can hold the first waves and the pressure grows as the level's income grows the build (above 100% in
+the early levels, whose waves are easy in CLASSIC), plus the campaign-only boss leak cap. Stars by integrity left
+(STAR_PERCENT). No Patch Notes or Breaking News, Difficulty Growth O(1), no Freeplay. A level is won when its last wave
+is cleared; the finale when Palantir dies.
 
 Game.set_campaign() attaches a CampaignRun (level id, allowed towers, wave list: plain picklable data) to a fresh
 Game; everything the simulation asks of the campaign goes through that object, and a Game without one (classic,
 tutorial, reverse mode) is untouched. CampaignProgress is the saved progress (prefs node "lindefense/campaign"),
 in memory for tests."""
 from lindefense import prefs
-from lindefense.enemy.types import Mechanic, Modifier
+from lindefense.enemy.types import EnemyType, Mechanic, Modifier
 from lindefense.tower.tower_type import TowerType
 from lindefense.wave import waves as _waves
 from lindefense.wave.waves import WaveDef
@@ -80,6 +82,14 @@ class Level:
         """(first wave, last wave) enemy health multiplier of the level, on top of the base waves' own scaling."""
         b = BALANCE[self.id]
         return b.hp, b.hp_end
+
+    def boss_leak(self):
+        """The most integrity one leaking corporate boss costs in this level (Palantir excepted), or None (no cap)."""
+        return BALANCE[self.id].boss_leak
+
+    def star_lives(self):
+        """(integrity left needed for 3 stars, for 2 stars) in this level."""
+        return star_lives(self.start_lives)
 
     def is_finale(self):
         return self is LEVELS[-1]
@@ -233,41 +243,56 @@ _BY_ID = {lv.id: lv for lv in LEVELS}
 class Balance:
     """One level's numbers. cash / lives: what the level starts with (nothing carries over). hp -> hp_end: the
     campaign's enemy health multiplier on top of the base waves' own HP scaling, on the level's first wave rising
-    linearly to its last (bosses and Palantir included; kill rewards are not scaled). A low hp lets a fresh, small
+    to its last along HP_RAMP (bosses and Palantir included; kill rewards are not scaled). A low hp lets a fresh, small
     build hold the late waves' enemy types, mechanics and bosses; the rise toward hp_end keeps the level a fight as
-    the player's build grows with the level's income."""
-    __slots__ = ("cash", "lives", "hp", "hp_end")
+    the player's build grows with the level's income, and above 1 (the early levels) enemies are tougher than in
+    CLASSIC. boss_leak: the most integrity one corporate boss that gets through costs in this level (its own cost
+    otherwise, e.g. 3Com 100), so a single leak hurts without deciding the level; Palantir is never capped (it reaching
+    the core ends the finale). None: no cap (levels without bosses)."""
+    __slots__ = ("cash", "lives", "hp", "hp_end", "boss_leak")
 
-    def __init__(self, cash, lives, hp=1.0, hp_end=None):
+    def __init__(self, cash, lives, hp=1.0, hp_end=None, boss_leak=None):
         self.cash = cash
         self.lives = lives
         self.hp = float(hp)
         self.hp_end = float(hp if hp_end is None else hp_end)
+        self.boss_leak = boss_leak
 
     def __repr__(self):
-        return "Balance(cash=%d, lives=%d, hp=%g, hp_end=%g)" % (self.cash, self.lives, self.hp, self.hp_end)
+        return "Balance(cash=%d, lives=%d, hp=%g, hp_end=%g, boss_leak=%s)" % (self.cash, self.lives, self.hp,
+                                                                            self.hp_end, self.boss_leak)
 
 
 CASH_CAP = 25_000          # starting cash of a regular level (manageable build before wave 1)
 FINALE_CASH_CAP = 60_000
 
-# Calibrated with the balance bot (tools/auto_player.py campaign; see README / DESIGN.md section 11).
+# The enemy health multiplier rises from hp to hp_end along t ** HP_RAMP (t: 0 on a level's first wave, 1 on its
+# last): a fresh build meets the first waves near hp, and most of the rise comes in the level's second half, so the
+# pressure grows as the level's income grows the build instead of deciding the level in its first waves.
+HP_RAMP = 2
+
+# Calibrated with the balance bot (tools/auto_player.py campaign, seeds 1234 / 2000 / 2766, checked on six seeds; see
+# README / DESIGN.md section 11). The bot plays near-optimally with only the level's towers (abilities from level 11),
+# so a player who uses heroes and abilities well does better. Targets for the bot: levels 1-2 won with 60-90% of the
+# integrity left, levels 3-9 with 30-70%, levels 10-14 tight (won about two times in three, often under 40%), the
+# finale won at most two times in three with Palantir deep along its route. Every level has 100 integrity; boss_leak
+# 25 caps what one leaking boss costs (levels 1-3 have no bosses).
 BALANCE = {
-    "hello_world":        Balance(cash=650, lives=150),
-    "garbage_collection": Balance(cash=750, lives=150),
-    "legacy_code":        Balance(cash=4_000, lives=150),
-    "campus_tour":        Balance(cash=5_000, lives=100),
-    "hallucinations":     Balance(cash=8_000, lives=100, hp=0.2, hp_end=0.3),
-    "backpropagation":    Balance(cash=10_000, lives=100, hp=0.35, hp_end=0.55),
-    "outsourced":         Balance(cash=12_000, lives=100, hp=0.2, hp_end=0.3),
-    "technical_debt":     Balance(cash=8_000, lives=100),
-    "event_horizon":      Balance(cash=14_000, lives=100, hp=0.15, hp_end=0.3),
-    "network_effect":     Balance(cash=16_000, lives=100, hp=0.25, hp_end=0.75),
-    "mass_hallucination": Balance(cash=18_000, lives=100, hp=0.1, hp_end=0.45),
-    "stealth_mode":       Balance(cash=20_000, lives=100, hp=0.17, hp_end=0.45),
-    "deep_learning":      Balance(cash=22_000, lives=100, hp=0.12, hp_end=0.45),
-    "singularity":        Balance(cash=25_000, lives=100, hp=0.045, hp_end=0.12),
-    "last_line_of_code":  Balance(cash=60_000, lives=100, hp=0.1, hp_end=0.26),
+    "hello_world":        Balance(cash=650, lives=100, hp=1.2, hp_end=4.0),
+    "garbage_collection": Balance(cash=750, lives=100, hp=1.3, hp_end=7.0),
+    "legacy_code":        Balance(cash=4_000, lives=100, hp=1.4, hp_end=6.0),
+    "campus_tour":        Balance(cash=5_000, lives=100, hp=1.45, hp_end=6.0, boss_leak=25),
+    "hallucinations":     Balance(cash=8_000, lives=100, hp=0.18, hp_end=0.47, boss_leak=25),
+    "backpropagation":    Balance(cash=10_000, lives=100, hp=0.33, hp_end=0.83, boss_leak=25),
+    "outsourced":         Balance(cash=12_000, lives=100, hp=0.26, hp_end=0.34, boss_leak=25),
+    "technical_debt":     Balance(cash=8_000, lives=100, hp=1.0, hp_end=2.55, boss_leak=25),
+    "event_horizon":      Balance(cash=14_000, lives=100, hp=0.15, hp_end=0.46, boss_leak=25),
+    "network_effect":     Balance(cash=16_000, lives=100, hp=0.22, hp_end=1.62, boss_leak=25),
+    "mass_hallucination": Balance(cash=18_000, lives=100, hp=0.1, hp_end=1.3, boss_leak=25),
+    "stealth_mode":       Balance(cash=20_000, lives=100, hp=0.14, hp_end=1.45, boss_leak=25),
+    "deep_learning":      Balance(cash=22_000, lives=100, hp=0.1, hp_end=0.77, boss_leak=25),
+    "singularity":        Balance(cash=25_000, lives=100, hp=0.042, hp_end=0.24, boss_leak=25),
+    "last_line_of_code":  Balance(cash=60_000, lives=100, hp=0.1, hp_end=0.37, boss_leak=25),
 }
 
 
@@ -344,12 +369,22 @@ def counters():
             "boss": (T.DEEPSEEK, T.COHERE), "palantir": (T.PERPLEXITY,)}
 
 
+# Stars for a won level by integrity left, in percent of the level's integrity: 3 stars with at least STAR_PERCENT[0]
+# (near-flawless: lose at most 5%), 2 with at least STAR_PERCENT[1], else 1. The briefing shows them in integrity.
+STAR_PERCENT = (95, 60)
+
+
+def star_lives(max_lives):
+    """(integrity needed for 3 stars, for 2 stars) in a level of max_lives integrity."""
+    return tuple(-(-p * max_lives // 100) for p in STAR_PERCENT)   # ceil(p% of max_lives), in integers
+
+
 def stars_for(lives, max_lives):
-    """Stars for a won level by integrity left: 3 with at least 90% of it, 2 with at least half, else 1."""
+    """Stars for a won level by integrity left (STAR_PERCENT): 3 near-flawless, 2 with most of it, else 1."""
     if max_lives <= 0:
         return 1
-    f = lives / float(max_lives)
-    return 3 if f >= 0.9 else (2 if f >= 0.5 else 1)
+    three, two = star_lives(max_lives)
+    return 3 if lives >= three else (2 if lives >= two else 1)
 
 
 # ====================================================================== the run a Game carries
@@ -367,6 +402,15 @@ class CampaignRun:
         self.waves = lv.waves()
         self.finale = lv.is_finale()
         self.hp, self.hp_end = lv.hp_range()
+        self.boss_leak = lv.boss_leak()
+
+    def leak_cost(self, type_, lives):
+        """The integrity a leaking enemy of type_ costs in this level: its own cost (lives, children included), but
+        a corporate boss at most boss_leak (Palantir never capped)."""
+        cap = self.boss_leak
+        if cap is not None and lives > cap and type_.is_boss() and type_ is not EnemyType.PALANTIR:
+            return cap
+        return lives
 
     def level(self):
         return _BY_ID[self.level_id]
@@ -383,12 +427,14 @@ class CampaignRun:
         return 0 if n <= 0 else self.wave(n).base
 
     def hp_at(self, n):
-        """The campaign's enemy health multiplier on local wave n: hp on the first wave, rising linearly to hp_end on
-        the last (n <= 1 gives hp)."""
+        """The campaign's enemy health multiplier on local wave n: hp on the first wave, rising to hp_end on the last
+        along HP_RAMP (t ** HP_RAMP of the way at fraction t of the level: slow at first, fastest at the end; n <= 1
+        gives hp)."""
         last = len(self.waves)
         if self.hp_end == self.hp or n <= 1 or last <= 1:
             return self.hp
-        return self.hp + (self.hp_end - self.hp) * (min(n, last) - 1) / float(last - 1)
+        t = (min(n, last) - 1) / float(last - 1)
+        return self.hp + (self.hp_end - self.hp) * t ** HP_RAMP
 
     def is_allowed(self, t):
         if t.is_hero():

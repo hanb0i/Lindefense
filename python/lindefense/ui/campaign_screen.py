@@ -3,8 +3,13 @@
 A 4 x 4 grid of cards read as one winding path (left to right, then back right to left, ...): an optional BOOT CAMP card
 (the tutorial) and the 15 campaign levels. Every level card shows its state (locked / available / completed), the best
 stars, a map thumbnail, the wave count and the first-clear reward. Clicking an available or completed level opens its
-briefing (map preview, waves, starting cash and integrity, threats, the towers available and the reward); START plays
-it. Esc closes the briefing, then returns to the main menu; Enter starts the briefed level.
+briefing (map preview, waves, starting cash and integrity, threats, the towers available, the reward, the integrity a
+win must keep for 3 and 2 stars and the level's boss leak cap); START plays it. Esc closes the briefing, then returns
+to the main menu; Enter starts the briefed level.
+
+The story (ui/story_view.py): the prologue plays over the path on the first visit, a level's dialogue plays once
+before it starts (SKIP / Esc skip it), the briefing carries the level's story card, and STORY opens the codex that
+replays the scenes unlocked so far. Seen scenes are kept in a StoryLog (story=; default the saved one).
 
 The screen takes the app's map-select slot (the same input routing: mouse_pressed / mouse_moved / key_pressed /
 frame / is_typing). It is drawn flat with the shared helpers only (Cyber.Chamfer with one fill and one thin border,
@@ -12,10 +17,13 @@ UIButton, Ui labels; sentence-case headings), so the minimalist restyle of those
 from lindefense.map import maps
 from lindefense.map.game_map import HEIGHT as MAP_H, WIDTH as MAP_W
 from lindefense.sim import campaign
+from lindefense.sim import campaign_story
 from lindefense.sim.campaign import CampaignProgress
+from lindefense.sim.campaign_story import StoryLog
 from lindefense.tower import catalog
 from lindefense.ui import jrt as _j
 from lindefense.ui.acm import GCompound, GLine
+from lindefense.ui import story_view as StoryView
 from lindefense.ui.jawt import Color, Font, KeyEvent
 
 COLS = 4
@@ -96,16 +104,19 @@ def tower_icon(t, x, y, size, dim=False):
 class CampaignScreen(GCompound):
     """The campaign path (see the module docstring). app: the LindefenseApp (show_menu, start_campaign_level,
     start_tutorial); progress: the CampaignProgress shown (default: the saved one); briefing: a level (id / index) whose
-    briefing opens at once (NEXT LEVEL on the level-complete panel)."""
+    briefing opens at once (NEXT LEVEL on the level-complete panel); story: the StoryLog of seen scenes (default: the
+    saved one)."""
 
-    def __init__(self, app, progress=None, briefing=None):
+    def __init__(self, app, progress=None, briefing=None, story=None):
         from lindefense.ui.audio_toggle import AudioToggle
         from lindefense.ui.cyber import Cyber
-        from lindefense.ui.menu_screen import MenuScreen
+        from lindefense.ui.backdrop import Backdrop
         from lindefense.ui.ui import Ui
         GCompound.__init__(self)
         self.app = app
         self.progress = CampaignProgress.persistent() if progress is None else progress
+        self.story_log = StoryLog.persistent() if story is None else story
+        self.story_overlay = None    # a StoryView (scene) or StoryCodex on top of everything, or None
         self.buttons = []
         self.chips = []
         self.cards = []            # (rect, level id or BOOT_CAMP, frame, base border colour, clickable)
@@ -113,8 +124,10 @@ class CampaignScreen(GCompound):
         self.briefing = None
         self.briefing_level = None
         self.briefing_buttons = []
+        self.scoring_bottom = 0.0   # bottom of the open briefing's Stars block (layout tests)
         self.t = 0.0
-        self.add(Ui.rect(0, 0, Ui.W, Ui.H, MenuScreen.BG, MenuScreen.BG))
+        self.backdrop = Backdrop()   # the title screen's cyberpunk night scene, shared by every menu screen
+        self.add(self.backdrop)
         title = Ui.label("Campaign", 0, 0, Cyber.display(Font.BOLD, 34), Cyber.CYAN)
         title.set_location((Ui.W - title.get_width()) / 2, 64)
         self.add(title)
@@ -127,6 +140,9 @@ class CampaignScreen(GCompound):
         back = button(25, 28, 130, 42, "BACK", 18, Cyber.CYAN, lambda: self.app.show_menu())
         self.buttons.append(back)
         self.add(back)
+        codex = button(25 + 130 + 12, 28, 130, 42, "STORY", 18, Cyber.MAGENTA, self.open_codex)
+        self.buttons.append(codex)
+        self.add(codex)
         self.audio_toggles = AudioToggle.pair(Ui.W - 25 - 2 * 118 - 8, 28, 118, 42, 8, "SOUND", "MUSIC", self.chips)
         for c in self.chips:
             self.add(c)
@@ -135,6 +151,8 @@ class CampaignScreen(GCompound):
             lv = campaign.level(briefing)
             if lv is not None and self.progress.state(lv) != "locked":
                 self.open_briefing(lv)
+        if not self.story_log.is_seen(campaign_story.INTRO_KEY):   # the prologue, on the first visit
+            self.play_scene(campaign_story.INTRO_KEY, "BEGIN")
 
     # ---------------------------------------------------------------- the path
     def build_path(self):
@@ -255,7 +273,8 @@ class CampaignScreen(GCompound):
         return self.briefing_level
 
     def open_briefing(self, lv):
-        """The level briefing popup: map preview, waves, starting cash and integrity, threats, towers, reward; START."""
+        """The level briefing popup: map preview, waves, starting cash and integrity, threats, towers, reward, stars and
+        boss leak cap; START."""
         from lindefense.ui.cyber import Cyber
         from lindefense.ui.map_art import MapArt
         from lindefense.ui.ui import Ui
@@ -291,7 +310,9 @@ class CampaignScreen(GCompound):
         for line in list(Ui.wrap(m.get_mechanic_summary(), Cyber.body(Font.PLAIN, 14), aw))[:3]:
             b.add(Ui.label(line, ax, ty, Cyber.body(Font.PLAIN, 14), Cyber.MUTED))
             ty += 19
-        self._wave_strip(b, lv, ax, ty + 30, aw)
+        wy = self._wave_strip(b, lv, ax, ty + 30, aw)
+        # the level's story card closes the left column, level with the START button's bottom edge
+        self.story_card = StoryView.story_card(b, lv, ax, wy + 12, aw, py + ph - 30)
         # right column
         rx = ax + aw + 34
         rw = px + pw - BRIEF_PAD - rx
@@ -323,6 +344,7 @@ class CampaignScreen(GCompound):
         y = self._threat_line(b, lv, rx, y, rw)
         y = self._towers_block(b, lv, rx, y, rw)
         y = self._reward_block(b, lv, rx, y, rw)
+        self.scoring_bottom = self._scoring_block(b, lv, rx, y, rw)
         best = self.progress.best_stars(lv)
         if best > 0:
             b.add(Ui.label("Best", rx, py + ph - 100, Cyber.body(Font.BOLD, 13), Cyber.MUTED))
@@ -363,9 +385,10 @@ class CampaignScreen(GCompound):
             b.add(lab)
             lx += 13 + lab.get_width() + 18
         lo, hi = lv.hp_range()
-        if lo < 1 or hi < 1:
-            text = ("Enemies have %s of their CLASSIC health at these war waves%s; your build grows with the level's "
-                    "income." % (lv.hp_text(), ", rising wave by wave" if hi > lo else ""))
+        if lo != 1 or hi != 1:
+            text = ("Enemies have %s of their CLASSIC health at these war waves%s; %s" % (
+                lv.hp_text(), ", rising wave by wave, most of it near the end" if hi > lo else "",
+                "your build grows with the level's income." if hi <= 1 else "the pressure grows as your build does."))
             y += 10
             for line in list(Ui.wrap(text, Cyber.body(Font.PLAIN, 13), w))[:2]:
                 y += 18
@@ -457,6 +480,31 @@ class CampaignScreen(GCompound):
         b.add(Ui.label(txt, ix + 6, y + 25, f, Cyber.TEXT))
         return y + 50
 
+    def _scoring_block(self, b, lv, x, y, w):
+        """STARS: the integrity a win must keep for 3 and 2 stars (campaign.STAR_PERCENT), then what one leaking boss
+        costs in this level (its BALANCE boss_leak cap; Palantir is never capped). Returns the bottom edge."""
+        from lindefense.ui.cyber import Cyber
+        from lindefense.ui.ui import Ui
+        y = self._section(b, "Stars", x, y + 14, Cyber.YELLOW)
+        n = lv.start_lives
+        three, two = lv.star_lives()
+        f = Cyber.body(Font.PLAIN, 14)
+        cx = x
+        for k, text in ((3, "lose at most %d integrity" % (n - three)), (2, "at most %d" % (n - two)), (1, "any win")):
+            right = stars_row(b, cx, y + 14, 7, k, Cyber.YELLOW, Cyber.alpha(Cyber.DIM, 150), 3.0)
+            lab = Ui.label(text, right + 8, y + 19, f, Cyber.TEXT)
+            b.add(lab)
+            cx = right + 8 + lab.get_width() + 24
+        y += 26
+        cap = lv.boss_leak()
+        if cap is not None and lv.threats()["bosses"]:
+            text = "A boss that gets through costs at most %d integrity%s." % (
+                cap, "; Palantir costs all of it" if lv.is_finale() else "")
+            for line in list(Ui.wrap(text, f, w))[:2]:
+                y += 19
+                b.add(Ui.label(line, x, y, f, Cyber.MUTED))
+        return y + 6
+
     def close_briefing(self):
         if self.briefing is None:
             return
@@ -466,9 +514,53 @@ class CampaignScreen(GCompound):
         self.briefing_buttons = []
 
     def start(self, lv):
-        """START: plays the level (the app builds the game)."""
+        """START: plays the level (the app builds the game), after its dialogue the first time."""
+        lv = campaign.level(lv)
+        key = campaign_story.level_key(lv)
+        if not self.story_log.is_seen(key):
+            self.play_scene(key, "START LEVEL", lambda skipped: self.launch(lv))
+            return
+        self.launch(lv)
+
+    def launch(self, lv):
         if self.app is not None and hasattr(self.app, "start_campaign_level"):
             self.app.start_campaign_level(campaign.level(lv).id)
+
+    # ---------------------------------------------------------------- story
+    def is_story_open(self):
+        return self.story_overlay is not None
+
+    def play_scene(self, key, done_label="CONTINUE", after=None, replay=False):
+        """Plays a story scene over the screen (marked seen as it opens); after(skipped) runs when it closes."""
+        self.story_log.mark(key)
+
+        def done(skipped):
+            self._close_story()
+            if after is not None:
+                after(skipped)
+        if key == campaign_story.ENDING_KEY:
+            v = StoryView.EndingReplay(done)
+        else:
+            v = StoryView.scene_view(key, self.progress, done_label, done, replay)
+        self._open_story(v)
+
+    def open_codex(self):
+        """STORY: the codex of scenes; a replay returns to it."""
+        def play(key):
+            self.play_scene(key, "BACK TO STORY", lambda skipped: self.open_codex(), replay=True)
+        self._open_story(StoryView.StoryCodex(self.story_log, self.progress, play, self._close_story))
+
+    def _open_story(self, v):
+        self._close_story()
+        self.story_overlay = v
+        self.add(v)
+        for b in self.buttons + self.briefing_buttons:
+            b.set_hover(False)
+
+    def _close_story(self):
+        if self.story_overlay is not None:
+            self.remove(self.story_overlay)
+            self.story_overlay = None
 
     def activate(self, node):
         """A click on a card: BOOT CAMP starts the tutorial, a playable level opens its briefing."""
@@ -492,6 +584,9 @@ class CampaignScreen(GCompound):
         return None, False
 
     def mouse_pressed(self, lx, ly):
+        if self.story_overlay is not None:
+            self.story_overlay.mouse_pressed(lx, ly)
+            return
         if self.briefing is not None:
             for b in list(self.briefing_buttons):
                 if b.hit(lx, ly):
@@ -516,6 +611,9 @@ class CampaignScreen(GCompound):
 
     def mouse_moved(self, lx, ly):
         from lindefense.ui.cyber import Cyber
+        if self.story_overlay is not None:
+            self.story_overlay.mouse_moved(lx, ly)
+            return
         if self.briefing is not None:
             for b in self.briefing_buttons:
                 b.set_hover(b.hit(lx, ly))
@@ -540,6 +638,9 @@ class CampaignScreen(GCompound):
         pass
 
     def key_pressed(self, e):
+        if self.story_overlay is not None:
+            self.story_overlay.key_pressed(e)
+            return
         k = e.get_key_code()
         if k == KeyEvent.VK_ESCAPE:
             if self.briefing is not None:
@@ -557,8 +658,11 @@ class CampaignScreen(GCompound):
     def frame(self, dt):
         from lindefense.ui.audio_toggle import AudioToggle
         self.t += dt
+        self.backdrop.frame(dt)
         for b in self.buttons + self.briefing_buttons:
             b.animate(dt)
         AudioToggle.sync_all(self.audio_toggles)
         for c in self.chips:
             c.animate(dt)
+        if self.story_overlay is not None:
+            self.story_overlay.frame(dt)

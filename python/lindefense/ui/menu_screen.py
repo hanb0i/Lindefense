@@ -15,9 +15,38 @@ from lindefense.ui.logo_emblem import LogoEmblem
 
 
 class MenuScreen(GCompound):
-    """The title screen: a quiet backdrop (a faint grid and a soft light behind the logo), the emblem and the
-LINDEFENSE wordmark, the button stack and the audio chips. Built once in the constructor (ACM primitives only); the
-only motion is a short letter-by-letter reveal of the wordmark that any input skips (none with REDUCED MOTION)."""
+    """The title screen: the shared cyberpunk backdrop (ui/backdrop.py), the animated emblem and LINDEFENSE wordmark, the
+flat button stack and the audio chips. Built once in the constructor and animated by mutating positions / colours in
+#frame(double). The wordmark is the beta 4.0 title: a 1.3 s boot-up build-in (letters flicker on under a sweeping
+light bar; any input skips it), a breathing neon glow stack, scanlines across the letters, and every few seconds a
+letter flicker, a chromatic-aberration glitch burst or a holographic shimmer. REDUCED MOTION shows the title at once
+and keeps only the slow glow breathing; while a pop-up is open the title starts no new flicker, glitch or shimmer."""
+    class Glint(GObject):
+        """Paints the title's holographic shimmer clipped to the logo's silhouette (the wordmark and its glow stack), so
+the light sweeps across the logo only and never shows as a bar over the backdrop."""
+        def __init__(self, shimmer, marks):
+            GObject.__init__(self)
+            self.shimmer = shimmer
+            p = Path2D.Double()
+            for w in marks:
+                for poly in w.polys:
+                    for k, (vx, vy) in enumerate(zip(poly._vx, poly._vy)):
+                        x, y = w.get_x() + poly.get_x() + vx, w.get_y() + poly.get_y() + vy
+                        if k == 0:
+                            p.move_to(x, y)
+                        else:
+                            p.line_to(x, y)
+                    p.close_path()
+            self.silhouette = p
+        def paint(self, g):
+            if not self.shimmer.is_visible():
+                return
+            g2 = g.create()
+            try:
+                g2.clip(self.silhouette)
+                self.shimmer.paint_object(g2)
+            finally:
+                g2.dispose()
     def __init__(self, app):
         self.audio_toggles = None
         self.help_shown = False
@@ -50,10 +79,17 @@ only motion is a short letter-by-letter reveal of the wordmark that any input sk
         self.t = 0.0
         self.intro_t = 0.0
         self.intro_done = False
+        self.chroma_m = None
+        self.chroma_c = None
         self.main = None
+        self.shimmer = None
+        self.intro_bar = None
         self.emblem = None
         self.subtitle = None
         self.tagline = None
+        self.flicker_left = 0.0
+        self.glitch_left = 0.0
+        self.shimmer_left = 0.0
         self.ver_label = None
         self.saved_run = None
         self.continue_button = None
@@ -61,18 +97,57 @@ only motion is a short letter-by-letter reveal of the wordmark that any input sk
         self.notice_time = 0.0
         GCompound.__init__(self)
         self.app = app
+        self.rnd = _j.Random(7)
         self.buttons = _j.ArrayList()
         self.chips = _j.ArrayList()
         self.help = GCompound()
         self.settings = GCompound()
         self.code_input = _j.StringBuilder()
         self.settings_chips = _j.ArrayList()
-        self.add(Ui.rect(0, 0, Ui.W, Ui.H, MenuScreen.BG, MenuScreen.BG))
-        self.add(Cyber.Grid(0, 0, Ui.W, Ui.H, 40, Ui.with_alpha(MenuScreen.CYAN, 7)))
-        self.add(Cyber.Light(0, 0, Ui.W, Ui.H, 800, (MenuScreen.LOGO_Y - 30), 640, 0.62, Ui.with_alpha(MenuScreen.CYAN, 20)))
-        self.main = LogoWordmark(104.0, Color(0xeafcff), None, True)
+        self.glow = ([None] * 3)
+        self.flicker_letter = (-1)
+        self.flicker_timer = 2.5
+        self.glitch_timer = 2.0
+        self.slices = ([None] * 3)
+        self.shimmer_timer = 1.0
+        self.backdrop = Backdrop()
+        self.add(self.backdrop)
+        hgt = MenuScreen.LOGO_H
+        scales = [1.16, 1.09, 1.035]
+        for i in range(3):
+            self.glow[i] = LogoWordmark((hgt * scales[i]), Ui.with_alpha(MenuScreen.CYAN, (18 + (18 * i))), Ui.with_alpha(MenuScreen.CYAN, (40 + (30 * i))), True)
+            self.glow[i].set_location(800, MenuScreen.LOGO_Y)
+            self.add(self.glow[i])
+        self.chroma_m = LogoWordmark(hgt, Ui.with_alpha(MenuScreen.MAGENTA, 170), None, True)
+        self.chroma_c = LogoWordmark(hgt, Ui.with_alpha(MenuScreen.CYAN, 170), None, True)
+        self.chroma_m.set_location(800, MenuScreen.LOGO_Y)
+        self.chroma_c.set_location(800, MenuScreen.LOGO_Y)
+        self.chroma_m.set_visible(False)
+        self.chroma_c.set_visible(False)
+        self.add(self.chroma_m)
+        self.add(self.chroma_c)
+        self.main = LogoWordmark(hgt, Color(0xeafcff), MenuScreen.CYAN, True)
         self.main.set_location(800, MenuScreen.LOGO_Y)
         self.add(self.main)
+        self.shimmer = GPolygon()
+        self.shimmer.add_vertex(0, ((-hgt) * 0.7))
+        self.shimmer.add_vertex(26, ((-hgt) * 0.7))
+        self.shimmer.add_vertex((-14), (hgt * 0.7))
+        self.shimmer.add_vertex((-40), (hgt * 0.7))
+        self.shimmer.set_filled(True)
+        self.shimmer.set_fill_color(Ui.with_alpha(Color.WHITE, 70))
+        self.shimmer.set_color(Ui.with_alpha(Color.WHITE, 0))
+        self.shimmer.set_visible(False)
+        self.add(MenuScreen.Glint(self.shimmer, self.glow + [self.main]))
+        slice_bg = backdrop.sky_color(MenuScreen.LOGO_Y)
+        for i in range(len(self.slices)):
+            self.slices[i] = Ui.rect(0, 0, 10, 4, slice_bg, slice_bg)
+            self.slices[i].set_visible(False)
+            self.add(self.slices[i])
+        band = (self.glow[0].get_logical_width() + 40, (hgt * 1.16) + 8)
+        self.add(Scanlines((800 - (band[0] / 2)), (MenuScreen.LOGO_Y - (band[1] / 2)), band[0], band[1], 4, Ui.with_alpha(Color.BLACK, 46)))
+        self.intro_bar = Ui.rect((800 - 560), (MenuScreen.LOGO_Y - 80), 1120, 6, Ui.with_alpha(Color.WHITE, 160), Ui.with_alpha(MenuScreen.CYAN, 0))
+        self.add(self.intro_bar)
         self.emblem = LogoEmblem(120)
         self.emblem.set_location(800, 158)
         self.add(self.emblem)
@@ -130,7 +205,7 @@ only motion is a short letter-by-letter reveal of the wordmark that any input sk
         self.catalog.set_visible(False)
         self.add(self.catalog)
         for i in range(self.main.get_letter_count()):
-            self.main.set_letter_visible(i, False)
+            self.set_letter_stack_visible(i, False)
     def build_continue(self, app, info, y):
         """CONTINUE (only with a valid saved run): the run's map, difficulty and wave under the title."""
         w = 380.0
@@ -184,8 +259,9 @@ only motion is a short letter-by-letter reveal of the wordmark that any input sk
         if self.intro_done:
             return
         self.intro_done = True
+        self.intro_bar.set_visible(False)
         for i in range(self.main.get_letter_count()):
-            self.main.set_letter_visible(i, True)
+            self.set_letter_stack_visible(i, True)
     def toggle_catalog(self):
         """CATALOG button: opens / closes the catalog as a pop-up panel over the menu (never a separate screen)."""
         self.catalog_shown = (not self.catalog_shown)
@@ -559,6 +635,14 @@ keys type the code: Enter submits, Backspace deletes, Esc closes."""
     def mouse_released(self):
         """Mouse release: ends a SETTINGS volume-slider drag (the level is saved)."""
         Slider.release_all(self.settings_sliders)
+    def set_letter_stack_visible(self, i, v):
+        self.main.set_letter_visible(i, v)
+        for g in self.glow:
+            g.set_letter_visible(i, v)
+        self.chroma_m.set_letter_visible(i, v)
+        self.chroma_c.set_letter_visible(i, v)
+    def popup_open(self):
+        return self.help_shown or self.settings_shown or self.catalog_shown or self.stats_shown
     def frame(self, dt):
         self.t += dt
         if self.stats_shown:
@@ -583,31 +667,101 @@ keys type the code: Enter submits, Backspace deletes, Esc closes."""
                 c.animate(dt)
             Slider.frame_all(dt, self.settings_sliders)
         self.animate_intro(dt)
+        self.animate_logo(dt)
+        self.backdrop.frame(dt)
+        self.emblem.animate(self.t, display_settings.reduced_motion())
         for b in self.buttons:
             b.animate(dt)
         AudioToggle.sync_all(self.audio_toggles)
         for c in self.chips:
             c.animate(dt)
     def animate_intro(self, dt):
-        """The wordmark's letters appear one after another over INTRO_TIME (skipped with REDUCED MOTION or any input)."""
+        """The boot-up build-in: the letters flicker on one after another under a light bar sweeping down over
+INTRO_TIME (skipped with REDUCED MOTION or any input)."""
         if self.intro_done:
             return
-        if display_settings.reduced_motion():
+        if display_settings.reduced_motion():   # no flickering letter-by-letter boot-up
             self.skip_intro()
             return
         self.intro_t += dt
         n = self.main.get_letter_count()
         shown = _j.to_int(_j.dmin(n, float(math.floor(((self.intro_t / MenuScreen.INTRO_TIME) * (n + 1))))))
         for i in range(n):
-            self.main.set_letter_visible(i, (i < shown))
+            v = (i < shown)
+            if (i == shown) and (self.rnd.next_double() < 0.5):
+                v = True
+            self.set_letter_stack_visible(i, v)
+        p = _j.dmin(1, (self.intro_t / MenuScreen.INTRO_TIME))
+        self.intro_bar.set_location((800 - 560), ((MenuScreen.LOGO_Y - 90) + (180 * p)))
+        self.intro_bar.set_fill_color(Ui.with_alpha(Color.WHITE, _j.to_int((200 * (1 - (p * 0.6))))))
         if self.intro_t >= (MenuScreen.INTRO_TIME + 0.05):
             self.skip_intro()
+    def animate_logo(self, dt):
+        """The idle title: the glow stack breathes; every few seconds one letter flickers, a chromatic glitch burst shifts
+magenta / cyan copies apart and slices the word, or a shimmer sweeps across it. REDUCED MOTION keeps only the
+breathing; an open pop-up lets running effects finish but starts no new ones."""
+        breathe = (0.5 + (0.5 * math.sin((self.t * 1.7))))
+        for i in range(3):
+            a = _j.to_int(((14 + (16 * i)) * (0.7 + (0.6 * breathe))))
+            self.glow[i].set_tint(Ui.with_alpha(MenuScreen.CYAN, a), Ui.with_alpha(MenuScreen.CYAN, (a + 25)))
+        lively = (self.intro_done and (not display_settings.reduced_motion())) and (not self.popup_open())
+        self.flicker_timer -= dt
+        if self.flicker_left > 0:
+            self.flicker_left -= dt
+            dim = (self.rnd.next_double() < 0.6)
+            self.main.set_letter_tint(self.flicker_letter, (Ui.with_alpha(Color(0xeafcff), 70) if dim else Color(0xeafcff)), (Ui.with_alpha(MenuScreen.CYAN, 90) if dim else MenuScreen.CYAN))
+            if self.flicker_left <= 0:
+                self.main.set_letter_tint(self.flicker_letter, Color(0xeafcff), MenuScreen.CYAN)
+                self.flicker_letter = (-1)
+        elif (self.flicker_timer <= 0) and lively:
+            self.flicker_timer = (1.8 + (self.rnd.next_double() * 2.5))
+            self.flicker_left = (0.12 + (self.rnd.next_double() * 0.25))
+            self.flicker_letter = self.rnd.next_int(self.main.get_letter_count())
+        self.glitch_timer -= dt
+        if self.glitch_left > 0:
+            self.glitch_left -= dt
+            dx = (4 + (self.rnd.next_double() * 12))
+            dy = ((self.rnd.next_double() * 4) - 2)
+            self.chroma_m.set_location((800 - dx), (MenuScreen.LOGO_Y + dy))
+            self.chroma_c.set_location((800 + dx), (MenuScreen.LOGO_Y - dy))
+            self.chroma_m.set_visible(True)
+            self.chroma_c.set_visible(True)
+            for s in self.slices:
+                s.set_visible(True)
+                y = ((MenuScreen.LOGO_Y - 60) + (self.rnd.next_double() * 120))
+                s.set_bounds(((800 - 520) + (self.rnd.next_double() * 80)), y, (1000 + (self.rnd.next_double() * 80)), (2 + (self.rnd.next_double() * 5)))
+                s.set_fill_color((Ui.with_alpha(MenuScreen.CYAN, 120) if (self.rnd.next_double() < 0.3) else self.slices_bg()))
+                s.set_color(s.get_fill_color())
+            if self.glitch_left <= 0:
+                self.chroma_m.set_visible(False)
+                self.chroma_c.set_visible(False)
+                for s in self.slices:
+                    s.set_visible(False)
+        elif (self.glitch_timer <= 0) and lively:   # no glitch bursts with reduced motion
+            self.glitch_timer = (2.5 + (self.rnd.next_double() * 4))
+            self.glitch_left = (0.14 + (self.rnd.next_double() * 0.2))
+        self.shimmer_timer -= dt
+        if self.shimmer_left > 0:
+            self.shimmer_left -= dt
+            p = (1 - (self.shimmer_left / 0.8))
+            self.shimmer.set_visible(True)
+            self.shimmer.set_location(((800 - 560) + (1120 * p)), MenuScreen.LOGO_Y)
+            if self.shimmer_left <= 0:
+                self.shimmer.set_visible(False)
+        elif (self.shimmer_timer <= 0) and lively:
+            self.shimmer_timer = (3.5 + (self.rnd.next_double() * 2))
+            self.shimmer_left = 0.8
+    @staticmethod
+    def slices_bg():
+        return backdrop.sky_color(MenuScreen.LOGO_Y)
 
 
 # deferred imports (after the class definitions, so import cycles resolve)
 from lindefense.audio.audio_manager import AudioManager  # noqa: E402
 from lindefense.audio.sfx import Sfx  # noqa: E402
 from lindefense.ui.audio_toggle import AudioToggle  # noqa: E402
+from lindefense.ui import backdrop  # noqa: E402
+from lindefense.ui.backdrop import Backdrop, Scanlines  # noqa: E402
 from lindefense.ui.catalog_screen import CatalogScreen  # noqa: E402
 from lindefense.ui.cyber import Cyber  # noqa: E402
 from lindefense.ui.difficulty_selector import DifficultySelector  # noqa: E402
@@ -630,6 +784,7 @@ MenuScreen.YELLOW = LogoEmblem.YELLOW
 MenuScreen.ORANGE = Color(0xffb347)
 MenuScreen.STACK_Y = 488.0
 MenuScreen.CONTINUE_H = 58.0
-MenuScreen.INTRO_TIME = 0.9
+MenuScreen.INTRO_TIME = 1.3
 MenuScreen.LOGO_Y = 330.0
+MenuScreen.LOGO_H = 104.0
 MenuScreen.SECTION_FONT = Cyber.display(Font.BOLD, 18)

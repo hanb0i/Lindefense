@@ -1,4 +1,5 @@
-"""The minimal battlefield style: quiet map art that only labels what the player needs, a world view that never paints
+"""The minimal battlefield style: quiet map art whose only text is functional labels and diegetic neon signs / markings
+(no floating HUD captions), a world view that never paints
 the purely decorative sprite parts, flat overlays (HP bars, range rings, nameplates, IN / OUT markers), fewer
 particles and smaller flashes, no projectile glow; COLOUR-BLIND SAFE and REDUCED MOTION keep working.
 Everything is painted offscreen; nothing opens a window."""
@@ -13,7 +14,7 @@ from lindefense.ui.cyber import Cyber
 from lindefense.ui.display_settings import DisplaySettings
 from lindefense.ui.game_screen import GameScreen
 from lindefense.ui.glow_layer import GlowLayer
-from lindefense.ui.jawt import BufferedImage, Color, Graphics2D, reset_canvas_state
+from lindefense.ui.jawt import BufferedImage, Color, Graphics2D, Point2D, reset_canvas_state
 from lindefense.ui.map_art import MapArt
 from lindefense.ui.sprites.effect import Effect
 from lindefense.ui.sprites.thick import Thick
@@ -39,26 +40,32 @@ def _paint(c, w=1600, h=1000):
     reset_canvas_state(cv)
 
 
-def _map_strings(idx, monkeypatch):
+def _map_strings(idx, monkeypatch, scale=1.0):
+    """The strings the map art draws, with their world positions, and the painter (its marks are the diegetic text)."""
     drawn = []
     orig = Graphics2D.draw_string
 
     def spy(self, s, x, y):
-        drawn.append(s)
+        q = self.get_transform().transform(Point2D.Double(x, y), None)
+        drawn.append((s, q.get_x() / scale, q.get_y() / scale))
         return orig(self, s, x, y)
     monkeypatch.setattr(Graphics2D, "draw_string", spy)
-    img = BufferedImage(300, 225, BufferedImage.TYPE_INT_RGB)
+    img = BufferedImage(int(1200 * scale), int(900 * scale), BufferedImage.TYPE_INT_RGB)
     g = img.create_graphics()
-    g.scale(0.25, 0.25)
-    MapArt.render(g, maps.create(idx))
+    g.scale(scale, scale)
+    p = MapArt.render(g, maps.create(idx))
     g.dispose()
     monkeypatch.setattr(Graphics2D, "draw_string", orig)
-    return drawn
+    return drawn, p
 
 
-def test_map_art_draws_only_functional_labels(check, monkeypatch):
-    filler = ("NULL REGION", "VOID", "LX-MAINBOARD", "PCB", "RAM", "CPU", "I/O", "NEURAL FIELD", "SRV-", "RACK",
-              "EVENT HORIZON", "PORTAL", "ATTENTION HUB", "HQ", "AGI SOON", "INPUT", "OUTPUT", "COOLING", "UPS", "FAULT")
+def test_map_art_draws_functional_labels_and_diegetic_signs_only(check, monkeypatch):
+    """Text on a map is either a functional label the player needs, or diegetic: a neon sign on a building, a marking
+printed on a prop, a display. Never a floating HUD-style caption (a frame title, a region name, a "// " tag), and
+diegetic text never sits on the track or in the tower strips beside it unless it is on a prop."""
+    hud = ("NULL REGION", "VOID", "LX-MAINBOARD", "PCB", "NEURAL FIELD", "LAYER 12", "EVENT HORIZON", "PORTAL",
+           "ATTENTION HUB", "INNOVATION DISTRICT", "CAMPUS", "SERVER GRAVEYARD", "SECTOR", "INSIDE THE MACHINE",
+           "FORWARD PASS", "GRAVITY WELL", "LEGACY CLUSTER", "AISLE", "INPUT", "OUTPUT", "//")
     for idx in range(maps.MAP_COUNT):
         m = maps.create(idx)
         allowed = set()
@@ -68,11 +75,29 @@ def test_map_art_draws_only_functional_labels(check, monkeypatch):
             allowed = {"FLOOR %d" % (i + 1) for i in range(len(m.get_floors()))}
         elif idx == 6:
             allowed = {h.kind.upper() for h in m.get_hazards()} | {"!"}
-        drawn = _map_strings(idx, monkeypatch)
-        extra = sorted(set(drawn) - allowed)
-        check(not extra, "%s: only functional labels (extra: %s)" % (m.get_name(), extra))
-        check(not any(any(f in s for f in filler) for s in drawn), "%s: no filler text" % m.get_name())
-        check(allowed <= set(drawn), "%s: the functional labels are still there (%s)" % (m.get_name(), sorted(allowed - set(drawn))))
+        drawn, p = _map_strings(idx, monkeypatch)
+        strings = {s for s, _, _ in drawn}
+        extra = sorted(strings - allowed - set(p.marks))
+        check(not extra, "%s: every string is a functional label or diegetic (extra: %s)" % (m.get_name(), extra))
+        check(not any(any(f in s for f in hud) for s in strings), "%s: no HUD-style captions" % m.get_name())
+        check(allowed <= strings, "%s: the functional labels are still there (%s)" % (m.get_name(), sorted(allowed - strings)))
+        loose = []
+        for s, x, y in drawn:
+            if s in allowed:
+                continue
+            on_prop = any(o.contains(Vec(x, y), 4) for o in m.get_obstacles())
+            if not on_prop and MapArt.track_distance(m, x, y) < MapArt.HW + MapArt.STRIP - 8:
+                loose.append(s)
+        check(not loose, "%s: diegetic text stays on props or open ground (%s)" % (m.get_name(), loose[:5]))
+        if idx in (2, 3):
+            check(not strings, "%s: no text at all in the void" % m.get_name())
+    _, valley = _map_strings(4, monkeypatch)
+    signs = set(valley.marks)
+    check({"AGI SOON", "50% OFF", "GPU CLOUD", "HIRE AN AI", "SCALE IS", "ALL YOU NEED"} <= signs,
+          "Silicon Valley keeps its witty billboards (%s)" % sorted(signs))
+    check({"SERVER FARM", "AI RESEARCH LAB", "GLASS HQ"} <= signs, "and its buildings carry their names")
+    _, board = _map_strings(0, monkeypatch)
+    check({"CPU", "RAM", "I/O"} <= set(board.marks), "the chips carry their markings")
 
 
 def test_world_never_paints_decorative_sprite_parts(check, monkeypatch):

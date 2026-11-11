@@ -48,6 +48,7 @@ class Options:
         self.pressure_window = 0.0
         self.verbose = False
         self.allowed = None       # None: every tower; else the TowerTypes (heroes included) the bot may build (campaign)
+        self.counter = None       # callable -> (TowerType, copies, tier) or None: build this counter first (reverse mode)
 
 
 def _build_plans():
@@ -78,8 +79,10 @@ def _build_plans():
              (KIMI, 0, 1, 1), (MM, 0, 1, 1), (SUNO, 0, 2, 1), (GLM, 0, 2, 1),
              (KIMI, 0, 3, 1), (MM, 0, 3, 1), (SUNO, 0, 3, 1), (GLM, 0, 3, 1),
              (GROK, 0, 3, 1), (SORA, 0, 3, 1), (MIS, 0, 3, 1), (LLA, 0, 3, 1), (DAL, 0, 3, 1), (COP, 0, 3, 1)]
-    rev = [(GEM, 0, 0, 1), (CLA, 0, 0, 1), (GEM, 0, 1, 1), (CLA, 0, 1, 1), (GPT, 0, 0, 1), (GPT, 0, 1, 1),
-           (DS, 0, 0, 1), (DS, 0, 1, 1), (HANBO, 0, 0, 1), (COH, 0, 1, 1), (DS, 0, 2, 1), (HANBO, 0, 1, 1), (DS, 0, 3, 1),
+    # reverse mode: a wide opening (two Gemini / Claude pairs, GPT, DeepSeek) before it saves for its first hero
+    rev = [(GEM, 0, 0, 1), (CLA, 0, 0, 1), (GEM, 0, 1, 1), (CLA, 0, 1, 1), (GPT, 0, 0, 1), (GEM, 1, 0, 1), (CLA, 1, 0, 1),
+           (GPT, 0, 1, 1), (DS, 0, 0, 1), (DS, 0, 1, 1), (GEM, 1, 1, 1), (CLA, 1, 1, 1),
+           (HANBO, 0, 0, 1), (COH, 0, 1, 1), (DS, 0, 2, 1), (HANBO, 0, 1, 1), (DS, 0, 3, 1),
            (DS, 1, 0, 1), (DS, 1, 1, 1), (LIND, 0, 0, 1), (DS, 1, 2, 1), (DS, 1, 3, 1), (HANBO, 0, 2, 1), (LIND, 0, 1, 1),
            (QWEN, 0, 2, 1), (DS, 2, 3, 1), (LIND, 0, 2, 1), (BRAD, 0, 0, 1), (HANBO, 0, 3, 1),
            (DS, 3, 3, 1), (QWEN, 0, 3, 1), (BRAD, 0, 2, 1), (LIND, 0, 3, 1), (COH, 0, 3, 1), (DS, 4, 3, 1),
@@ -273,6 +276,10 @@ class DefenderAI:
                 return
             elif per.can_upgrade() and g.get_cash() < shop.upgrade_cost(per, g):
                 return
+        if o.counter is not None:
+            want = o.counter()
+            if want is not None and self._counter(want):
+                return
         pressure = self._under_pressure()
         if pressure and self._attackers() < 5 + wave // 4 and towers < o.max_towers:
             pick = None
@@ -322,6 +329,28 @@ class DefenderAI:
         if o.unlock_abilities and not pressure and self._try_ability_unlock():
             return
         self._overflow()
+
+    def _counter(self, want):
+        """Reverse mode's adaptation: the counter tower (copies of it at the tier) before the plan. True when this pass
+        went into it (bought, upgraded, or saving up for it)."""
+        g = self.g
+        tt, copies, tier = want
+        have = [t for t in self._mine() if t.get_type() is tt]
+        if len(have) < copies:
+            if len(self._mine()) < self.o.max_towers and self._try_buy(tt):
+                return True
+            return g.get_cash() < self._price(tt)
+        for t in have:
+            if t.get_tier() < tier and t.can_upgrade():
+                if self._upgrade(t):
+                    return True
+                return g.get_cash() < shop.upgrade_cost(t, g)
+        return False
+
+    def counter_ready(self, want):
+        """True when the counter (TowerType, copies, tier) stands: that many copies at that tier or above."""
+        tt, copies, tier = want
+        return sum(1 for t in self._mine() if t.get_type() is tt and t.get_tier() >= tier) >= copies
 
     def _attackers(self):
         return sum(1 for t in self._mine() if t.get_type() is not TowerType.PERPLEXITY)

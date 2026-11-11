@@ -1,6 +1,6 @@
 # Lindefense - The Last Line of Code
 
-**Version: beta 4.1**
+**Version: beta 4.2**
 
 ![Lindefense title card](docs/titlecard.png)
 
@@ -19,6 +19,22 @@ Every shop tower has an overpowered ability you can unlock for $15,000 once it i
 (**CONTINUE** on the main menu), and your records, career stats, run history and 32 achievements are kept between
 sessions. There is a **Daily Run**, seed entry and five challenge rules, four Difficulty Growth modes, a reverse mode
 where you attack an AI defender, a guided **Tutorial** and a **Catalog** of every enemy, tower and hero.
+
+## What's new in beta 4.2
+
+- **The animated title is back**: the LINDEFENSE wordmark builds in, glitches, shimmers and glows again, over a new
+  minimal cyberpunk backdrop (neon-outline skyline, horizon glow, a fading perspective grid) shared by the main menu,
+  map select and the campaign screen.
+- **New map backgrounds**: all seven maps are redrawn in neon outlines with dark depth, and their details are back in
+  that style - components and chips, server blades and fans, Silicon Valley's cars, park, robot arm and neon signs,
+  debris and monitors - with a few small animations (off with Reduced Motion).
+- **Campaign story**: four acts narrated by Mr. Lindemann, with the towers as characters, a prologue, pre-level
+  dialogue, radio chatter during levels, outcomes, a campaign ending, and a STORY button to replay scenes.
+- **A harder campaign**: 100 integrity on every level, enemy health that climbs through each level, a boss that gets
+  through costs at most 25 integrity (Palantir costs all of it), and 3 stars now means losing at most 5.
+- **Attack mode revamped**: 8 one-minute rounds with breach objectives and sudden-death overtime, a fast start (income
+  and five units from 0:00, bosses from 2:30), three attack doctrines (Rush, Swarm, Heist), and an AI that counters
+  what you build, with clearer feedback and a new end summary.
 
 ## What's new in beta 4.1
 
@@ -117,7 +133,7 @@ on macOS, `%APPDATA%\Lindefense` on Windows and `~/.config/lindefense` on Linux.
 | Left-click an enemy | Inspect it (HP, speed, mechanic, modifiers) |
 | Right-click | Cancel placement or ability aiming, or deselect |
 | `Esc` | In game it cancels the innermost thing first: HELP, a confirmation (= NO), the pause menu, the Hero Store, ability aiming, a tower placement, the selection; with none of them it opens the pause menu. Closing the pause menu with `Esc` returns to how the game was (running, or the tactical pause). On the map screen it closes the briefing popup, or goes back to the main menu; on the main menu it closes HELP / SETTINGS |
-| **CAMPAIGN** (main menu) | The level path: **BOOT CAMP** (the tutorial) and the 15 levels, each with its state, best stars, map, wave count and reward. Click a level you can play for its briefing (map, waves, starting cash, threats, the towers you have, the reward); **START** or `Enter` plays it, **BACK** / `Esc` closes it; `Enter` on the path briefs the next level; `Esc` goes back to the menu |
+| **CAMPAIGN** (main menu) | The level path: **BOOT CAMP** (the tutorial) and the 15 levels, each with its state, best stars, map, wave count and reward. Click a level you can play for its briefing (map, waves, starting cash, threats, the towers you have, the reward); **START** or `Enter` plays it, **BACK** / `Esc` closes it; `Enter` on the path briefs the next level; `Esc` goes back to the menu. **STORY** replays the story scenes you have unlocked; in a scene, a click / `Enter` / `Space` shows the next line and **SKIP** / `Esc` skips the rest |
 | **CLASSIC** (main menu) | The map select screen below: the 100-wave game on any map with every tower, the daily run, seeds and challenge rules |
 | **DEPLOY** on a map card | Opens the mission briefing: large map preview, description, map mechanics and your Difficulty Growth mode, and the RUN SETUP band (seed, Patch Notes, challenge rules). Its **DEPLOY** (or `Enter`) starts the match; **BACK** / `Esc` closes it |
 | **PLAY DAILY** on the DAILY RUN card | Opens today's daily run briefing; **START DAILY** (or `Enter`) starts it |
@@ -246,30 +262,39 @@ on macOS, `%APPDATA%\Lindefense` on Windows and `~/.config/lindefense` on Linux.
 **CAMPAIGN** on the main menu opens the level path. Each level replays a slice of the 100-wave war, compressed into its own
 wave list: its waves are chosen base waves (the briefing's "war waves") with their enemies and their HP, speed and reward
 scaling, so the late levels bring the late enemy types, mechanics and bosses. Every level starts fresh with a small budget
-(at most $25,000, the finale $60,000) and its own integrity; nothing carries over. To keep a fresh build fair against late
-waves, a level sets an **enemy health** multiplier on top of the war's HP curve (bosses and Palantir included; kill rewards
-are not reduced), rising from its first wave to its last as your build grows with the level's income: the briefing shows
-it ("Enemy health 10-26%"). Levels play on O(1), without Patch Notes, Breaking News or Freeplay. The HUD counts the
-level's waves (**W 7 / 12**). A level is won when its last wave is cleared; the finale when Palantir falls. Stars by
-integrity left: 3 with at least 90%, 2 with at least half, else 1 (your best is kept).
+(at most $25,000, the finale $60,000) and 100 integrity; nothing carries over. Each level sets an **enemy health**
+multiplier on top of the war's HP curve (bosses and Palantir included; kill rewards are not changed), rising from its
+first wave to its last, most of it in the second half, so the pressure grows as your build grows with the level's
+income: below 100% keeps a fresh build fair against the late waves, above 100% makes the early levels' easy waves a real
+fight. The briefing shows it ("Enemy health 10-37%"). Levels play on O(1), without Patch Notes, Breaking News or
+Freeplay. The HUD counts the level's waves (**W 7 / 12**). A level is won when its last wave is cleared; the finale when
+Palantir falls. The levels are tuned so that the balance bot (near-optimal tower play with only the level's towers,
+abilities from level 11) loses about a fifth of its integrity on the first levels and about half in the middle of the
+campaign, wins levels 10-14 only narrowly or not at all, and loses the finale more often than it wins.
 
-| # | Level | Map | Waves | War waves | Start cash | Integrity | Enemy health | First clear unlocks |
-|---|---|---|---|---|---|---|---|---|
-| 1 | Hello, World | The Silicon Circuit | 10 | 1-12 | $650 | 150 | 100% | Perplexity |
-| 2 | Garbage Collection | Abandoned Data Center | 18 | 4-21 | $750 | 150 | 100% | Mistral |
-| 3 | Legacy Code | The Legacy Monolith | 12 | 18-29 | $4,000 | 150 | 100% | DeepSeek |
-| 4 | Campus Tour | Silicon Valley | 24 | 17-40 (MOAB finale) | $5,000 | 100 | 100% | Suno |
-| 5 | Hallucinations | The Hallucination Canyon | 8 | 41-52 | $8,000 | 100 | 20-30% | Qwen |
-| 6 | Backpropagation | The Neural Network | 21 | 36-56 | $10,000 | 100 | 35-55% | Copilot + the Hero Store |
-| 7 | Outsourced | The Silicon Circuit | 14 | 47-60 (BFB finale) | $12,000 | 100 | 20-30% | Cohere, DALL·E |
-| 8 | Technical Debt | Abandoned Data Center | 30 | 41-70 | $8,000 | 100 | 100% | Grok |
-| 9 | Event Horizon | The Singularity Core | 10 | 48-66 (the core collapses on war wave 50) | $14,000 | 100 | 15-30% | Sora |
-| 10 | Network Effect | The Legacy Monolith | 16 | 65-80 (ZOMG finale) | $16,000 | 100 | 25-75% | GLM + $15,000 abilities |
-| 11 | Mass Hallucination | The Hallucination Canyon | 25 | 58-83 (all but the ZOMG) | $18,000 | 100 | 10-45% | Llama |
-| 12 | Stealth Mode | Silicon Valley | 12 | 79-90 (DDT finale) | $20,000 | 100 | 17-45% | Kimi |
-| 13 | Deep Learning | The Neural Network | 28 | 67-94 | $22,000 | 100 | 12-45% | MiniMax |
-| 14 | Singularity | The Singularity Core | 9 | 90-99 | $25,000 | 100 | 5-12% | Zethos |
-| 15 | The Last Line of Code | The Silicon Circuit | 22 | 79-100 (Palantir) | $60,000 | 100 | 10-26% | - (campaign complete) |
+- **Boss leaks** (campaign only): a corporate boss that gets through costs at most the level's **boss leak** integrity
+  (25 of 100), not its full cost (3Com would take 100), so one leak hurts without deciding the level. Palantir is never
+  capped: it reaching the core ends the finale. The briefing shows the cap.
+- **Stars** by integrity left: 3 for a near-flawless win (at most 5% lost, 95 of 100 left), 2 with at least 60% left,
+  else 1 (your best is kept). The briefing shows both thresholds.
+
+| # | Level | Map | Waves | War waves | Start cash | Integrity | Enemy health | Boss leak | First clear unlocks |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | Hello, World | The Silicon Circuit | 10 | 1-12 | $650 | 100 | 120-400% | - | Perplexity |
+| 2 | Garbage Collection | Abandoned Data Center | 18 | 4-21 | $750 | 100 | 130-700% | - | Mistral |
+| 3 | Legacy Code | The Legacy Monolith | 12 | 18-29 | $4,000 | 100 | 140-600% | - | DeepSeek |
+| 4 | Campus Tour | Silicon Valley | 24 | 17-40 (MOAB finale) | $5,000 | 100 | 145-600% | 25 | Suno |
+| 5 | Hallucinations | The Hallucination Canyon | 8 | 41-52 | $8,000 | 100 | 18-47% | 25 | Qwen |
+| 6 | Backpropagation | The Neural Network | 21 | 36-56 | $10,000 | 100 | 33-83% | 25 | Copilot + the Hero Store |
+| 7 | Outsourced | The Silicon Circuit | 14 | 47-60 (BFB finale) | $12,000 | 100 | 26-34% | 25 | Cohere, DALL·E |
+| 8 | Technical Debt | Abandoned Data Center | 30 | 41-70 | $8,000 | 100 | 100-255% | 25 | Grok |
+| 9 | Event Horizon | The Singularity Core | 10 | 48-66 (the core collapses on war wave 50) | $14,000 | 100 | 15-46% | 25 | Sora |
+| 10 | Network Effect | The Legacy Monolith | 16 | 65-80 (ZOMG finale) | $16,000 | 100 | 22-162% | 25 | GLM + $15,000 abilities |
+| 11 | Mass Hallucination | The Hallucination Canyon | 25 | 58-83 (all but the ZOMG) | $18,000 | 100 | 10-130% | 25 | Llama |
+| 12 | Stealth Mode | Silicon Valley | 12 | 79-90 (DDT finale) | $20,000 | 100 | 14-145% | 25 | Kimi |
+| 13 | Deep Learning | The Neural Network | 28 | 67-94 | $22,000 | 100 | 10-77% | 25 | MiniMax |
+| 14 | Singularity | The Singularity Core | 9 | 90-99 | $25,000 | 100 | 4-24% | 25 | Zethos |
+| 15 | The Last Line of Code | The Silicon Circuit | 22 | 79-100 (Palantir) | $60,000 | 100 | 10-37% | 25 | - (campaign complete) |
 
 - **Towers.** You start with **Gemini, Claude and GPT** (Gemini sees camo after its second upgrade, Claude is immune to
   Prompt Injection, Gemini and GPT hurt Lead). Each first clear unlocks the next tower, chosen so every level's threats
@@ -284,6 +309,14 @@ integrity left: 3 with at least 90%, 2 with at least half, else 1 (your best is 
   LEVEL** (its briefing), **CAMPAIGN** or **RETRY**; a defeat offers **RETRY** and **CAMPAIGN**. QUIT LEVEL in the pause
   menu returns to the level path. A level in progress is saved like any run and CONTINUE names it ("Level 7: Outsourced,
   wave 3 / 14").
+- **Story.** The campaign tells one story across four acts: the textbook breaks open, the corporate bosses arrive one
+  by one, the consultant's invoice names who hired them all (Palantir), and the war turns out to be its training run.
+  **Mr. Lindemann** narrates, you are **Spear Hanbo**, each AI model speaks when it joins, the bosses taunt, and Palantir
+  only ever talks through intercepted transmissions. A prologue plays the first time you open CAMPAIGN, a short dialogue
+  before each level (once), a story card in every briefing, radio chatter at a few waves in a level (a small bubble at
+  the lower left; hover it to see through), an after-action line on the end panel, and the campaign's own ending after
+  Palantir falls. Every scene can be skipped and replayed from **STORY** on the level path. Seen scenes are saved in
+  `lindefense_story.json`.
 - Progress (best stars, unlocked towers) is saved on this computer (`lindefense_campaign.json` in the save folder).
   Campaign levels count toward the career totals and the boss, hero and career achievements, and earn three of their own
   (**Fully Trained**: finish the campaign; **State of the Art**: 3 stars on every level; **Base Model**: win level 4 or
@@ -353,31 +386,52 @@ broken, as with a maximised window. A match pauses itself when the window loses 
 ## 6. Adversarial Training (reverse mode)
 
 You are the attacker. Pick a map and a Difficulty Growth mode (it chooses the AI: **O(1)** Novice, **O(N)** Competent,
-**O(N²)** Expert, **O(Nᴺ)** Superintelligence), click DEPLOY, then **ATTACK INSTEAD** in the briefing.
+**O(N²)** Expert, **O(Nᴺ)** Superintelligence), click DEPLOY, then **ATTACK INSTEAD** in the briefing. Pick an
+**attack doctrine** on the briefing's three cards (click, or `1` `2` `3`), then **ATTACK**.
 
-- **Goal:** break the AI's integrity (80 to 150, see below) within 15:00 of game time (15 one-minute epochs; units already
-  on the track get up to a minute of overtime). If the AI survives, it wins.
-- **Difficulty:** the harder the mode, the harder the AI's towers hit and the more integrity it has, and the less health
-  your units have and the less compute you earn (shown in the briefing):
+- **Goal:** break the AI's integrity (90 to 200, see below) within **8 rounds of 1:00**. Every round has an
+  **objective**: take that much integrity before the round ends (4% of the AI's integrity in round 1, rising to 16% in
+  the final round) and you get bonus compute on the spot. The panel's round track lights each round you win.
+- **Sudden-death overtime:** if the AI is at 25% integrity or less when round 8 ends, the uplink stays open one more
+  minute, your income doubles and every exploit recharges. Otherwise (and after the overtime) the uplink closes and
+  the units already sent get up to 0:45 to finish. If the AI survives, it wins.
+- **Doctrines** (the pick is kept for the session; RETRY keeps it):
 
-  | Mode | AI | AI tower damage | AI integrity | Your unit health | Your income |
-  |---|---|---|---|---|---|
-  | O(1) | Novice | x0.9 | 80 | x1.1 | x1.1 |
-  | O(N) | Competent | x1 | 100 | x1 | x1 |
-  | O(N²) | Expert | x1.1 | 125 | x0.95 | x0.95 |
-  | O(Nᴺ) | Superintelligence | x1.2 | 150 | x0.9 | x0.9 |
+  | Doctrine | Perks | Cost |
+  |---|---|---|
+  | **Rush** | start with 1,000 compute; exploits recharge 40% faster and cost 25% less; bosses unlock 30 s earlier | income -10% |
+  | **Swarm** | regular units cost 25% less and have +25% health; the uplink sends twice as fast (queue 250) | bosses cost 10% more |
+  | **Heist** | leaks pay 2x compute; SCALE COMPUTE 35% cheaper, up to 10 levels; round objectives pay 50% more | start with 400 compute |
 
-- **Compute credits:** you start with 250 and earn an income that grows every minute (on O(N): 12/s at the start, about
-  160/s at 10:00); **SCALE COMPUTE** (`C`) raises it. Every integrity point a leak costs the AI pays you 8 (times your
-  income multiplier).
-- **Units** unlock over time, from Primitive Variables at 0:00 to the five bosses (MOAB 5:00 ... Palantir 12:00).
-  Modifiers multiply the price: Regrow x1.3, Camo x1.5, Fortified x2, **Prompt Injection x1.6** (from 6:00; it hijacks
-  the AI's towers that are not immune).
-- **Exploits:** `Q` Overclock (your units +50% speed), `W` Hotfix (heal everything on the track), `E` Zero-Day (jam the
-  AI's 3 most expensive towers).
+- **Compute credits:** on O(N) you earn 30/s from 0:00, about 80/s at 3:00 and 222/s at 8:00; **SCALE COMPUTE**
+  (`C`, +5/s from $300) raises it, every integrity point a leak costs the AI pays you 8, and round objectives pay
+  8 seconds of income (all times your mode's income multiplier).
+- **Units** unlock fast: Primitive Variables, Static and Dynamic Arrays, Singly Linked Lists and Bubble Sorts at 0:00,
+  a new tier every 30 s, then the bosses: MOAB 2:30, BFB 3:30, DDT 5:00, ZOMG 6:00, Palantir 7:00 (Rush: 30 s
+  earlier). Modifiers multiply the price: Regrow x1.3 (0:30), Camo x1.5 (1:00), Fortified x2 (1:30), **Prompt
+  Injection x1.6** (3:00; it hijacks the AI's towers that are not immune).
+- **Exploits:** `Q` Overclock (your units +50% speed, $100 from 0:00), `W` Hotfix (heal everything on the track,
+  0:45), `E` Zero-Day (jam the AI's 3 most expensive towers, 1:30).
+- **The AI adapts:** it watches what you spend on and builds the counter to the role you lean on (Gemini against
+  swarms, Claude against fast units, Cohere against armour, DeepSeek against bosses, Perplexity against camo), announced
+  in the feed. A unit card shows **EDGE** while the AI has no answer to its role and **COUNTERED** after the AI built
+  one; the lane button shows a lane the AI covers least as **OPEN**. Harder AIs adapt more often.
+- **Difficulty:** the harder the mode, the harder the AI's towers hit, the more integrity, funding and opening budget it
+  has and the faster it adapts, and the less health your units have and the less compute you earn (shown in the
+  briefing):
+
+  | Mode | AI | AI tower damage | AI integrity | AI funding | Your unit health | Your income |
+  |---|---|---|---|---|---|---|
+  | O(1) | Novice | x0.9 | 90 | x0.9 | x1.1 | x1.1 |
+  | O(N) | Competent | x1 | 100 | x1 | x1 | x1 |
+  | O(N²) | Expert | x1.2 | 150 | x1.75 | x0.9 | x0.95 |
+  | O(Nᴺ) | Superintelligence | x1.35 | 200 | x2 | x0.85 | x0.9 |
+
 - **Controls:** click a unit card to send it, `X` cycles the quantity (x1 / x5 / x10 / x25), `L` picks the lane,
   `Space` repeats the last send. Long single-lane maps give your units a speed and income bonus (shown in the briefing).
 - The defender plays by the normal rules (3 heroes per game, $15,000 ability unlocks) and its moves appear in the feed.
+  The end screen sums the match up: integrity taken, objectives won, a per-round breach strip, the doctrine and how
+  often the AI adapted. Reverse matches are never saved and only count toward the four Red Team achievements.
 
 ## 7. Towers
 
@@ -563,7 +617,7 @@ the daily run and challenge rules, the settings, and the real screens painted of
 |---|---|
 | `LINDEFENSE_DEMO=<dir> LINDEFENSE_PREFS_DIR=<tmp> .venv/bin/python -m lindefense.app` | Scripted walkthrough of every screen (resizes, click-to-place, pause flows); writes PNGs and PASS / FAIL |
 | `BOT_DIFFICULTY=O1 BOT_SEED=1234 .venv/bin/python -m lindefense.tools.auto_player 100 [map]` | The balance bot plays whole classic runs (`BOT_ABILITIES=true` buys abilities, `BOT_FREEPLAY=true` continues into Freeplay); `auto_player campaign [levels]` plays campaign levels with only that level's towers |
-| `BOT_SEEDS=2 .venv/bin/python -m lindefense.tools.auto_player campaign [level ...]` | The balance bot plays campaign levels, limited to each level's unlocked towers |
+| `.venv/bin/python -m lindefense.tools.auto_player campaign [level ...]` | The balance bot plays campaign levels, limited to each level's unlocked towers, on the three calibration seeds (1234, 2000, 2766; `BOT_SEED` / `BOT_SEEDS` change them) and prints the integrity left and the stars |
 | `.venv/bin/python -m lindefense.tools.reverse_probe` | Reverse-mode balance probe |
 | `.venv/bin/python -m lindefense.tools.design_doc_generator ../DESIGN.md` | Regenerates DESIGN.md |
 | `.venv/bin/python -m lindefense.tools.perf_bench [sim\|render\|all]` | Headless performance benchmark |

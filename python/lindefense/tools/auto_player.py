@@ -2,7 +2,8 @@
 
 Usage: python -m lindefense.tools.auto_player [maxWave] [mapIdx] [verbose]
        python -m lindefense.tools.auto_player campaign [level ...]   (campaign levels: the bot may only build the
-       level's unlocked towers, heroes only once the Hero Store is open; BOT_SEED / BOT_SEEDS pick the seeds)
+       level's unlocked towers, heroes only once the Hero Store is open; BOT_SEED / BOT_SEEDS pick the seeds,
+       default the three calibration seeds 1234, 2000, 2766)
 Environment: BOT_DIFFICULTY=O1|ON|ON2|ONN, BOT_SEED=N, BOT_SEEDS=K, BOT_MAX_MINUTES=N, BOT_MAX_TOWERS=N,
 BOT_RANDOM=true, BOT_VARIANCE=random|first, BOT_OPEN=TYPE:copy:tier,..., BOT_DUMP=true, BOT_DUMP_WAVE=N,
 BOT_REPORT_EVERY=N, BOT_FREEPLAY=true (after winning, continue into Freeplay until lives run out or maxWave; pass a
@@ -274,7 +275,7 @@ def run_level(level, seed, start_cash=None, max_minutes=120, hp=None):
 def campaign_main(args):
     from lindefense.sim import campaign
     seed0 = _env_int("BOT_SEED", 1234)
-    seeds = _env_int("BOT_SEEDS", 2)
+    seeds = _env_int("BOT_SEEDS", 3)   # the calibration seeds: 1234, 2000, 2766
     pick = [campaign.level(int(a) if a.isdigit() else a) for a in args] or list(campaign.LEVELS)
     for lv in pick:
         for k in range(seeds):
@@ -282,10 +283,11 @@ def campaign_main(args):
             pal = r.game.get_palantir()
             route = ("  palantir reached %2.0f%% of its route" % (100.0 * pal.get_distance() / pal.get_route().get_total_length())
                      if pal is not None else "")
-            print("[campaign] %2d %-22s %-22s waves %2d cash %6d lives %3d hp %.3g-%.3g seed %-5d %-7s cleared %2d "
-                  "lives %3d time %5.0fs towers %3d%s" % (lv.index, lv.title, r.map, lv.wave_count(), lv.start_cash,
-                                                          lv.start_lives, lv.hp_range()[0], lv.hp_range()[1], seed0 + k * 766,
-                                                          r.state, r.completed, r.lives, r.game.get_time(), r.towers, route),
+            print("[campaign] %2d %-22s %-22s waves %2d cash %6d lives %3d hp %.3g-%.3g boss leak %-4s seed %-5d %-7s "
+                  "cleared %2d lives %3d (%d stars) time %5.0fs towers %3d%s"
+                  % (lv.index, lv.title, r.map, lv.wave_count(), lv.start_cash, lv.start_lives, lv.hp_range()[0],
+                     lv.hp_range()[1], lv.boss_leak() or "-", seed0 + k * 766, r.state, r.completed, r.lives,
+                     campaign.stars_for(r.lives, lv.start_lives) if r.won() else 0, r.game.get_time(), r.towers, route),
                   flush=True)
 
 

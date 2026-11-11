@@ -1,59 +1,85 @@
 """Lindefense ReverseProbe (ported from src/lindefense/tools/ReverseProbe.java)."""
-import math
-import re
+import os
+import time
 
 from lindefense.ui import jrt as _j
-from lindefense.ui.jrt import (_j_add, _j_compute_if_absent, _j_for_each, _j_iter, _j_map_for_each, _j_merge,
-                               _j_postinc, _j_postinc_idx, _j_preinc, _j_preinc_idx, _j_put, _j_remove,
-                               _j_remove_all, _j_remove_if, _j_retain_all, _j_set, _j_swap, _j_sysout)
-from lindefense.ui.jawt import *  # noqa: F401,F403
-from lindefense.ui.acm import *  # noqa: F401,F403
 from lindefense.ai.reverse_match import AttackerBot
 from lindefense.ai.reverse_match import ReverseMatch
-from lindefense.ai.units import DefenderProfile
+from lindefense.ai.units import DefenderProfile, Doctrine
 from lindefense.map import maps
 from lindefense.sim.difficulty import Difficulty
 import lindefense.ai.reverse_match as _m_reverse_match
 
+MAX_JOBS = 6
+
+
+def _match(args):
+    """One probe match (a top-level function, so a process pool can run it): (line, won, match seconds)."""
+    style_name, level_name, m, seed, doctrine_name, push, boss = args
+    os.environ.setdefault("LINDEFENSE_NOSOUND", "1")
+    d = Difficulty.value_of(level_name)
+    doc = Doctrine.value_of(doctrine_name)
+    t0 = time.time()
+    g = ReverseMatch.create(m, seed, d, doc)
+    o = AttackerBot.play(g, AttackerBot(g.get_reverse(), AttackerBot.Style.value_of(style_name), push, boss), _j.get_boolean('probe.trace'))
+    line = _j.format('[%-6s %-17s %-5s] %-24s seed %-4d %s  (%.1fs)', d.ascii_label, DefenderProfile.of(d).display_name,
+                     doc.display_name, maps.create(m).get_name(), seed, o, time.time() - t0)
+    return line, o.attacker_won, o.time
+
 
 class ReverseProbe:
     """Headless balance probe for reverse mode ("Adversarial Training"): scripted attackers (AttackerBot) against
-the defender AI on every map and Difficulty Growth level, one line per match.
+the defender AI on every map and Difficulty Growth level, one line per match, then a summary per level (wins and the
+average match length).
 
-Usage: .venv/bin/python -m lindefense.tools.reverse_probe [style] [level] [map] with style
-PASSIVE / SPAM / REASONABLE (default REASONABLE), level O1 / ON / ON2 / ONN or ALL (default ALL) and a map index or
--1 for every map (default -1); PROBE_SEEDS=K runs K seeds per combination from PROBE_SEED=N;
-PROBE_PUSH=S / PROBE_BOSS=F change the reasonable bot's push size (seconds of income) and boss
-share; PROBE_TRACE=true prints the economy every 30 s."""
+Usage: .venv/bin/python -m lindefense.tools.reverse_probe [style] [level] [map] [doctrine] with style
+PASSIVE / SPAM / REASONABLE (default REASONABLE), level O1 / ON / ON2 / ONN or ALL (default ALL), a map index or
+-1 for every map (default -1) and doctrine RUSH / SWARM / HEIST or ALL (default RUSH); PROBE_SEEDS=K runs K seeds per
+combination from PROBE_SEED=N; PROBE_JOBS=J runs J matches in parallel (at most 6); PROBE_PUSH=S / PROBE_BOSS=F
+change the reasonable bot's push size (seconds of income) and boss share; PROBE_TRACE=true prints the economy every
+30 s."""
     def __init__(self):
         pass
+
     @staticmethod
     def main(args):
         _j.set_property('lindefense.nosound', 'true')
-        style = (AttackerBot.Style.value_of(args[0].upper()) if (len(args) > 0) else AttackerBot.Style.REASONABLE)
-        only = (Difficulty.parse(args[1]) if ((len(args) > 1) and (not (args[1] is not None and args[1].lower() == 'ALL'.lower()))) else None)
+        style = (args[0].upper() if (len(args) > 0) else 'REASONABLE')
+        AttackerBot.Style.value_of(style)
+        only = (Difficulty.parse(args[1]) if ((len(args) > 1) and (args[1].lower() != 'all')) else None)
         map_ = (int(args[2]) if (len(args) > 2) else (-1))
+        docs = ([d.name for d in Doctrine] if (len(args) > 3 and args[3].lower() == 'all')
+                else [(args[3].upper() if len(args) > 3 else Doctrine.default().name)])
         seeds = _j.get_integer('probe.seeds', 1)
         seed0 = _j.get_long('probe.seed', 77)
+        jobs = max(1, min(MAX_JOBS, _j.get_integer('probe.jobs', 1)))
         push = float(_j.get_property('probe.push', _j.s(_m_reverse_match.DEFAULT_PUSH_SECONDS)))
         boss = float(_j.get_property('probe.boss', _j.s(_m_reverse_match.DEFAULT_BOSS_SHARE)))
-        for d in Difficulty.values():
-            if (only is not None) and (d is not only):
-                continue
-            wins = 0
-            n = 0
-            for m in range(maps.MAP_COUNT):
-                if (map_ >= 0) and (m != map_):
+        pool = None
+        if jobs > 1:
+            from multiprocessing import Pool
+            pool = Pool(jobs)
+        try:
+            for d in Difficulty.values():
+                if (only is not None) and (d is not only):
                     continue
-                for k in range(seeds):
-                    t0 = _j.current_time_millis()
-                    g = ReverseMatch.create(m, (seed0 + k), d)
-                    o = AttackerBot.play(g, AttackerBot(g.get_reverse(), style, push, boss), _j.get_boolean('probe.trace'))
-                    n += 1
-                    if o.attacker_won:
-                        wins += 1
-                    print(_j.format('[%-6s %-17s] %-24s seed %-4d %s  (%.1fs)%n', d.ascii_label, DefenderProfile.of(d).display_name, maps.create(m).get_name(), (seed0 + k), o, ((_j.current_time_millis() - t0) / 1000.0)), end='')
-            print(_j.format('== %s %s: attacker won %d of %d%n', style, d.ascii_label, wins, n), end='')
+                for doc in docs:
+                    work = [(style, d.name, m, seed0 + k, doc, push, boss) for m in range(maps.MAP_COUNT)
+                            if map_ < 0 or m == map_ for k in range(seeds)]
+                    results = pool.imap(_match, work) if pool is not None else map(_match, work)
+                    wins = n = 0
+                    total = 0.0
+                    for line, won, t in results:
+                        print(line, flush=True)
+                        n += 1
+                        wins += 1 if won else 0
+                        total += t
+                    avg = total / max(1, n)
+                    print('== %s %s %s: attacker won %d of %d, average match %s' % (style, d.ascii_label, doc, wins, n,
+                                                                                    ReverseMatch.clock(avg)), flush=True)
+        finally:
+            if pool is not None:
+                pool.close()
 
 
 if __name__ == "__main__":

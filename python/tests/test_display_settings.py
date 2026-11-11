@@ -208,7 +208,7 @@ def test_reduced_motion_turns_off_shake_bursts_and_flashes(check):
         a_disc, a_ring = e.rings[0].c.get_alpha(), e.rings[1].c.get_alpha()
         check(a_ring == 255 and (a_disc < 100 if rm else a_disc == 255), "%s: flash disc alpha %d, plain ring %d" % (tag, a_disc, a_ring))
 
-    # the main menu: the wordmark's letter-by-letter reveal is its only motion, and reduced motion skips it
+    # the main menu: the wordmark's letter-by-letter build-in plays, and reduced motion skips it
     for rm in (False, True):
         _settings(reduced_motion=rm)
         m = MenuScreen(_App())

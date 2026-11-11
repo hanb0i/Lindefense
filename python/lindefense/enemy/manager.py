@@ -374,6 +374,9 @@ class EnemyManager:
             s.mark_leaked()
         e.mark_leaked()
         self._total_leaked += 1
+        c = self._game.get_campaign()
+        if c is not None:   # a campaign level caps what one leaking boss costs (sim/campaign.py BALANCE boss_leak)
+            lives = c.leak_cost(e.get_type(), lives)
         self._game.lose_lives(self._game.get_variance().leak_lives(lives), e)
 
     def kill(self, e):

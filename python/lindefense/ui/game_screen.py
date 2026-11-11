@@ -135,6 +135,9 @@ pause / victory / defeat overlays."""
         self.strip = RunStrip(self)
         self.add(self.world)
         self.add(self.dock)
+        self.chatter = StoryView.StoryChatter.create(self)   # campaign levels: the story's radio chatter (ui/story_view)
+        if self.chatter is not None:
+            self.add(self.chatter)
         self.add(self.hud)
         self.add(self.abilities)
         self.add((self.attack if (self.attack is not None) else self.side))
@@ -698,6 +701,8 @@ remainder of a step carried over by Game#advance) and then updates every view fr
             self.epilogue.update(real_dt)
         self.update_music(real_dt)
         self.update_records(real_dt)
+        if self.chatter is not None:
+            self.chatter.update(real_dt)
         if self.pause_toggles is not None:
             AudioToggle.sync_all(self.pause_toggles)
         Slider.frame_all(real_dt, self.pause_sliders)
@@ -840,7 +845,8 @@ remainder of a step carried over by Game#advance) and then updates every view fr
         pw = (760.0 if ended else 720.0)
         rules_h = (RunSetupView.end_rows_height(self.game, (pw - 80)) if ended else 0)
         replay_ok = (ended and (not self.game.is_reverse()))   # every defense run has a seed to replay
-        ph = (((482 + rules_h) + (62 if freeplay else 0)) if ended else 270)
+        rounds_h = (AttackPanel.END_ROUNDS_H if (ended and self.game.is_reverse()) else 0)   # reverse: the round strip
+        ph = ((((482 + rules_h) + (62 if freeplay else 0)) + rounds_h) if ended else 270)
         px = (cx - (pw / 2))
         py = (cy - (ph / 2))
         self.overlay.add(Cyber.Chamfer(px, py, pw, ph, 6))
@@ -879,10 +885,13 @@ remainder of a step carried over by Game#advance) and then updates every view fr
                 self.overlay.add(Cyber.Chamfer(x, cyy, cw, 58, 4).fill(Cyber.SURFACE_2))
                 self.overlay.add(Ui.label(GameScreen.sentence(stats[i][0]), (x + 12), (cyy + 20), Cyber.body(Font.PLAIN, 12), Cyber.MUTED))
                 self.overlay.add(Ui.label(stats[i][1], (x + 12), (cyy + 45), Cyber.mono(Font.BOLD, 20), vc))
+            if rounds_h > 0:
+                AttackPanel.end_rounds(self.overlay, self.game, cx, (cyy + 86), (pw - 60))
+                cyy += rounds_h
             mode_font = Cyber.body(Font.PLAIN, 14)
             mode = Ui.label(_j.cat(DifficultySelector.display(self.game.get_difficulty(), mode_font), '  ', self.game.get_difficulty().subtitle, '   ·   ', PatchNotesView.seed_text(self.game)), 0, (cyy + 86), mode_font, Cyber.MUTED)
             if self.game.is_reverse():
-                mode.set_label(_j.cat('Adversarial training   ·   AI ', DifficultySelector.display(self.game.get_reverse().get_level(), mode_font), '  ', self.game.get_reverse().get_profile().display_name))
+                mode.set_label(_j.cat('Adversarial training   ·   AI ', DifficultySelector.display(self.game.get_reverse().get_level(), mode_font), '  ', self.game.get_reverse().get_profile().display_name, '   ·   ', self.game.get_reverse().get_doctrine().display_name, ' doctrine'))
             mode.set_location((cx - (mode.get_width() / 2)), (cyy + 86))
             self.overlay.add(mode)
             ry = (cyy + 112)
@@ -922,9 +931,14 @@ mode or the tutorial)."""
         c = self.game.get_campaign()
         if (c is not None) and (not c.finale):
             return False   # campaign: only the finale (Palantir) plays the epilogue
+        if (c is not None) and (not StoryView.wants_ending(self)):
+            return False   # ... the campaign's own ending, once (the campaign's STORY codex replays it)
         return ((((not self.epilogue_done) and (self.tutorial is None)) and (not self.game.is_reverse())) and (not self.game.is_freeplay())) and (self.game.get_state() is Game.State.VICTORY)
     def build_epilogue_overlay(self):
-        self.epilogue = VictoryEpilogue(Ui.WORLD_X, Ui.WORLD_Y, Ui.WORLD_W, Ui.WORLD_H)
+        if self.game.get_campaign() is not None:   # a won campaign finale: the campaign's ending
+            self.epilogue = StoryView.ending_for(self)
+        else:
+            self.epilogue = VictoryEpilogue(Ui.WORLD_X, Ui.WORLD_Y, Ui.WORLD_W, Ui.WORLD_H)
         self.overlay.add(self.epilogue)
     def is_epilogue_open(self):
         return self.epilogue is not None
@@ -1394,6 +1408,7 @@ from lindefense.ui.tutorial_script import TutorialScript  # noqa: E402
 from lindefense.ui.ui import Ui  # noqa: E402
 from lindefense.ui.ui_button import UIButton  # noqa: E402
 from lindefense.ui.victory_epilogue import VictoryEpilogue  # noqa: E402
+from lindefense.ui import story_view as StoryView  # noqa: E402
 from lindefense.ui.world_view import WorldView  # noqa: E402
 
 GameScreen.serial_version_uid = 1
