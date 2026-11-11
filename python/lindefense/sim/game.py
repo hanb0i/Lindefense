@@ -82,6 +82,7 @@ class Game:
         self._seed_fixed = False         # True when the seed was chosen (typed, daily, replayed): RESTART keeps it
         self._reverse = None
         self._freeplay = False
+        self._campaign = None            # sim.campaign.CampaignRun for a campaign level (set_campaign), else None
         self._window_link = WindowLink()
         self._enemy_manager = EnemyManager(self)
         self._tower_manager = TowerManager(self)
@@ -99,6 +100,12 @@ class Game:
         it is restarted on its own date: replayed (or restarted another day) it becomes a chosen-seed run with the same
         rule, so it never updates that date's daily best. today: a date or "YYYY-MM-DD" (default: the local date)."""
         from lindefense.map import maps
+        if old._campaign is not None:
+            from lindefense.sim import campaign
+            g = campaign.new_game(old._campaign.level_id, seed,
+                                  old.get_hero_collection())
+            g.copy_admin_from(old)
+            return g
         replay = seed is not None
         if seed is None:
             seed = old._seed if old._seed_fixed else seed_next()
@@ -106,6 +113,7 @@ class Game:
         if idx < 0:
             raise ValueError("map is not in the catalog: " + old.get_map().get_name())
         g = Game(maps.create(idx), seed, old.get_difficulty())
+        g.get_wave_manager().set_wave_list(old.get_wave_manager().get_wave_list())   # the tutorial keeps its own waves
         g.set_hero_collection(old.get_hero_collection())
         g.copy_admin_from(old)
         g.set_challenges(old._challenges)
@@ -213,7 +221,9 @@ class Game:
         "no-patch-notes" when Patch Notes are off. Empty for a standard run with Patch Notes on."""
         tags = list(self._run_tags)
         tags.extend(c.tag for c in self._challenges)
-        if self._reverse is None and not self._variance.is_enabled():
+        if self._campaign is not None:
+            tags.append("campaign:" + self._campaign.level_id)
+        elif self._reverse is None and not self._variance.is_enabled():
             tags.append("no-patch-notes")
         return tuple(tags)
 
@@ -238,6 +248,8 @@ class Game:
             return "Not a hero"
         if self._state is not State.PLAYING:
             return "Game over"
+        if self._campaign is not None and not self._campaign.heroes:
+            return self._campaign.lock_problem(type_)
         if self.is_hero_unlocked(type_):
             return "Already unlocked"
         if self._cash < catalog.get(type_).unlock_cost:
@@ -275,6 +287,41 @@ class Game:
         self.set_banner(banner_text, 0x7fd8a8, 4)
         self._log_line(banner_text)
 
+    # ---------------- campaign mode (sim/campaign.py)
+    def set_campaign(self, run):
+        """Makes this fresh Game a campaign level (sim.campaign.CampaignRun): the level's starting cash and lives, its
+        wave list and its tower set. Call before the first wave; Patch Notes stay off (never enabled)."""
+        self._campaign = run
+        self._wave_manager.set_wave_list(run.waves)   # waves.for_game / exists / WaveManager play the level's waves
+        lv = run.level()
+        self._cash = float(lv.start_cash)
+        self.set_starting_lives(lv.start_lives)
+
+    def get_campaign(self):
+        """The CampaignRun of a campaign level, or None (classic, tutorial and reverse matches)."""
+        return self._campaign
+
+    def get_wave_count(self):
+        """Waves in this game before Freeplay: 100, or the length of its own wave list (a campaign level, the
+        tutorial)."""
+        return self._wave_manager.wave_count()
+
+    def get_era_wave(self):
+        """The wave of the 100-wave progression the current wave plays as (scaling, map events, music): the wave
+        itself, or for a campaign level the base wave its current wave plays (0 before the first wave)."""
+        c = self._campaign
+        return self.get_wave() if c is None else c.base_wave(self.get_wave())
+
+    def tower_lock_problem(self, type_):
+        """Why a campaign level does not allow this tower (or hero), or None (always None outside the campaign)."""
+        c = self._campaign
+        return None if c is None else c.lock_problem(type_)
+
+    def ability_lock_problem(self):
+        """Why a campaign level does not allow $15,000 ability unlocks yet, or None."""
+        c = self._campaign
+        return None if c is None else c.ability_problem()
+
     # ---------------- freeplay (endless waves after Palantir)
     def is_freeplay(self):
         """True once the player chose CONTINUE - FREEPLAY on the victory screen (stays true after freeplay ends)."""
@@ -282,7 +329,7 @@ class Game:
 
     def can_continue_freeplay(self):
         return (self._state is State.VICTORY and not self._freeplay and self._reverse is None
-                and self.get_wave() >= waves.WAVE_COUNT)
+                and self._campaign is None and self.get_wave() >= waves.WAVE_COUNT)
 
     def continue_freeplay(self):
         """Resumes a won campaign as Freeplay: the board, cash, lives and towers carry over, whatever was left on the
@@ -459,16 +506,23 @@ class Game:
         return self._invincible
 
     def get_wave_hp_scale(self, type_=None):
-        w = max(1, self.get_wave())
-        return waves.hp_scale(w) * self._difficulty.hp_multiplier(w, type_) * self._variance.enemy_hp()
+        c = self._campaign
+        if c is None:
+            w = max(1, self.get_wave())
+            return waves.hp_scale(w) * self._difficulty.hp_multiplier(w, type_) * self._variance.enemy_hp()
+        w = max(1, self.get_era_wave())   # a campaign level: its base wave's scaling times the level's own multiplier
+        return (waves.hp_scale(w) * self._difficulty.hp_multiplier(w, type_) * self._variance.enemy_hp()
+                * c.hp_at(self.get_wave()))
 
     def get_wave_speed_scale(self):
-        return waves.speed_scale(max(1, self.get_wave())) * self._variance.enemy_speed()
+        w = self.get_wave() if self._campaign is None else self.get_era_wave()
+        return waves.speed_scale(max(1, w)) * self._variance.enemy_speed()
 
     def get_reward_scale(self):
         if self._reverse is not None:
             return self._reverse.kill_reward_scale()
-        return waves.reward_scale(max(1, self.get_wave())) * self._difficulty.income * self._variance.kill_income()
+        w = self.get_wave() if self._campaign is None else self.get_era_wave()
+        return waves.reward_scale(max(1, w)) * self._difficulty.income * self._variance.kill_income()
 
     def set_speed(self, s):
         self._speed = max(1, min(3, s))
@@ -635,7 +689,7 @@ class Game:
     def on_wave_started(self, wave, d):
         self._round_pop_value = 0.0
         self._variance.on_wave_started(wave)
-        self._map.on_wave_start(self, wave)
+        self._map.on_wave_start(self, wave if self._campaign is None else self.get_era_wave())
         audio.sfx(Sfx.BOSS_ALARM if d.contains_boss() else Sfx.WAVE_START)
         msg = "Wave " + str(wave)
         if d.contains_boss():
@@ -647,7 +701,8 @@ class Game:
         self._last_completed_wave = wave
         audio.sfx(Sfx.WAVE_COMPLETE)
         audio.sfx(Sfx.CASH)
-        bonus = jround(waves.wave_bonus(wave) * self._difficulty.income * self._variance.wave_bonus())
+        bw = wave if self._campaign is None else self._campaign.base_wave(wave)
+        bonus = jround(waves.wave_bonus(bw) * self._difficulty.income * self._variance.wave_bonus())
         income = 0.0
         for t in list(self._tower_manager.get_towers()):
             income += t.get_behavior().on_round_end(self, t)
@@ -656,8 +711,12 @@ class Game:
         self._log_line("Wave " + str(wave) + " complete: +$" + str(bonus)
                        + (" (+$" + str(jint(income)) + " research income)" if income > 0 else ""))
         self._variance.on_wave_completed(wave)
-        if wave >= waves.WAVE_COUNT and self._victory_timer < 0 and self._state is State.PLAYING and not self._freeplay:
+        last = waves.WAVE_COUNT if self._campaign is None else self.get_wave_count()   # (the tutorial ends on its own)
+        if wave >= last and self._victory_timer < 0 and self._state is State.PLAYING and not self._freeplay:
             self._victory_timer = 0.5
+            if self._campaign is not None:
+                self.set_banner("LEVEL COMPLETE", 0xffd166, 3)
+                self._log_line("Level " + str(self._campaign.index) + " complete")
 
     def on_enemy_killed(self, e):
         if e.get_type().is_boss():

@@ -11,24 +11,20 @@ from lindefense.ui.acm import *  # noqa: F401,F403
 
 
 class VignetteOverlay:
-    """HIGH-quality cosmetic (see GraphicsSettings.Quality#vignette): darkened corners and faint CRT scanlines for
-the cyberpunk monitor look. It is painted ONCE into the cached map-background bitmap (MapArt), not over every
-frame: blending a full-screen translucent layer each frame cost about 14 ms in the render benchmark, baking it into
-the static backdrop costs nothing per frame. Units and effects are drawn on top of it."""
+    """HIGH-quality cosmetic (see GraphicsSettings.Quality#vignette): a barely-there darkening of the far corners that
+settles the eye on the middle of the battlefield (no scanlines: the world stays clean). It is painted ONCE into the
+cached map-background bitmap (MapArt), not over every frame: blending a full-screen translucent layer each frame cost
+about 14 ms in the render benchmark, baking it into the static backdrop costs nothing per frame. Units and effects
+are drawn on top of it."""
     def __init__(self):
         pass
     @staticmethod
     def paint(g, w, h):
-        """Paints the vignette and scanlines over a w x h area in the current (world) coordinates."""
+        """Paints the corner falloff over a w x h area in the current (world) coordinates."""
         cx = (w / 2)
         cy = (h / 2)
-        g.set_paint(RadialGradientPaint(cx, cy, math.hypot(cx, cy), [0.0, 0.62, 1.0], [Color(0, 0, 0, 0), Color(2, 4, 12, 30), Color(2, 4, 12, 150)]))
+        g.set_paint(RadialGradientPaint(cx, cy, math.hypot(cx, cy), [0.0, 0.7, 1.0], [Color(0, 0, 0, 0), Color(2, 4, 12, 10), Color(2, 4, 12, 70)]))
         g.fill(Rectangle2D.Double(0, 0, w, h))
-        g.set_color(Color(0, 0, 0, 18))
-        y = 0
-        while y < h:
-            g.fill(Rectangle2D.Double(0, y, w, 1))
-            y += VignetteOverlay.SCANLINE_STEP
 
 
 VignetteOverlay.SCANLINE_STEP = 4

@@ -20,7 +20,6 @@ from lindefense.tower import shop
 from lindefense.tower.manager import TowerManager
 from lindefense.tower.tower_type import TowerType
 from lindefense.wave import waves
-import random
 
 
 class GameScreen(GCompound):
@@ -48,7 +47,6 @@ pause / victory / defeat overlays."""
         self.draft_open = False
         self.targeting_tower = None
         self.overlay_title = None
-        self.glitch_timer = 0.0
         self.dock_shown = 0.0
         self.help_shown = False
         self.hero_store_shown = False
@@ -85,7 +83,6 @@ pause / victory / defeat overlays."""
         self.draft_open = False
         self.targeting_tower = None
         self.overlay_title = None
-        self.glitch_timer = 0.0
         self.dock_shown = 0.0
         self.help_shown = False
         self.hero_store_shown = False
@@ -141,12 +138,11 @@ pause / victory / defeat overlays."""
         self.add(self.hud)
         self.add(self.abilities)
         self.add((self.attack if (self.attack is not None) else self.side))
-        self.build_brackets()
         self.add(self.strip)
-        if tutorial:
-            self.tutorial = TutorialGuide(TutorialScript(game))
-            self.add(self.tutorial)
         self.add(self.overlay)
+        if tutorial:   # above the overlays: it points into the Hero Store and hides itself behind the others
+            self.tutorial = TutorialGuide(TutorialScript(game, self), self)
+            self.add(self.tutorial)
     def __init__(self, *a):
         if len(a) == 2:
             return self._init_0(*a)
@@ -183,38 +179,14 @@ Hero Store or behind the pause menu is not played out of sight) and the run's pl
             self.toasts.append(a)
         if self.toasts and (self.game.get_banner() is None) and (self.hud.banner_time <= 0) and (not self.gameplay_keys_blocked()):
             a = self.toasts.pop(0)
-            self.hud.flash_banner(_j.cat('ACHIEVEMENT  //  ', a.title.upper()), Cyber.YELLOW, 3.2)
+            self.hud.flash_banner(_j.cat('ACHIEVEMENT: ', a.title.upper()), Cyber.YELLOW, 3.2)
             AudioManager.sfx(Sfx.CASH)
     def get_tutorial(self):
         """The running tutorial's script, or null outside the tutorial."""
         return None if (self.tutorial is None) else self.tutorial.get_script()
     def build_backdrop(self):
         """Faint grid behind the (possibly shrunken) playfield, visible in the margins while the boss dock is open."""
-        for x in range(0, Ui.WORLD_W + 1, 40):
-            l = GLine((x + 0.5), Ui.WORLD_Y, (x + 0.5), Ui.BOTTOM_Y)
-            l.set_color(Cyber.alpha(Cyber.CYAN, 14))
-            self.add(l)
-        for y in range(Ui.WORLD_Y, Ui.BOTTOM_Y + 1, 40):
-            l = GLine(0, (y + 0.5), Ui.WORLD_W, (y + 0.5))
-            l.set_color(Cyber.alpha(Cyber.CYAN, 14))
-            self.add(l)
-    def build_brackets(self):
-        """HUD corner brackets framing the playfield."""
-        len_ = 22.0
-        in_ = 3.0
-        x0 = (Ui.WORLD_X + in_)
-        y0 = ((Ui.WORLD_Y + in_) + 1)
-        x1 = ((Ui.WORLD_X + Ui.WORLD_W) - in_)
-        y1 = ((Ui.BOTTOM_Y - in_) - 1)
-        c = [[x0, y0, 1, 1], [x1, y0, (-1), 1], [x0, y1, 1, (-1)], [x1, y1, (-1), (-1)]]
-        col = Cyber.alpha(Cyber.CYAN, 150)
-        for k in c:
-            a = GLine(k[0], k[1], (k[0] + (len_ * k[2])), k[1])
-            b = GLine(k[0], k[1], k[0], (k[1] + (len_ * k[3])))
-            a.set_color(col)
-            b.set_color(col)
-            self.add(a)
-            self.add(b)
+        self.add(Cyber.Grid(Ui.WORLD_X, Ui.WORLD_Y, Ui.WORLD_W, (Ui.BOTTOM_Y - Ui.WORLD_Y), 40, Cyber.alpha(Cyber.CYAN, 12)))
     def get_game(self):
         return self.game
     def get_placing(self):
@@ -240,6 +212,11 @@ Hero Store or behind the pause menu is not played out of sight) and the run's pl
     def begin_placing(self, t):
         if (t is not None) and self.game.is_reverse():
             return
+        locked = (None if (t is None) else self.game.tower_lock_problem(t))   # campaign: towers not unlocked yet
+        if locked is not None:
+            self.abilities.show_hint(locked, Cyber.RED, 2.5)
+            AudioManager.sfx(Sfx.INVALID)
+            return
         self.placing = t
         if t is not None:
             self.selected_tower = None
@@ -259,8 +236,9 @@ Hero Store or behind the pause menu is not played out of sight) and the run's pl
             self.selected_tower = None
         self.side.request_rebuild()
     def start_wave(self):
-        if not self.game.is_reverse():
-            self.game.start_next_wave()
+        if self.game.is_reverse() or ((self.tutorial is not None) and (not self.tutorial.allow_wave_start())):
+            return
+        self.game.start_next_wave()
     def set_speed(self, s):
         self.game.set_speed(s)
         self.game.set_paused(False)
@@ -277,6 +255,8 @@ select, target); everything done meanwhile applies at once. With the pause menu 
         """True while the game is paused without the pause menu (the map stays usable)."""
         return (self.game.get_state() is Game.State.PLAYING) and self.game.is_paused() and (not self.menu_shown)
     def toggle_auto(self):
+        if (self.tutorial is not None) and (not self.tutorial.allow_auto()):
+            return
         if not self.game.is_reverse():
             self.game.get_wave_manager().set_auto_start((not self.game.get_wave_manager().is_auto_start()))
     def back_to_menu(self):
@@ -357,6 +337,11 @@ A half-finished tower placement or ability aim is dropped so nothing is still ar
         """Opens / closes the Hero Store overlay (HEROES button or K). The game keeps running underneath."""
         if (self.game.get_state() is not Game.State.PLAYING) or self.game.is_reverse():
             return
+        c = self.game.get_campaign()
+        if (c is not None) and (not c.heroes) and (not self.hero_store_shown):
+            self.abilities.show_hint(c.lock_problem(TowerType.heroes()[0]), Cyber.RED, 2.5)   # opens after level N
+            AudioManager.sfx(Sfx.INVALID)
+            return
         self.hero_store_shown = (not self.hero_store_shown)
         if self.hero_store_shown:
             self.help_shown = False
@@ -418,6 +403,10 @@ A half-finished tower placement or ability aim is dropped so nothing is still ar
         if ((t is None) or (not t.is_ability_locked())) or self.game.is_reverse():
             return
         name = t.get_ability_def().name
+        locked = self.game.ability_lock_problem()
+        if locked is not None:
+            self.abilities.show_hint(locked, Cyber.RED, 2.5)
+            return
         if self.game.unlock_ability(t):
             self.abilities.show_hint(_j.cat(name, ' UNLOCKED  -  press A or click it in the ability bar'), Cyber.GREEN, 3)
         elif not t.can_unlock_ability():
@@ -523,7 +512,7 @@ this match."""
         self.side.request_rebuild()
     def all_buttons(self):
         all_ = _j.ArrayList(self.overlay_buttons)
-        if (self.tutorial is not None) and (len(self.overlay_buttons) == 0):
+        if self.tutorial is not None:
             all_.extend(self.tutorial.get_buttons())
         all_.extend(self.hud.get_buttons())
         all_.extend((self.attack.get_buttons() if (self.attack is not None) else self.side.get_buttons()))
@@ -535,6 +524,8 @@ this match."""
             self.skip_epilogue()
             return
         if (not right_button) and Slider.press_any(lx, ly, self.pause_sliders):
+            return
+        if (not right_button) and (self.tutorial is not None) and self.tutorial.press(lx, ly):
             return
         if not (len(self.overlay_buttons) == 0):
             for b in self.overlay_buttons:
@@ -570,7 +561,8 @@ this match."""
         if self.placing is not None:
             t = self.game.place_tower(self.placing, w)
             if t is not None:
-                if self.game.get_cash() < shop.price_of(t.get_type(), self.game):
+                # keep placing the same tower while affordable; a hero deploys once per match, so its placement ends
+                if t.get_type().is_hero() or (self.game.get_cash() < shop.price_of(t.get_type(), self.game)):
                     self.placing = None
                     self.select_tower(t)
                 self.side.request_rebuild()
@@ -623,6 +615,8 @@ The tactical pause (P) leaves them working. While the victory epilogue plays, Es
             if ((k != KeyEvent.VK_ESCAPE) and (k != KeyEvent.VK_H)) and (k != KeyEvent.VK_P):
                 return
         if (k == KeyEvent.VK_ENTER) and self.confirm_default():
+            return
+        if (k == KeyEvent.VK_ENTER) and (self.tutorial is not None) and self.tutorial.enter_pressed():
             return
         if (((self.attack is not None) and (self.game.get_state() is Game.State.PLAYING)) and (not self.gameplay_keys_blocked())) and self.attack.key_pressed(e):
             return
@@ -698,12 +692,6 @@ remainder of a step carried over by Game#advance) and then updates every view fr
             self.tutorial.update(real_dt)
         for b in self.all_buttons():
             b.animate(real_dt)
-        if self.overlay_title is not None:
-            self.glitch_timer -= real_dt
-            if self.glitch_timer <= 0:
-                self.overlay_title.burst(0.25)
-                self.glitch_timer = (2.2 + (random.random() * 2.5))
-            self.overlay_title.animate(real_dt)
         if self.game.is_victory_sequence_active():
             self.victory_fireworks(real_dt)
         if self.epilogue is not None:
@@ -756,7 +744,7 @@ remainder of a step carried over by Game#advance) and then updates every view fr
                 boss = True
         won = (st is Game.State.VICTORY)
         lost = (st is Game.State.DEFEAT)
-        wave = self.game.get_wave()
+        wave = self.game.get_era_wave()   # a campaign level's music follows the war's wave it plays
         if self.game.is_reverse():
             won = lost
             lost = (st is Game.State.VICTORY)
@@ -822,31 +810,31 @@ remainder of a step carried over by Game#advance) and then updates every view fr
         if (st is Game.State.VICTORY) and self.wants_epilogue():
             self.build_epilogue_overlay()
             return
+        if self.game.get_campaign() is not None:   # campaign levels: LEVEL COMPLETE (stars, reward) or DEFEAT
+            CampaignEndView.build(self)
+            self.refresh_hover()
+            return
         ended = (st is not Game.State.PLAYING)
-        self.overlay.add(Ui.rect(Ui.WORLD_X, Ui.WORLD_Y, Ui.WORLD_W, Ui.WORLD_H, Ui.c(0x02040a, (190 if ended else 140)), Ui.c(0x000000, 0)))
+        self.overlay.add(Ui.rect(Ui.WORLD_X, Ui.WORLD_Y, Ui.WORLD_W, Ui.WORLD_H, Ui.c(0x02040a, (200 if ended else 140)), Ui.c(0x000000, 0)))
         cx = (Ui.WORLD_X + (Ui.WORLD_W / 2.0))
         cy = (Ui.WORLD_Y + (Ui.WORLD_H / 2.0))
         if st is Game.State.VICTORY:
             title = 'VICTORY'
             col = Cyber.YELLOW
-            micro = '// mission complete'
             sub = _j.cat('Palantir has fallen. All ', waves.WAVE_COUNT, ' waves survived on ', self.game.get_map().get_name(), '.')
             if self.game.is_freeplay():
-                micro = '// freeplay over'
                 sub = _j.cat('VICTORY - reached wave ', self.game.get_wave(), ' in freeplay on ', self.game.get_map().get_name(), '. Palantir fell at wave ', waves.WAVE_COUNT, '.')
         elif st is Game.State.DEFEAT:
             title = 'DEFEAT'
             col = Cyber.RED
-            micro = '// system breach'
             sub = _j.cat('Your defenses were breached on wave ', self.game.get_wave(), '.')
         else:
             return
         if self.game.is_reverse():
             rt = AttackPanel.end_texts(self.game)
             title = rt[0]
-            micro = rt[1]
-            sub = rt[2]
-            col = (Cyber.YELLOW if ('win' == rt[3]) else Cyber.RED)
+            sub = rt[1]
+            col = (Cyber.YELLOW if ('win' == rt[2]) else Cyber.RED)
         notes = (ended and self.game.get_variance().is_enabled())
         freeplay = (ended and self.freeplay_offered())
         pw = (760.0 if ended else 720.0)
@@ -855,12 +843,8 @@ remainder of a step carried over by Game#advance) and then updates every view fr
         ph = (((482 + rules_h) + (62 if freeplay else 0)) if ended else 270)
         px = (cx - (pw / 2))
         py = (cy - (ph / 2))
-        self.overlay.add(Cyber.Chamfer(px, py, pw, ph, 26).fill(Color(6, 10, 24, 238)).border(col).glow(1.1).line_width(2).ticks(True))
-        self.overlay.add(Ui.rect((px + 24), (py + 12), 140, 3, Cyber.MAGENTA, Cyber.MAGENTA))
+        self.overlay.add(Cyber.Chamfer(px, py, pw, ph, 6))
         report_page = (ended and (self.end_page == 1))
-        m = Ui.label(Cyber.spaced(('// battle report' if report_page else micro)), 0, (py + 44), Cyber.mono(Font.BOLD, 12), Cyber.alpha(col, 230))
-        m.set_location((cx - (m.get_width() / 2)), (py + 44))
-        self.overlay.add(m)
         summary = None
         if ended:
             summary = self.run_summary()
@@ -870,21 +854,19 @@ remainder of a step carried over by Game#advance) and then updates every view fr
                 _j_add(self.overlay_buttons, b)
         if report_page:
             RunReportView.build_page(self.overlay, self.game, summary, report, px, py, pw, ph, col, title)
-        t = Cyber.GlitchText(title, Cyber.display(Font.BOLD, 88), Cyber.lerp(col, Color.WHITE, 0.3))
-        t.set_location((cx - (t.text_width() / 2)), (py + 130))
+        t = Ui.label(title, 0, 0, Cyber.display(Font.BOLD, 68), Cyber.lerp(col, Color.WHITE, 0.15))
+        t.set_location((cx - (t.get_width() / 2)), (py + 128))
         if not report_page:
             self.overlay.add(t)
             self.overlay_title = t
-            t.burst(0.5)
-            self.glitch_timer = 2.5
-        sy = (py + 166)
+        sy = (py + 168)
         for line in ([] if report_page else Ui.wrap(sub, Cyber.body(Font.PLAIN, 16), (pw - 100))):
-            s = Ui.label(line, 0, sy, Cyber.body(Font.PLAIN, 16), Cyber.TEXT)
+            s = Ui.label(line, 0, sy, Cyber.body(Font.PLAIN, 16), Cyber.MUTED)
             s.set_location((cx - (s.get_width() / 2)), sy)
             self.overlay.add(s)
             sy += 22
         if ended and (not report_page):
-            stats = [['waves cleared', _j.s(self.game.get_last_completed_wave()), ''], ['hostiles purged', Cyber.commas(self.game.get_enemy_manager().get_total_killed()), ''], ['credits earned', Ui.money(summary.cash_earned), 'y'], ['integrity left', _j.s(self.game.get_lives()), 'r']]
+            stats = [['Waves cleared', _j.s(self.game.get_last_completed_wave()), ''], ['Hostiles purged', Cyber.commas(self.game.get_enemy_manager().get_total_killed()), ''], ['Credits earned', Ui.money(summary.cash_earned), 'y'], ['Integrity left', _j.s(self.game.get_lives()), 'r']]
             if self.game.is_reverse():
                 stats = AttackPanel.end_stats(self.game)
             cw = 166.0
@@ -893,14 +875,14 @@ remainder of a step carried over by Game#advance) and then updates every view fr
             cyy = (py + 214)
             for i in range(4):
                 x = (sx + (i * (cw + gap)))
-                ac = (Cyber.YELLOW if (stats[i][2] == 'y') else (Cyber.RED if (stats[i][2] == 'r') else Cyber.CYAN))
-                self.overlay.add(Cyber.Chamfer(x, cyy, cw, 58, 8).scan(False).fill(Color(8, 14, 32, 235)).border(Cyber.alpha(ac, 170)))
-                self.overlay.add(Ui.label(Cyber.spaced(stats[i][0]), (x + 12), (cyy + 19), Cyber.mono(Font.BOLD, 9), Cyber.alpha(ac, 210)))
-                self.overlay.add(Ui.label(stats[i][1], (x + 12), (cyy + 45), Cyber.mono(Font.BOLD, 20), Cyber.TEXT))
-            mode_font = Cyber.mono(Font.BOLD, 13)
-            mode = Ui.label(_j.cat('MODE // ', DifficultySelector.display(self.game.get_difficulty(), mode_font), '  ', self.game.get_difficulty().subtitle.upper(), '   //   ', PatchNotesView.seed_text(self.game)), 0, (cyy + 86), mode_font, Cyber.MAGENTA)
+                vc = (Cyber.YELLOW if (stats[i][2] == 'y') else Cyber.TEXT)
+                self.overlay.add(Cyber.Chamfer(x, cyy, cw, 58, 4).fill(Cyber.SURFACE_2))
+                self.overlay.add(Ui.label(GameScreen.sentence(stats[i][0]), (x + 12), (cyy + 20), Cyber.body(Font.PLAIN, 12), Cyber.MUTED))
+                self.overlay.add(Ui.label(stats[i][1], (x + 12), (cyy + 45), Cyber.mono(Font.BOLD, 20), vc))
+            mode_font = Cyber.body(Font.PLAIN, 14)
+            mode = Ui.label(_j.cat(DifficultySelector.display(self.game.get_difficulty(), mode_font), '  ', self.game.get_difficulty().subtitle, '   ·   ', PatchNotesView.seed_text(self.game)), 0, (cyy + 86), mode_font, Cyber.MUTED)
             if self.game.is_reverse():
-                mode.set_label(_j.cat('ADVERSARIAL TRAINING // ', DifficultySelector.display(self.game.get_reverse().get_level(), mode_font), '  ', self.game.get_reverse().get_profile().display_name.upper(), ' AI'))
+                mode.set_label(_j.cat('Adversarial training   ·   AI ', DifficultySelector.display(self.game.get_reverse().get_level(), mode_font), '  ', self.game.get_reverse().get_profile().display_name))
             mode.set_location((cx - (mode.get_width() / 2)), (cyy + 86))
             self.overlay.add(mode)
             ry = (cyy + 112)
@@ -916,7 +898,7 @@ remainder of a step carried over by Game#advance) and then updates every view fr
             if replay_ok:
                 _j_add(labels, ['REPLAY SEED', Cyber.CYAN, (lambda : self.app.replay_seed())])
             _j_add(labels, ['MAP SELECT', Cyber.CYAN, (lambda : self.app.show_map_select())])
-            _j_add(labels, ['MAIN MENU', Cyber.MAGENTA, (lambda : self.app.show_menu())])
+            _j_add(labels, ['MAIN MENU', Cyber.CYAN, (lambda : self.app.show_menu())])
             gap = 12.0
             bw = (((pw - 64) - (gap * (len(labels) - 1))) / len(labels))
             bx = (cx - ((pw - 64) / 2))
@@ -937,6 +919,9 @@ remainder of a step carried over by Game#advance) and then updates every view fr
     def wants_epilogue(self):
         """The epilogue / credits play once, after the first Palantir victory of a run (not after Freeplay, Reverse
 mode or the tutorial)."""
+        c = self.game.get_campaign()
+        if (c is not None) and (not c.finale):
+            return False   # campaign: only the finale (Palantir) plays the epilogue
         return ((((not self.epilogue_done) and (self.tutorial is None)) and (not self.game.is_reverse())) and (not self.game.is_freeplay())) and (self.game.get_state() is Game.State.VICTORY)
     def build_epilogue_overlay(self):
         self.epilogue = VictoryEpilogue(Ui.WORLD_X, Ui.WORLD_Y, Ui.WORLD_W, Ui.WORLD_H)
@@ -962,6 +947,10 @@ mode or the tutorial)."""
         self.shown_state = self.game.get_state()
         self.build_overlay()
         self.side.request_rebuild()
+    @staticmethod
+    def sentence(s):
+        """'waves cleared' -> 'Waves cleared' (small captions are sentence case, not spaced capitals)."""
+        return (s[0:1].upper() + s[1:]) if s else s
     def menu_button(self, x, y, w, h, text, icon, accent, r):
         b = UIButton(x, y, w, h, text, Cyber.display(Font.BOLD, 20), r)
         if icon is not None:
@@ -979,7 +968,6 @@ mode or the tutorial)."""
         self.hero_store_shown = False
         self.draft_open = True
         self.overlay_title = PatchNotesView.build_draft(self.overlay, self.overlay_buttons, self.game, _j.Fn(self.pick_patch_note))
-        self.glitch_timer = 2.5
         self.refresh_hover()
     def build_menu_overlay(self):
         """The pause menu: RESUME, RESTART, SOUND EFFECTS and MUSIC (each toggle with its volume slider), QUIT LEVEL, MAIN MENU (or a Yes / No confirmation)."""
@@ -992,28 +980,22 @@ mode or the tutorial)."""
         ph = (320 if confirm else 520)
         px = (cx - (pw / 2))
         py = (cy - (ph / 2))
-        self.overlay.add(Cyber.Chamfer(px, py, pw, ph, 26).fill(Color(6, 10, 24, 238)).border(col).glow(1.1).line_width(2).ticks(True))
-        self.overlay.add(Ui.rect((px + 24), (py + 12), 140, 3, Cyber.MAGENTA, Cyber.MAGENTA))
-        micro = ('// confirm' if confirm else '// simulation halted')
-        m = Ui.label(Cyber.spaced(micro), 0, (py + 44), Cyber.mono(Font.BOLD, 12), Cyber.alpha(col, 230))
-        m.set_location((cx - (m.get_width() / 2)), (py + 44))
-        self.overlay.add(m)
+        self.overlay.add(Cyber.Chamfer(px, py, pw, ph, 6))
         C = GameScreen.Confirm
         texts = {C.RESTART: ('RESTART?', 'Restart level? Progress will be lost.'), C.QUIT: ('QUIT LEVEL?', 'Quit level? Progress will be lost.'), C.MAIN_MENU: ('MAIN MENU?', 'Leave for the main menu? Progress will be lost.'), C.CLOSE: ('QUIT GAME?', 'Quit Lindefense? This run will be lost.')}
         title = (texts[self.menu_confirm][0] if confirm else 'PAUSED')
-        t = Cyber.GlitchText(title, Cyber.display(Font.BOLD, (56 if confirm else 64)), Cyber.lerp(col, Color.WHITE, 0.3))
-        t.set_location((cx - (t.text_width() / 2)), (py + (114 if confirm else 118)))
+        t = Ui.label(title, 0, 0, Cyber.display(Font.BOLD, (44 if confirm else 52)), (Cyber.lerp(col, Color.WHITE, 0.25) if confirm else Cyber.TEXT))
+        t.set_location((cx - (t.get_width() / 2)), (py + (104 if confirm else 108)))
         self.overlay.add(t)
         self.overlay_title = t
-        self.glitch_timer = 2.5
         if confirm:
             q = texts[self.menu_confirm][1]
             if (self.menu_confirm in (C.QUIT, C.MAIN_MENU, C.CLOSE)) and savegame.can_save(self.game, (self.tutorial is not None)) and savegame.has_progress(self.game):
                 q = {C.QUIT: 'Quit level? Your run is saved: CONTINUE it from the main menu.', C.MAIN_MENU: 'Leave for the main menu? Your run is saved: CONTINUE it there.', C.CLOSE: 'Quit Lindefense? Your run is saved: CONTINUE it next time.'}[self.menu_confirm]
-            s = Ui.label(q, 0, (py + 160), Cyber.body(Font.PLAIN, 17), Cyber.TEXT)
-            s.set_location((cx - (s.get_width() / 2)), (py + 160))
+            s = Ui.label(q, 0, (py + 156), Cyber.body(Font.PLAIN, 17), Cyber.TEXT)
+            s.set_location((cx - (s.get_width() / 2)), (py + 156))
             self.overlay.add(s)
-            k = Ui.label('Enter = YES   /   Esc = NO', 0, (py + 190), Cyber.mono(Font.BOLD, 12), Cyber.MUTED)
+            k = Ui.label('Enter = yes   ·   Esc = no', 0, (py + 186), Cyber.body(Font.PLAIN, 13), Cyber.DIM)
             k.set_location((cx - (k.get_width() / 2)), (py + 190))
             self.overlay.add(k)
             yes = _j.Fn(self.confirm_yes)
@@ -1022,9 +1004,9 @@ mode or the tutorial)."""
             n = self.menu_button((cx + 10), ((py + ph) - 90), 250, 54, 'NO', None, Cyber.CYAN, _j.Fn(lambda : self.set_confirm(GameScreen.Confirm.NONE)))
             self.refresh_hover()
             return
-        seed = _j.cat('   //   ', PatchNotesView.seed_text(self.game), (_j.cat('   //   PATCH ', self.game.get_variance().get_version()) if self.game.get_variance().is_enabled() else ''))
-        hint = Ui.label(_j.cat(('P to resume  /  Esc stays paused' if self.menu_was_paused else 'P / Esc to resume'), seed), 0, (py + 146), Cyber.mono(Font.BOLD, 12), Cyber.MUTED)
-        hint.set_location((cx - (hint.get_width() / 2)), (py + 146))
+        seed = _j.cat('   ·   ', PatchNotesView.seed_text(self.game), (_j.cat('   ·   Patch ', self.game.get_variance().get_version()) if self.game.get_variance().is_enabled() else ''))
+        hint = Ui.label(_j.cat(('P to resume, Esc stays paused' if self.menu_was_paused else 'P or Esc to resume'), seed), 0, (py + 142), Cyber.body(Font.PLAIN, 14), Cyber.MUTED)
+        hint.set_location((cx - (hint.get_width() / 2)), (py + 142))
         self.overlay.add(hint)
         bw = 500.0
         bx = (cx - (bw / 2))
@@ -1034,7 +1016,7 @@ mode or the tutorial)."""
         tw = 200.0
         resume = self.menu_button(bx, by, bw, bh, 'RESUME', Cyber.Kind.PLAY, None, _j.Fn(self.resume_game))
         resume.set_primary(True)
-        self.menu_button(bx, (by + (bh + gap)), bw, bh, 'RESTART', Cyber.Kind.AUTO, Cyber.YELLOW, _j.Fn(lambda : self.set_confirm(GameScreen.Confirm.RESTART)))
+        self.menu_button(bx, (by + (bh + gap)), bw, bh, 'RESTART', Cyber.Kind.AUTO, None, _j.Fn(lambda : self.set_confirm(GameScreen.Confirm.RESTART)))
         snd = AudioToggle.sound(bx, (by + (2 * (bh + gap))), tw, bh, 'SOUND EFFECTS:')
         mus = AudioToggle.music(bx, (by + (3 * (bh + gap))), tw, bh, 'MUSIC:')
         self.pause_toggles = [snd, mus]
@@ -1045,7 +1027,7 @@ mode or the tutorial)."""
         for sl in self.pause_sliders:
             self.overlay.add(sl)
         self.menu_button(bx, (by + (4 * (bh + gap))), bw, bh, 'QUIT LEVEL', Cyber.Kind.SKULL, Cyber.RED, _j.Fn(lambda : self.set_confirm(GameScreen.Confirm.QUIT)))
-        self.menu_button(bx, (by + (5 * (bh + gap))), bw, bh, 'MAIN MENU', Cyber.Kind.MENU, Cyber.MAGENTA, _j.Fn(lambda : self.set_confirm(GameScreen.Confirm.MAIN_MENU)))
+        self.menu_button(bx, (by + (5 * (bh + gap))), bw, bh, 'MAIN MENU', Cyber.Kind.MENU, None, _j.Fn(lambda : self.set_confirm(GameScreen.Confirm.MAIN_MENU)))
         AudioToggle.sync_all(self.pause_toggles)
         self.refresh_hover()
     def build_hero_store_overlay(self):
@@ -1058,9 +1040,8 @@ names, prices and exactly what each changes. Buying only unlocks a hero; deployi
         ph = 870.0
         px = (Ui.WORLD_X + ((Ui.WORLD_W - pw) / 2))
         py = (Ui.WORLD_Y + ((Ui.WORLD_H - ph) / 2))
-        self.overlay.add(Cyber.Chamfer(px, py, pw, ph, 24).fill(Color(6, 10, 24, 245)).border(Cyber.YELLOW).glow(1).line_width(2).ticks(True))
-        self.overlay.add(Ui.label(Cyber.spaced('// permanent unlocks'), (px + 30), (py + 32), Cyber.mono(Font.BOLD, 12), Cyber.alpha(Cyber.MAGENTA, 230)))
-        self.overlay.add(Ui.label('HERO STORE', (px + 30), (py + 68), Cyber.display(Font.BOLD, 34), Cyber.TEXT))
+        self.overlay.add(Cyber.Chamfer(px, py, pw, ph, 6))
+        self.overlay.add(Ui.label('HERO STORE', (px + 30), (py + 66), Cyber.display(Font.BOLD, 32), Cyber.TEXT))
         cash = Ui.label(self.hero_store_cash_text(), 0, (py + 62), Cyber.mono(Font.BOLD, 18), Cyber.YELLOW)
         self.hero_store_cash_right = ((((px + pw) - 30) - 130) - 20)
         cash.set_location((self.hero_store_cash_right - cash.get_width()), (py + 62))
@@ -1068,11 +1049,10 @@ names, prices and exactly what each changes. Buying only unlocks a hero; deployi
         self.hero_store_cash = cash
         self.hero_store_need_button = None
         close = UIButton((((px + pw) - 30) - 130), (py + 38), 130, 36, 'CLOSE  [K]', Cyber.display(Font.BOLD, 16), _j.Fn(self.toggle_hero_store))
-        close.set_accent(Cyber.MAGENTA)
         self.overlay.add(close)
         _j_add(self.overlay_buttons, close)
         sub = (self.hero_store_notice if (self.hero_store_notice is not None) else _j.cat('Buy a hero once to unlock it forever. Unlocked heroes cost a bit of cash to deploy, once per match (up to ', TowerManager.MAX_HEROES_PER_GAME, ' heroes per game), then level up with three upgrades bought in game.'))
-        self.overlay.add(Ui.label(sub, (px + 30), (py + 92), Cyber.body(Font.BOLD, 14), (Cyber.GREEN if (self.hero_store_notice is not None) else Cyber.MUTED)))
+        self.overlay.add(Ui.label(sub, (px + 30), (py + 92), Cyber.body(Font.PLAIN, 14), (Cyber.GREEN if (self.hero_store_notice is not None) else Cyber.MUTED)))
         heroes = TowerType.heroes()
         cols = 5
         gx = (px + 22)
@@ -1092,7 +1072,7 @@ names, prices and exactly what each changes. Buying only unlocks a hero; deployi
         selected = (t is self.hero_store_selection)
         price = catalog.get(t).unlock_cost
         accent = Ui.c(t.primary_rgb)
-        border = (Cyber.CYAN if selected else Cyber.alpha((accent if unlocked else Cyber.DIM), (190 if unlocked else 120)))
+        border = (Cyber.CYAN if selected else Cyber.EDGE)
         def _lam1(*, t=t):
             self.hero_store_selection = t
             self.hero_store_key = ''
@@ -1101,13 +1081,13 @@ names, prices and exactly what each changes. Buying only unlocks a hero; deployi
         pick.set_accent(border)
         self.overlay.add(pick)
         _j_add(self.overlay_buttons, pick)
-        self.overlay.add(Cyber.Chamfer(x, y, w, h, 10).scan(False).fill(Color((16 if selected else 9), (26 if selected else 15), (48 if selected else 34), 240)).border(border).line_width((2 if selected else 1.3)))
+        self.overlay.add(Cyber.Chamfer(x, y, w, h, 4).fill((Color(16, 28, 50, 245) if selected else Cyber.SURFACE_2)).border(border))
         icon = TowerIcons.create(t, 0, 54)
         icon.set_location((x + (w / 2)), (y + 34))
         self.overlay.add(icon)
         if not unlocked:
             self.overlay.add(Cyber.Ring(((x + (w / 2)) - 28), ((y + 34) - 28), 56, 56, Color(5, 9, 22, 130), None))
-        nm = Ui.label(t.display_name, 0, 0, Cyber.display(Font.BOLD, 13), (Cyber.TEXT if selected else Cyber.lerp(accent, Color.WHITE, 0.4)))
+        nm = Ui.label(t.display_name, 0, 0, Cyber.display(Font.BOLD, 13), (Cyber.TEXT if (selected or unlocked) else Cyber.MUTED))
         sz = 13
         while (nm.get_width() > (w - 10)) and (sz > 8):
             nm.set_font(Cyber.display_compact(Font.BOLD, sz))
@@ -1127,18 +1107,18 @@ names, prices and exactly what each changes. Buying only unlocks a hero; deployi
         price = d.unlock_cost
         afford = (self.game.get_cash() >= price)
         accent = Ui.c(t.primary_rgb)
-        self.overlay.add(Cyber.Chamfer(x, y, w, h, 14).scan(False).fill(Color(8, 13, 30, 245)).border(Cyber.alpha(accent, 220)).line_width(1.8))
+        self.overlay.add(Cyber.Chamfer(x, y, w, h, 4).fill(Cyber.SURFACE_2))
         icon = TowerIcons.create(t, 0, 86)
         icon.set_location((x + 60), (y + 60))
         self.overlay.add(icon)
         tx = (x + 116)
         tw = (w - 130)
-        self.overlay.add(Ui.label(t.display_name, tx, (y + 36), Cyber.display(Font.BOLD, 26), Cyber.lerp(accent, Color.WHITE, 0.35)))
+        self.overlay.add(Ui.label(t.display_name, tx, (y + 36), Cyber.display(Font.BOLD, 26), Cyber.TEXT))
         self.overlay.add(Ui.label(HeroStatText.role(t), tx, (y + 56), Cyber.body(Font.PLAIN, 13), Cyber.MUTED))
         status = ('DEPLOYED THIS MATCH' if deployed else ('UNLOCKED' if unlocked else 'LOCKED'))
         sc = (Cyber.DIM if deployed else (Cyber.GREEN if unlocked else Cyber.RED))
         sl = Ui.label(status, 0, 0, Cyber.mono(Font.BOLD, 11), sc)
-        self.overlay.add(Cyber.Chamfer(tx, (y + 66), (sl.get_width() + 16), 18, 5).scan(False).fill(Cyber.alpha(sc, 40)).border(sc))
+        self.overlay.add(Cyber.Chamfer(tx, (y + 66), (sl.get_width() + 16), 18, 3).fill(Cyber.alpha(sc, 30)).border(None))
         sl.set_location((tx + 8), (y + 79))
         self.overlay.add(sl)
         pr = Ui.label(('owned' if unlocked else Ui.money(price)), 0, 0, Cyber.mono(Font.BOLD, 18), (Cyber.DIM if unlocked else (Cyber.YELLOW if afford else Cyber.RED)))
@@ -1149,14 +1129,14 @@ names, prices and exactly what each changes. Buying only unlocks a hero; deployi
             self.overlay.add(Ui.label(l, (x + 16), yy, Cyber.body(Font.PLAIN, 12), Cyber.MUTED))
             yy += 15
         yy += 10
-        self.overlay.add(Ui.label(Cyber.spaced(_j.cat('// level 1: ', d.tier_labels[0])), (x + 16), yy, Cyber.mono(Font.BOLD, 10), Cyber.CYAN))
+        self.overlay.add(Ui.label(_j.cat('Level 1  ·  ', d.tier_labels[0]), (x + 16), yy, Cyber.body(Font.BOLD, 13), Cyber.TEXT))
         for l in HeroStatText.attack_lines(t, 0):
             yy += 16
             self.overlay.add(Ui.label(l, (x + 16), yy, Cyber.mono(Font.BOLD, 11), Cyber.TEXT))
         for i in range(len(d.upgrades)):
             up = d.upgrades[i]
             yy += 20
-            self.overlay.add(Ui.label(Cyber.spaced(_j.cat('// level ', (i + 2), ': ', up.name)), (x + 16), yy, Cyber.mono(Font.BOLD, 10), Cyber.alpha(accent, 240)))
+            self.overlay.add(Ui.label(_j.cat('Level ', (i + 2), '  ·  ', up.name), (x + 16), yy, Cyber.body(Font.BOLD, 13), Cyber.TEXT))
             uc = Ui.label(Ui.money(up.cost), 0, yy, Cyber.mono(Font.BOLD, 11), Cyber.YELLOW)
             uc.set_location((((x + w) - 16) - uc.get_width()), yy)
             self.overlay.add(uc)
@@ -1167,7 +1147,7 @@ names, prices and exactly what each changes. Buying only unlocks a hero; deployi
                 yy += 15
                 self.overlay.add(Ui.label(l, (x + 16), yy, Cyber.body(Font.PLAIN, 12), Cyber.MUTED))
         yy += 20
-        self.overlay.add(Ui.label(_j.cat('Fully upgraded: ', Ui.money(d.total_cost()), ' of in-match credits on top of the unlock'), (x + 16), yy, Cyber.mono(Font.BOLD, 10), Cyber.DIM))
+        self.overlay.add(Ui.label(_j.cat('Fully upgraded: ', Ui.money(d.total_cost()), ' of in-match credits on top of the unlock'), (x + 16), yy, Cyber.body(Font.PLAIN, 12), Cyber.DIM))
         by = ((y + h) - 54)
         if not unlocked:
             b = UIButton((x + 16), by, (w - 32), 40, (_j.cat('BUY  ', Ui.money(price)) if afford else _j.cat('NEED ', Ui.money((price - self.game.get_cash())), ' MORE')), Cyber.display(Font.BOLD, 17), _j.Fn(lambda *, t=t: self.buy_hero(t)))
@@ -1199,15 +1179,14 @@ names, prices and exactly what each changes. Buying only unlocks a hero; deployi
         ph = 640.0
         px = (cx - (pw / 2))
         py = (cy - (ph / 2))
-        self.overlay.add(Cyber.Chamfer(px, py, pw, ph, 24).fill(Color(6, 10, 24, 240)).border(Cyber.CYAN).glow(1).line_width(2).ticks(True))
-        self.overlay.add(Ui.label(Cyber.spaced('// field manual'), (px + 34), (py + 40), Cyber.mono(Font.BOLD, 12), Cyber.alpha(Cyber.MAGENTA, 230)))
-        self.overlay.add(Ui.label('HELP', (px + 34), (py + 80), Cyber.display(Font.BOLD, 40), Cyber.TEXT))
+        self.overlay.add(Cyber.Chamfer(px, py, pw, ph, 6))
+        self.overlay.add(Ui.label('HELP', (px + 34), (py + 70), Cyber.display(Font.BOLD, 34), Cyber.TEXT))
         keys = [['SPACE', 'start next wave'], ['O', 'auto-start waves on / off'], ['1  2  3', 'game speed'], ['P', 'pause / resume (you can still build)'], ['ESC', 'cancel / deselect, else pause menu'], ['B', 'all towers / faction tabs'], ['SHIFT 1-9', 'place the Nth card of the shop'], ['TAB', 'select next tower (Shift: previous)'], ['U', 'upgrade selected tower'], ['S', 'sell selected tower'], ['A', "fire selected tower's ability"], ['T', 'cycle targeting (Shift: backwards)'], ['K', 'Hero Store'], ['M', 'music on / off'], ['N', 'sound on / off'], ['H', 'toggle this help']]
         if self.game.is_reverse():
             keys = AttackPanel.HELP_KEYS
         keys = (keys + [['F11', 'full screen (Mac: Cmd+Ctrl+F)']])
         ky = (py + 126)
-        self.overlay.add(Ui.label(Cyber.spaced('// controls'), (px + 34), ky, Cyber.mono(Font.BOLD, 11), Cyber.CYAN))
+        self.overlay.add(Ui.label('Controls', (px + 34), ky, Cyber.body(Font.BOLD, 14), Cyber.TEXT))
         for k in keys:
             ky += 24
             self.overlay.add(Ui.label(k[0], (px + 34), ky, Cyber.mono(Font.BOLD, 14), Cyber.CYAN))
@@ -1219,7 +1198,7 @@ names, prices and exactly what each changes. Buying only unlocks a hero; deployi
         if self.game.is_reverse():
             notes = AttackPanel.HELP_NOTES
         for n in notes:
-            self.overlay.add(Ui.label(Cyber.spaced(_j.cat('// ', n[0])), rx, ry, Cyber.mono(Font.BOLD, 11), Cyber.CYAN))
+            self.overlay.add(Ui.label(GameScreen.sentence(n[0]), rx, ry, Cyber.body(Font.BOLD, 14), Cyber.TEXT))
             for l in Ui.wrap(n[1], Cyber.body(Font.PLAIN, 14), rw):
                 ry += 20
                 self.overlay.add(Ui.label(l, rx, ry, Cyber.body(Font.PLAIN, 14), Cyber.MUTED))
@@ -1319,7 +1298,7 @@ tactically or in the menu, and not over). True if it paused."""
         if (index < 0) or (index >= len(cells)):
             return
         t = cells[index].type
-        if not ShopLayout.affordable(self.game, t):
+        if (self.game.tower_lock_problem(t) is None) and (not ShopLayout.affordable(self.game, t)):   # a locked tower: begin_placing says which level unlocks it
             self.abilities.show_hint(_j.cat(t.display_name, ': needs ', Ui.money(ShopLayout.shortfall(self.game, t)), ' more'), Cyber.RED, 2)
             return
         self.cancel_targeting()
@@ -1334,18 +1313,18 @@ tactically or in the menu, and not over). True if it paused."""
     def build_pause_banner(self):
         """The tactical pause: a banner above the ability bar and a frame around the playfield. It has no buttons, so the
 map underneath stays usable."""
-        f = Cyber.Chamfer(Ui.WORLD_X + 3, Ui.WORLD_Y + 3, Ui.WORLD_W - 6, Ui.WORLD_H - 6, 18).fill(None).scan(False).border(Cyber.alpha(Cyber.YELLOW, 120)).line_width(2)
+        f = Cyber.Chamfer(Ui.WORLD_X + 1, Ui.WORLD_Y + 1, Ui.WORLD_W - 2, Ui.WORLD_H - 2, 0).fill(None).border(Cyber.alpha(Cyber.YELLOW, 90))
         self.overlay.add(f)
         h = 52.0
         b = GCompound()
-        frame = Cyber.Chamfer(0, 0, 400, h, 12).fill(Color(6, 10, 24, 236)).border(Cyber.YELLOW).glow(0.8).line_width(1.8)
+        frame = Cyber.Chamfer(0, 0, 400, h, 4)
         b.add(frame)
-        b.add(Ui.rect(0, 0, 5, h, Cyber.YELLOW, Cyber.YELLOW))
-        title = Ui.label('PAUSED', 24, 36, Cyber.display(Font.BOLD, 28), Cyber.lerp(Cyber.YELLOW, Color.WHITE, 0.3))
+        b.add(Ui.rect(0, 0, 3, h, Cyber.YELLOW, Cyber.YELLOW))
+        title = Ui.label('PAUSED', 22, 35, Cyber.display(Font.BOLD, 24), Cyber.lerp(Cyber.YELLOW, Color.WHITE, 0.3))
         b.add(title)
-        tx = ((24 + title.get_width()) + 22)
-        b.add(Ui.rect((tx - 12), 12, 1, (h - 24), Cyber.alpha(Cyber.YELLOW, 120), Cyber.alpha(Cyber.YELLOW, 120)))
-        a = Ui.label('PRESS P TO RESUME', tx, 23, Cyber.mono(Font.BOLD, 14), Cyber.TEXT)
+        tx = ((22 + title.get_width()) + 24)
+        b.add(Ui.rect((tx - 12), 12, 1, (h - 24), Cyber.EDGE, Cyber.EDGE))
+        a = Ui.label('Press P to resume', tx, 23, Cyber.body(Font.BOLD, 14), Cyber.TEXT)
         c = Ui.label(('you can still send units and inspect towers' if self.game.is_reverse() else ('you can still build, upgrade and target' if self.game.is_selling_locked() else 'you can still build, upgrade, sell and target')), tx, 41, Cyber.body(Font.PLAIN, 12), Cyber.MUTED)
         b.add(a)
         b.add(c)
@@ -1365,24 +1344,19 @@ map underneath stays usable."""
         ph = 330.0
         px = (cx - (pw / 2))
         py = (cy - (ph / 2))
-        self.overlay.add(Cyber.Chamfer(px, py, pw, ph, 26).fill(Color(6, 10, 24, 238)).border(Cyber.RED).glow(1.1).line_width(2).ticks(True))
-        self.overlay.add(Ui.rect((px + 24), (py + 12), 140, 3, Cyber.MAGENTA, Cyber.MAGENTA))
-        m = Ui.label(Cyber.spaced('// confirm'), 0, (py + 44), Cyber.mono(Font.BOLD, 12), Cyber.alpha(Cyber.RED, 230))
-        m.set_location((cx - (m.get_width() / 2)), (py + 44))
-        self.overlay.add(m)
-        title = Cyber.GlitchText('DISMISS HERO?', Cyber.display(Font.BOLD, 52), Cyber.lerp(Cyber.RED, Color.WHITE, 0.3))
-        title.set_location((cx - (title.text_width() / 2)), (py + 110))
+        self.overlay.add(Cyber.Chamfer(px, py, pw, ph, 6))
+        title = Ui.label('DISMISS HERO?', 0, 0, Cyber.display(Font.BOLD, 44), Cyber.lerp(Cyber.RED, Color.WHITE, 0.25))
+        title.set_location((cx - (title.get_width() / 2)), (py + 104))
         self.overlay.add(title)
         self.overlay_title = title
-        self.glitch_timer = 2.5
-        sy = (py + 152)
+        sy = (py + 150)
         lines = [_j.cat('Dismiss ', name, ' for a refund of ', Ui.money(shop.sell_value(t, self.game)), '?'), _j.cat(name, ' cannot be deployed again this match.')]
         for line in lines:
             s = Ui.label(line, 0, sy, Cyber.body(Font.PLAIN, 17), Cyber.TEXT)
             s.set_location((cx - (s.get_width() / 2)), sy)
             self.overlay.add(s)
             sy += 24
-        k = Ui.label('Enter = DISMISS   /   Esc = KEEP', 0, (sy + 6), Cyber.mono(Font.BOLD, 12), Cyber.MUTED)
+        k = Ui.label('Enter = dismiss   ·   Esc = keep', 0, (sy + 6), Cyber.body(Font.PLAIN, 13), Cyber.DIM)
         k.set_location((cx - (k.get_width() / 2)), (sy + 6))
         self.overlay.add(k)
         yes = self.menu_button((cx - 260), ((py + ph) - 90), 250, 54, 'DISMISS', Cyber.Kind.CHECK, Cyber.RED, _j.Fn(self.confirm_dismiss))
@@ -1407,6 +1381,7 @@ from lindefense.ui.hud_panel import HudPanel  # noqa: E402
 from lindefense.ui.patch_notes_view import PatchNotesView  # noqa: E402
 from lindefense.ui import run_report_view as RunReportView  # noqa: E402
 from lindefense.sim.records import RunSummary  # noqa: E402
+from lindefense.ui import campaign_end_view as CampaignEndView  # noqa: E402
 from lindefense.ui.run_strip import RunStrip  # noqa: E402
 from lindefense.ui.shop_layout import ShopLayout  # noqa: E402
 from lindefense.ui import run_setup_view as RunSetupView  # noqa: E402

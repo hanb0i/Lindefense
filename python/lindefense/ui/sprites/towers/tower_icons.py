@@ -12,8 +12,17 @@ from lindefense.ui.acm import *  # noqa: F401,F403
 
 class TowerIcons:
     """Static tower icons for the shop and the info panel. An icon is the tower's
-full body art (including its tier-4 aura) fitted into a size x size
-box centred on (0,0), facing straight up."""
+body art (including its tier-4 aura) fitted into a size x size
+box centred on (0,0), facing straight up. Like the battlefield, icons paint in the minimal style: the purely
+decorative parts (Thick#DETAIL_DECOR: shadow, gloss, sparkles, glows) are left out."""
+    class Icon(GCompound):
+        """The icon compound: paints its art at least at the decorative level of detail."""
+        def paint(self, g):
+            prev = Thick.set_level(max(Thick.level(), Thick.DETAIL_DECOR))
+            try:
+                GCompound.paint(self, g)
+            finally:
+                Thick.set_level(prev)
     def __init__(self):
         pass
     @staticmethod
@@ -29,12 +38,13 @@ box centred on (0,0), facing straight up."""
         r = (size / (2 * extent))
         art = TowerArtFactory.create(type_, t, r)
         art.animate(0, 0)
-        g = GCompound()
+        g = TowerIcons.Icon()
         g.add(art, 0, 0)
         return g
 
 
 # deferred imports (after the class definitions, so import cycles resolve)
+from lindefense.ui.sprites.thick import Thick  # noqa: E402
 from lindefense.ui.sprites.towers.tower_art_factory import TowerArtFactory  # noqa: E402
 
 TowerIcons.EXTENT = 1.9

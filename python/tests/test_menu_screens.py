@@ -34,6 +34,9 @@ class _App:
     def show_map_select(self):
         self.calls.append("map_select")
 
+    def show_campaign(self, briefing=None):
+        self.calls.append("campaign")
+
     def start_tutorial(self):
         self.calls.append("tutorial")
 
@@ -102,7 +105,7 @@ def test_help_panel_is_modal(check):
     help_close = next(b for b in m.buttons if b.get_parent() is m.help)
     m.toggle_help()
     m.mouse_pressed(*_center(quit_btn))
-    m.mouse_pressed(800, 513)   # PLAY, under the help text
+    m.mouse_pressed(800, 513)   # CAMPAIGN, under the help text
     check(app.calls == [] and m.help_shown, "menu buttons under the HELP panel do not fire (calls %s)" % app.calls)
     m.mouse_pressed(*_center(help_close))
     check(not m.help_shown, "HELP's CLOSE closes it")
@@ -165,6 +168,9 @@ def test_key_translation(check):
     check(ev(pygame.K_F1).get_key_code() == KeyEvent.VK_F1 and ev(pygame.K_F12).get_key_code() == KeyEvent.VK_F12, "F keys")
 
 
+STACK = ["CAMPAIGN", "CLASSIC", "TUTORIAL", "CATALOG", "RECORDS", "HOW TO PLAY", "SETTINGS", "QUIT"]
+
+
 def _menu_buttons(m):
     return [b for b in m.buttons if b.get_parent() is m]
 
@@ -177,9 +183,19 @@ def test_continue_only_with_a_saved_run(check):
     plain = MenuScreen(_App())
     check(plain.continue_button is None, "no saved run: no CONTINUE")
     labels = [b.text.get_label() for b in _menu_buttons(plain)]
-    check(labels == ["PLAY", "TUTORIAL", "CATALOG", "RECORDS", "HOW TO PLAY", "SETTINGS", "QUIT"], "the usual stack (%s)" % labels)
-    rows = [0, 1, 2, 2, 3, 4, 5]   # CATALOG and RECORDS share a row
+    check(labels == STACK, "the usual stack (%s)" % labels)
+    rows = [0, 1, 1, 2, 2, 3, 4, 5]   # CLASSIC + TUTORIAL and CATALOG + RECORDS share a row: still six rows
     check([b.get_y() for b in _menu_buttons(plain)] == [488 + 58 * r for r in rows], "at the usual positions")
+    first = _menu_buttons(plain)[0]
+    check(first.w == 300 and first.get_x() == 650, "CAMPAIGN is the full-width first button")
+    pairs = _menu_buttons(plain)[1:3]
+    check([b.get_x() for b in pairs] == [650, 804] and all(b.w == 146 for b in pairs), "CLASSIC | TUTORIAL")
+    app0 = _App()
+    m0 = MenuScreen(app0)
+    m0.skip_intro()
+    for b in _menu_buttons(m0)[:3]:
+        m0.mouse_pressed(*_center(b))
+    check(app0.calls == ["campaign", "map_select", "tutorial"], "CAMPAIGN, CLASSIC, TUTORIAL (%s)" % app0.calls)
 
     g = Game(maps.create(1), 3, Difficulty.ON2)
     g.get_wave_manager().start_next_wave()
@@ -194,8 +210,7 @@ def test_continue_only_with_a_saved_run(check):
     check(details == ["The Legacy Monolith, O(N²), wave 1"] or details == ["The Legacy Monolith, O(N^2), wave 1"],
           "labelled with map, difficulty and wave (%s)" % details)
     stack = _menu_buttons(m)
-    check(stack[0] is c and [b.text.get_label() for b in stack[1:]] == ["PLAY", "TUTORIAL", "CATALOG", "RECORDS", "HOW TO PLAY", "SETTINGS", "QUIT"],
-          "CONTINUE heads the stack")
+    check(stack[0] is c and [b.text.get_label() for b in stack[1:]] == STACK, "CONTINUE heads the stack")
     boxes = [(b.get_x(), b.get_y(), b.w, b.h) for b in stack] + [(ch.get_x(), ch.get_y(), ch.get_width(), ch.get_height()) for ch in m.chips]
     check(all(0 <= x and x + w <= 1600 and 470 <= y and y + h <= 940 for x, y, w, h in boxes), "all inside the layout (%s)" % boxes)
     overlap = [(a, b) for i, a in enumerate(boxes) for b in boxes[i + 1:]
@@ -204,7 +219,9 @@ def test_continue_only_with_a_saved_run(check):
     m.mouse_pressed(*_center(c))
     check(app.calls == ["continue"], "clicking CONTINUE continues the run (%s)" % app.calls)
     m.mouse_pressed(*_center(stack[1]))
-    check(app.calls == ["continue", "map_select"], "PLAY still works below it")
+    check(app.calls == ["continue", "campaign"], "CAMPAIGN still works below it")
+    m.mouse_pressed(*_center(stack[2]))
+    check(app.calls[-1] == "map_select", "and CLASSIC")
 
 
 def test_unloadable_save_shows_the_notice_once(check):

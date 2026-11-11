@@ -237,7 +237,7 @@ def test_tutorial_restart_and_retry_stay_in_the_tutorial(check):
         g.start_next_wave()
         _lose(app, g)
         gs = app.get_game_screen()
-        check("TRAINING RUN  //  NOT RECORDED" in _texts(gs.overlay), "the tutorial's end screen says it is not recorded")
+        check("TRAINING RUN  ·  NOT RECORDED" in _texts(gs.overlay), "the tutorial's end screen says it is not recorded")
         gs.mouse_pressed(*_center(_button(gs, label)), False)
         check(app.get_game_screen().get_tutorial() is not None, "%s in the tutorial starts the tutorial again" % label)
     app.show_menu()
@@ -326,7 +326,7 @@ def test_reduced_motion_steadies_warnings_and_the_epilogue_prompt(check):
         seen = set()
         for _ in range(12):
             p.animate(0.07, -100, -100)
-            seen.add((f.f_border.get_rgb(), round(f.f_glow, 3)))
+            seen.add(f.f_border.get_rgb())
         check((len(seen) == 1) is on, "%s: next-wave warning frames %s" % ("steady" if on else "pulse", len(seen)))
         ep = VictoryEpilogue(0, 60, 1200, 880)
         ep.finish()
@@ -381,7 +381,7 @@ def test_achievement_toast_waits_until_the_map_is_uncovered(check):
     s.toggle_hero_store()
     for _ in range(4):
         s.frame(0.05)
-    check(s.hud.toast_shown == "ACHIEVEMENT  //  FULL ROSTER" and not s.toasts, "then plays on the open map (%s)" % s.hud.toast_shown)
+    check(s.hud.toast_shown == "ACHIEVEMENT: FULL ROSTER" and not s.toasts, "then plays on the open map (%s)" % s.hud.toast_shown)
 
 
 def test_next_wave_card_stays_shut_behind_overlays(check):

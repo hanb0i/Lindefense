@@ -12,13 +12,12 @@ from lindefense.map.game_map import GameMap
 
 
 class GlowLayer(GObject):
-    """HIGH-quality cosmetic layer (see GraphicsSettings.Quality#glow): soft light halos under live projectiles and
-short light flashes on explosions and big abilities. Drawn in world coordinates by WorldView, under the
-projectile sprites.
+    """HIGH-quality cosmetic layer (see GraphicsSettings.Quality#glow): a short, small and faint light flash on
+explosions and big abilities (the minimal style keeps global glow to that; projectiles carry no halos). Drawn in world
+coordinates by WorldView, under the projectile sprites.
 
 It stays cheap by stamping one small pre-rendered radial-gradient sprite per colour (cached) instead of painting
-gradients every frame, by capping the number of halos, and by switching off as soon as big fights lower the level of
-detail."""
+gradients every frame, and by switching off as soon as big fights lower the level of detail."""
     class Flash:
         """One explosion / ability flash."""
         def __init__(self, x, y, radius, life, rgb):
@@ -41,13 +40,13 @@ detail."""
         self.at = AffineTransform()
         self.game = game
     def set_lod(self, lod):
-        """Level of detail from the world view: halos only at full detail, flashes up to level 1."""
+        """Level of detail from the world view: flashes up to level 1."""
         self.lod = lod
     def flash(self, at, radius, rgb):
         """Adds a light flash of the given world radius and colour (explosions, abilities); none with REDUCED MOTION on."""
         if (((at is None) or (not GraphicsSettings.get().quality().glow)) or (self.lod >= 2)) or (len(self.flashes) >= 40) or display_settings.reduced_motion():
             return
-        _j_add(self.flashes, GlowLayer.Flash(at.x, at.y, _j.dmin(260, _j.dmax(24, (radius * 1.4))), 0.28, rgb))
+        _j_add(self.flashes, GlowLayer.Flash(at.x, at.y, _j.dmin(160, _j.dmax(18, (radius * GlowLayer.FLASH_SCALE))), 0.22, rgb))
     def update(self, dt):
         """Ages the flashes."""
         for i in range((len(self.flashes) - 1), -1, -1):
@@ -65,23 +64,9 @@ detail."""
             return
         g2 = g.create()
         try:
-            if self.lod == 0:
-                live = self.game.get_combat().get_projectiles()
-                drawn = 0
-                i = 0
-                n = len(live)
-                while (i < n) and (drawn < GlowLayer.MAX_HALOS):
-                    p = live[i]
-                    if not p.is_alive():
-                        i += 1
-                        continue
-                    q = p.get_position()
-                    self.stamp(g2, q.x, q.y, GlowLayer.HALO_RADIUS, p.get_shot().rgb, 0.55)
-                    drawn += 1
-                    i += 1
             for f in self.flashes:
                 k = (1 - (f.age / f.life))
-                self.stamp(g2, f.x, f.y, (f.radius * (0.7 + (0.3 * (1 - k)))), f.rgb, (0.65 * k))
+                self.stamp(g2, f.x, f.y, (f.radius * (0.7 + (0.3 * (1 - k)))), f.rgb, ((GlowLayer.FLASH_ALPHA * k) * k))
         finally:
             g2.dispose()
     def stamp(self, g2, x, y, r, rgb, alpha):
@@ -117,6 +102,6 @@ from lindefense.ui.graphics_settings import GraphicsSettings  # noqa: E402
 
 GlowLayer.serial_version_uid = 1
 GlowLayer.SPRITE = 64
-GlowLayer.MAX_HALOS = 96
-GlowLayer.HALO_RADIUS = 15.0
+GlowLayer.FLASH_SCALE = 0.9
+GlowLayer.FLASH_ALPHA = 0.32
 GlowLayer.SPRITES = _j.HashMap()

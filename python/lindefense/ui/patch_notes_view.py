@@ -38,7 +38,7 @@ and RunStrip the in-game strip."""
     @staticmethod
     def build_draft(overlay, buttons, game, on_pick):
         """Builds the draft overlay over the playfield: title, the three offered cards (each fully clickable, plus a SHIP IT
-button) and a footer with the active cards, seed and draft number. Returns the title for the glitch animation."""
+button) and a footer with the active cards, seed and draft number. Returns the title label."""
         v = game.get_variance()
         offer = v.get_offer()
         wave = v.get_offer_wave()
@@ -48,15 +48,13 @@ button) and a footer with the active cards, seed and draft number. Returns the t
         ph = 624.0
         px = (cx - (pw / 2))
         py = (Ui.WORLD_Y + ((Ui.WORLD_H - ph) / 2))
-        overlay.add(Cyber.Chamfer(px, py, pw, ph, 26).fill(Color(6, 10, 24, 240)).border(Cyber.CYAN).glow(1.1).line_width(2).ticks(True))
-        overlay.add(Ui.rect((px + 24), (py + 12), 140, 3, Cyber.MAGENTA, Cyber.MAGENTA))
-        micro = _j.cat('// patch notes v1.', (len(v.get_active()) + 1), '  //  ', ('launch build' if (wave <= 1) else _j.cat('pre-wave ', wave, ' hotfix')))
-        PatchNotesView.centered(overlay, Cyber.spaced(micro), cx, (py + 42), Cyber.mono(Font.BOLD, 12), Cyber.alpha(Cyber.MAGENTA, 235))
-        title = Cyber.GlitchText('PATCH NOTES', Cyber.display(Font.BOLD, 58), Cyber.lerp(Cyber.CYAN, Color.WHITE, 0.3))
-        title.set_location((cx - (title.text_width() / 2)), (py + 102))
+        overlay.add(Cyber.Chamfer(px, py, pw, ph, 6))
+        micro = _j.cat('Version 1.', (len(v.get_active()) + 1), '  ·  ', ('Launch build' if (wave <= 1) else _j.cat('Pre-wave ', wave, ' hotfix')))
+        PatchNotesView.centered(overlay, micro, cx, (py + 44), Cyber.body(Font.PLAIN, 14), Cyber.MUTED)
+        title = Ui.label('PATCH NOTES', 0, 0, Cyber.display(Font.BOLD, 46), Cyber.TEXT)
+        title.set_location((cx - (title.get_width() / 2)), (py + 96))
         overlay.add(title)
-        title.burst(0.5)
-        PatchNotesView.centered(overlay, 'Ship one change. It lasts the rest of the run, and every card has an upside and a downside.', cx, (py + 132), Cyber.body(Font.PLAIN, 16), Cyber.MUTED)
+        PatchNotesView.centered(overlay, 'Ship one change. It lasts the rest of the run, and every card has an upside and a downside.', cx, (py + 128), Cyber.body(Font.PLAIN, 16), Cyber.MUTED)
         cw = 344.0
         ch = 388.0
         gap = 24.0
@@ -69,19 +67,19 @@ button) and a footer with the active cards, seed and draft number. Returns the t
         act = _j.StringBuilder()
         for p in v.get_active():
             act.append(('' if (act.length() == 0) else '  +  ')).append(p.chip)
-        left = Ui.label(('NO PATCHES YET' if (act.length() == 0) else _j.cat('ACTIVE  ', act)), (px + 30), fy, Cyber.mono(Font.BOLD, 11), Cyber.alpha(Cyber.CYAN, 200))
-        sz = 11
-        hint_w = Ui.label('PRESS 1 / 2 / 3 OR CLICK A CARD', 0, 0, Cyber.mono(Font.BOLD, 11), Cyber.MUTED).get_width()
+        left = Ui.label(('No patches yet' if (act.length() == 0) else _j.cat('Active: ', act)), (px + 30), fy, Cyber.body(Font.PLAIN, 13), Cyber.MUTED)
+        sz = 13
+        hint_w = Ui.label(PatchNotesView.HINT, 0, 0, Cyber.body(Font.PLAIN, 13), Cyber.DIM).get_width()
         limit = _j.dmin((pw * 0.42), (((pw - hint_w) / 2) - 46))
         while (left.get_width() > limit) and (sz > 7):
-            left.set_font(Cyber.mono(Font.BOLD, sz))
+            left.set_font(Cyber.body(Font.PLAIN, sz))
             sz -= 1
         if left.get_width() > limit:
-            left.set_label(_j.cat('ACTIVE  ', len(v.get_active()), ' PATCHES'))
-            left.set_font(Cyber.mono(Font.BOLD, 11))
+            left.set_label(_j.cat('Active: ', len(v.get_active()), ' patches'))
+            left.set_font(Cyber.body(Font.PLAIN, 13))
         overlay.add(left)
-        PatchNotesView.centered(overlay, 'PRESS 1 / 2 / 3 OR CLICK A CARD', cx, fy, Cyber.mono(Font.BOLD, 11), Cyber.MUTED)
-        right = Ui.label(_j.cat(PatchNotesView.seed_text(game), '   //   DRAFT ', v.get_draft_number(), (_j.cat(' OF ', len(RunVariance.DRAFT_WAVES)) if (v.get_draft_number() <= len(RunVariance.DRAFT_WAVES)) else '  //  FREEPLAY')), 0, fy, Cyber.mono(Font.BOLD, 11), Cyber.alpha(Cyber.MAGENTA, 220))
+        PatchNotesView.centered(overlay, PatchNotesView.HINT, cx, fy, Cyber.body(Font.PLAIN, 13), Cyber.DIM)
+        right = Ui.label(_j.cat(PatchNotesView.seed_text(game), '   ·   Draft ', v.get_draft_number(), (_j.cat(' of ', len(RunVariance.DRAFT_WAVES)) if (v.get_draft_number() <= len(RunVariance.DRAFT_WAVES)) else '  ·  Freeplay')), 0, fy, Cyber.body(Font.PLAIN, 13), Cyber.MUTED)
         right.set_location((((px + pw) - 30) - right.get_width()), fy)
         overlay.add(right)
         return title
@@ -89,13 +87,12 @@ button) and a footer with the active cards, seed and draft number. Returns the t
     def card(overlay, buttons, p, index, wave, x, y, w, h, pick):
         """One offered card: theme colour, key badge, title, flavour, upsides, downsides and a SHIP IT button."""
         acc = PatchNotesView.accent(p.category)
-        overlay.add(Cyber.Chamfer(x, y, w, h, 16).fill(Color(8, 13, 30, 232)).border(Cyber.alpha(acc, 225)).glow(0.6).line_width(1.8).ticks(True))
-        overlay.add(Ui.rect((x + 18), (y + 10), 70, 3, acc, acc))
+        overlay.add(Cyber.Chamfer(x, y, w, h, 4).fill(Cyber.SURFACE_2))
         key = Ui.label(_j.s((index + 1)), 0, 0, Cyber.mono(Font.BOLD, 14), Cyber.INK)
-        overlay.add(Cyber.Chamfer((x + 18), (y + 22), 26, 24, 6).scan(False).fill(acc).border(Cyber.lerp(acc, Color.WHITE, 0.4)))
-        key.set_location(((x + 18) + ((26 - key.get_width()) / 2)), (y + 39))
+        overlay.add(Cyber.Chamfer((x + 18), (y + 22), 24, 24, 3).fill(acc).border(None))
+        key.set_location(((x + 18) + ((24 - key.get_width()) / 2)), (y + 39))
         overlay.add(key)
-        theme = Ui.label(Cyber.spaced(p.category.name), 0, (y + 39), Cyber.mono(Font.BOLD, 10), Cyber.alpha(acc, 230))
+        theme = Ui.label(PatchNotesView.sentence(p.category.name), 0, (y + 39), Cyber.body(Font.BOLD, 13), acc)
         theme.set_location((((x + w) - 18) - theme.get_width()), (y + 39))
         overlay.add(theme)
         tw = (w - 36)
@@ -106,18 +103,18 @@ button) and a footer with the active cards, seed and draft number. Returns the t
             tf = Cyber.display(Font.BOLD, 21)
             tl = Ui.wrap(p.title.upper(), tf, tw)
         for l in tl:
-            overlay.add(Ui.label(l, (x + 18), yy, tf, Cyber.lerp(acc, Color.WHITE, 0.55)))
+            overlay.add(Ui.label(l, (x + 18), yy, tf, Cyber.TEXT))
             yy += (tf.get_size() + 4)
         yy += 2
         for l in Ui.wrap(p.flavor, Cyber.body(Font.PLAIN, 14), tw):
             overlay.add(Ui.label(l, (x + 18), yy, Cyber.body(Font.PLAIN, 14), Cyber.MUTED))
             yy += 18
         yy += 6
-        overlay.add(Ui.rect((x + 18), yy, tw, 1, Cyber.alpha(acc, 90), Cyber.alpha(acc, 90)))
+        overlay.add(Ui.rect((x + 18), yy, tw, 1, Cyber.EDGE, Cyber.EDGE))
         yy += 22
-        yy = PatchNotesView.effects(overlay, 'upside', p.upsides(wave), Cyber.GREEN, (x + 18), yy, tw)
+        yy = PatchNotesView.effects(overlay, 'Upside', p.upsides(wave), Cyber.good(), (x + 18), yy, tw)
         yy += 8
-        PatchNotesView.effects(overlay, 'downside', p.downsides(wave), Cyber.RED, (x + 18), yy, tw)
+        PatchNotesView.effects(overlay, 'Downside', p.downsides(wave), Cyber.bad(), (x + 18), yy, tw)
         area = UIButton(x, y, w, h, '', Cyber.mono(Font.BOLD, 1), pick)
         area.set_flat(True)
         area.set_accent(acc)
@@ -125,15 +122,14 @@ button) and a footer with the active cards, seed and draft number. Returns the t
         _j_add(buttons, area)
         ship = UIButton((x + 18), ((y + h) - 58), (w - 36), 42, _j.cat('SHIP IT  [', (index + 1), ']'), Cyber.display(Font.BOLD, 18), pick)
         ship.set_accent(acc)
-        ship.set_primary(True)
         overlay.add(ship)
         _j_add(buttons, ship)
         area.animate(0)
         ship.animate(0)
     @staticmethod
     def effects(into, head, lines, col, x, y, w):
-        """A "// upside" block of bullet lines; returns the y below it."""
-        into.add(Ui.label(Cyber.spaced(_j.cat('// ', head)), x, y, Cyber.mono(Font.BOLD, 10), Cyber.alpha(col, 230)))
+        """An "Upside" block of bullet lines; returns the y below it."""
+        into.add(Ui.label(head, x, y, Cyber.body(Font.PLAIN, 13), Cyber.alpha(col, 230)))
         y += 22
         f = Cyber.body(Font.BOLD, 15)
         for e in lines:
@@ -156,9 +152,9 @@ button) and a footer with the active cards, seed and draft number. Returns the t
         """One chip (chamfered tag with a theme-coloured border), top-left at (x, y); returns its width."""
         acc = PatchNotesView.accent(p.category)
         w = PatchNotesView.chip_width(p.chip, f)
-        into.add(Cyber.Chamfer(x, y, w, h, 5).scan(False).fill(Color(10, 16, 34, 235)).border(Cyber.alpha(acc, 210)))
-        into.add(Ui.rect((x + 1.5), (y + 3), 2, (h - 6), acc, acc))
-        l = Ui.label(p.chip, (x + 10), ((y + (h / 2)) + (f.get_size() * 0.36)), f, Cyber.lerp(acc, Color.WHITE, 0.45))
+        into.add(Cyber.Chamfer(x, y, w, h, 3).fill(Cyber.SURFACE_2))
+        into.add(Ui.rect((x + 1), (y + 1), 2, (h - 2), acc, acc))
+        l = Ui.label(p.chip, (x + 10), ((y + (h / 2)) + (f.get_size() * 0.36)), f, Cyber.TEXT)
         into.add(l)
         return w
     @staticmethod
@@ -200,15 +196,15 @@ row (or y when there are none)."""
             _j_add(lines, ['+', e.text])
         for e in p.downsides(picked_before):
             _j_add(lines, ['-', e.text])
-        return PatchNotesView.hover_card(p.title.upper(), Cyber.spaced(_j.cat(p.category.name, '  //  shipped before wave ', picked_before)), p.flavor, lines, acc)
+        return PatchNotesView.hover_card(p.title.upper(), _j.cat(PatchNotesView.sentence(p.category.name), '  ·  shipped before wave ', picked_before), p.flavor, lines, acc)
     @staticmethod
     def news_card(n, wave, live):
         """Hover card for a news event."""
         lines = _j.ArrayList()
         for e in n.mods().effects(wave):
             _j_add(lines, [('+' if e.good else '-'), e.text])
-        when = (_j.cat('live now  //  ends when wave ', wave, ' is cleared') if live else _j.cat('breaks on wave ', wave, '  //  lasts that wave'))
-        return PatchNotesView.hover_card(_j.cat('BREAKING: ', n.title.upper()), Cyber.spaced(when), n.flavor, lines, Cyber.RED)
+        when = (_j.cat('Live now  ·  ends when wave ', wave, ' is cleared') if live else _j.cat('Breaks on wave ', wave, '  ·  lasts that wave'))
+        return PatchNotesView.hover_card(_j.cat('BREAKING: ', n.title.upper()), when, n.flavor, lines, Cyber.RED)
     @staticmethod
     def hover_card(title, micro, flavor, lines, acc):
         c = GCompound()
@@ -217,17 +213,17 @@ row (or y when there are none)."""
         tw = (w - 28)
         parts = _j.ArrayList()
         y = 28.0
-        _j_add(parts, Ui.label(title, x, y, PatchNotesView.fit(title, Cyber.display(Font.BOLD, 18), tw), Cyber.lerp(acc, Color.WHITE, 0.5)))
-        y += 17
-        _j_add(parts, Ui.label(micro, x, y, Cyber.mono(Font.BOLD, 9), Cyber.alpha(acc, 220)))
-        y += 19
+        _j_add(parts, Ui.label(title, x, y, PatchNotesView.fit(title, Cyber.display(Font.BOLD, 18), tw), Cyber.TEXT))
+        y += 18
+        _j_add(parts, Ui.label(micro, x, y, Cyber.body(Font.PLAIN, 12), Cyber.lerp(acc, Cyber.MUTED, 0.35)))
+        y += 20
         for l in Ui.wrap(flavor, Cyber.body(Font.PLAIN, 13), tw):
             _j_add(parts, Ui.label(l, x, y, Cyber.body(Font.PLAIN, 13), Cyber.MUTED))
             y += 16
         y += 6
         f = Cyber.body(Font.BOLD, 13)
         for l in lines:
-            col = (Cyber.GREEN if (l[0] == '+') else Cyber.RED)
+            col = (Cyber.good() if (l[0] == '+') else Cyber.bad())
             first = True
             for part in Ui.wrap(l[1], f, (tw - 16)):
                 if first:
@@ -236,11 +232,15 @@ row (or y when there are none)."""
                 first = False
                 y += 17
         h = (y + 4)
-        c.add(Cyber.Chamfer(0, 0, w, h, 10).scan(False).fill(Color(5, 9, 22, 248)).border(acc).glow(0.7).line_width(1.6))
-        c.add(Ui.rect(0, 6, 4, (h - 12), acc, acc))
+        c.add(Cyber.Chamfer(0, 0, w, h, 4).fill(Color(9, 14, 28, 250)).border(Cyber.EDGE_HI))
+        c.add(Ui.rect(1, 1, 3, (h - 2), acc, acc))
         for l in parts:
             c.add(l)
         return c
+    @staticmethod
+    def sentence(name):
+        """ECONOMY -> Economy."""
+        return name[0:1].upper() + name[1:].lower()
     @staticmethod
     def fit(text, f, w):
         cur = f
@@ -261,3 +261,5 @@ row (or y when there are none)."""
 from lindefense.ui.cyber import Cyber  # noqa: E402
 from lindefense.ui.ui import Ui  # noqa: E402
 from lindefense.ui.ui_button import UIButton  # noqa: E402
+
+PatchNotesView.HINT = 'Press 1, 2 or 3, or click a card'

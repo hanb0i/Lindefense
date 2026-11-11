@@ -12,24 +12,15 @@ from lindefense.ui.acm import *  # noqa: F401,F403
 
 class LogoEmblem(GCompound):
     """The Lindefense emblem: a hexagonal circuit shield around an angular "L"
-monogram with a glowing AI core. Built once from ACM primitives; call
-#animate(double) to pulse the core and glow. Origin = centre."""
+monogram with a yellow AI core. Built once from ACM primitives (static). Origin = centre."""
     def __init__(self, size):
         self.size = 0.0
         self.core = None
-        self.core_glow = None
         self.iris = None
         self.monogram = None
         GCompound.__init__(self)
-        self.glow_rings = _j.ArrayList()
-        self.pads = _j.ArrayList()
         self.size = size
         r = (size / 2)
-        for i in range(3, 0, -1):
-            ring = LogoEmblem.hex((r * (1 + (0.06 * i))))
-            ring.set_color(Ui.with_alpha(LogoEmblem.CYAN, (30 + (25 * (3 - i)))))
-            self.add(ring)
-            _j_add(self.glow_rings, ring)
         shell = LogoEmblem.hex(r)
         shell.set_filled(True)
         shell.set_fill_color(LogoEmblem.NAVY)
@@ -52,7 +43,6 @@ monogram with a glowing AI core. Built once from ACM primitives; call
             pad.set_fill_color((LogoEmblem.CYAN if (_j.imod(k, 2) == 0) else LogoEmblem.MAGENTA))
             pad.set_color(LogoEmblem.NAVY)
             self.add(pad)
-            _j_add(self.pads, pad)
         traces = [[(-0.55), (-0.1), (-0.55), (-0.45), (-0.3), (-0.45)], [0.55, 0.1, 0.55, 0.45, 0.3, 0.45], [0.2, (-0.55), 0.45, (-0.55), 0.45, (-0.3)]]
         for t in traces:
             a = GLine((t[0] * r), (t[1] * r), (t[2] * r), (t[3] * r))
@@ -75,11 +65,6 @@ monogram with a glowing AI core. Built once from ACM primitives; call
         self.monogram.set_fill_color(LogoEmblem.MAGENTA)
         self.monogram.set_color(Ui.with_alpha(Color.WHITE, 200))
         self.add(self.monogram)
-        self.core_glow = GOval((r * 0.08), ((-r) * 0.42), (r * 0.44), (r * 0.44))
-        self.core_glow.set_filled(True)
-        self.core_glow.set_fill_color(Ui.with_alpha(LogoEmblem.YELLOW, 60))
-        self.core_glow.set_color(Ui.with_alpha(LogoEmblem.YELLOW, 0))
-        self.add(self.core_glow)
         self.core = GOval((r * 0.16), ((-r) * 0.34), (r * 0.28), (r * 0.28))
         self.core.set_filled(True)
         self.core.set_fill_color(LogoEmblem.YELLOW)
@@ -99,16 +84,6 @@ monogram with a glowing AI core. Built once from ACM primitives; call
         return p
     def get_emblem_size(self):
         return self.size
-    def animate(self, t):
-        """Pulses the core and glow; t in seconds."""
-        pulse = (0.5 + (0.5 * math.sin((t * 2.2))))
-        self.core_glow.set_fill_color(Ui.with_alpha(LogoEmblem.YELLOW, _j.to_int((40 + (90 * pulse)))))
-        self.core.set_fill_color((LogoEmblem.YELLOW if (pulse > 0.5) else Color(0xfff6a0)))
-        for i in range(len(self.glow_rings)):
-            self.glow_rings[i].set_color(Ui.with_alpha(LogoEmblem.CYAN, _j.to_int(((30 + (25 * i)) * (0.6 + (0.4 * pulse))))))
-        lit = _j.imod(_j.to_int((t * 3)), len(self.pads))
-        for i in range(len(self.pads)):
-            self.pads[i].set_fill_color((LogoEmblem.YELLOW if (i == lit) else (LogoEmblem.CYAN if (_j.imod(i, 2) == 0) else LogoEmblem.MAGENTA)))
 
 
 # deferred imports (after the class definitions, so import cycles resolve)

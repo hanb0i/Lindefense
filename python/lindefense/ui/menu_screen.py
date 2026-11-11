@@ -15,12 +15,9 @@ from lindefense.ui.logo_emblem import LogoEmblem
 
 
 class MenuScreen(GCompound):
-    """Cyberpunk animated title card. Everything is built once in the constructor
-(ACM primitives only) and animated by mutating positions/colours in
-#frame(double): neon-glow wordmark with flicker and chromatic-aberration
-glitch bursts, holographic shimmer, synthwave perspective grid with sun and
-skyline, low-alpha digital rain, CRT scanlines + scan bar, HUD brackets and
-blinking readouts, neon buttons, and a 1.3 s boot-up intro that any input skips."""
+    """The title screen: a quiet backdrop (a faint grid and a soft light behind the logo), the emblem and the
+LINDEFENSE wordmark, the button stack and the audio chips. Built once in the constructor (ACM primitives only); the
+only motion is a short letter-by-letter reveal of the wordmark that any input skips (none with REDUCED MOTION)."""
     def __init__(self, app):
         self.audio_toggles = None
         self.help_shown = False
@@ -53,96 +50,39 @@ blinking readouts, neon buttons, and a 1.3 s boot-up intro that any input skips.
         self.t = 0.0
         self.intro_t = 0.0
         self.intro_done = False
-        self.chroma_m = None
-        self.chroma_c = None
         self.main = None
-        self.shimmer = None
-        self.intro_bar = None
         self.emblem = None
         self.subtitle = None
         self.tagline = None
-        self.flicker_left = 0.0
-        self.glitch_left = 0.0
-        self.shimmer_left = 0.0
-        self.grid_phase = 0.0
-        self.scan_bar = None
-        self.sys_label = None
-        self.threat_label = None
         self.ver_label = None
-        self.ticker_label = None
-        self.sun_glow = None
         self.saved_run = None
         self.continue_button = None
         self.notice = None
         self.notice_time = 0.0
         GCompound.__init__(self)
         self.app = app
-        self.rnd = _j.Random(7)
         self.buttons = _j.ArrayList()
         self.chips = _j.ArrayList()
         self.help = GCompound()
         self.settings = GCompound()
         self.code_input = _j.StringBuilder()
         self.settings_chips = _j.ArrayList()
-        self.glow = ([None] * 3)
-        self.flicker_letter = (-1)
-        self.flicker_timer = 2.5
-        self.glitch_timer = 2.0
-        self.slices = ([None] * 3)
-        self.shimmer_timer = 1.0
-        self.grid_rows = ([None] * MenuScreen.GRID_ROWS)
-        self.rain_cols = _j.ArrayList()
-        self.rain_speed = ([0.0] * MenuScreen.RAIN_COLUMNS)
-        self.windows = _j.ArrayList()
         self.add(Ui.rect(0, 0, Ui.W, Ui.H, MenuScreen.BG, MenuScreen.BG))
-        self.build_rain()
-        self.build_sun_and_skyline()
-        self.sun_glow = Ui.oval((800 - 260), (MenuScreen.HORIZON - 260), 520, 520, Ui.with_alpha(MenuScreen.MAGENTA, 25), Ui.with_alpha(MenuScreen.MAGENTA, 0))
-        self.add(self.sun_glow)
-        self.build_grid()
-        hgt = 112.0
-        scales = [1.16, 1.09, 1.035]
-        for i in range(3):
-            self.glow[i] = LogoWordmark((hgt * scales[i]), Ui.with_alpha(MenuScreen.CYAN, (18 + (18 * i))), Ui.with_alpha(MenuScreen.CYAN, (40 + (30 * i))), True)
-            self.glow[i].set_location(800, MenuScreen.LOGO_Y)
-            self.add(self.glow[i])
-        self.chroma_m = LogoWordmark(hgt, Ui.with_alpha(MenuScreen.MAGENTA, 170), None, True)
-        self.chroma_c = LogoWordmark(hgt, Ui.with_alpha(MenuScreen.CYAN, 170), None, True)
-        self.chroma_m.set_location(800, MenuScreen.LOGO_Y)
-        self.chroma_c.set_location(800, MenuScreen.LOGO_Y)
-        self.chroma_m.set_visible(False)
-        self.chroma_c.set_visible(False)
-        self.add(self.chroma_m)
-        self.add(self.chroma_c)
-        self.main = LogoWordmark(hgt, Color(0xeafcff), MenuScreen.CYAN, True)
+        self.add(Cyber.Grid(0, 0, Ui.W, Ui.H, 40, Ui.with_alpha(MenuScreen.CYAN, 7)))
+        self.add(Cyber.Light(0, 0, Ui.W, Ui.H, 800, (MenuScreen.LOGO_Y - 30), 640, 0.62, Ui.with_alpha(MenuScreen.CYAN, 20)))
+        self.main = LogoWordmark(104.0, Color(0xeafcff), None, True)
         self.main.set_location(800, MenuScreen.LOGO_Y)
         self.add(self.main)
-        self.shimmer = GPolygon()
-        self.shimmer.add_vertex(0, ((-hgt) * 0.7))
-        self.shimmer.add_vertex(26, ((-hgt) * 0.7))
-        self.shimmer.add_vertex((-14), (hgt * 0.7))
-        self.shimmer.add_vertex((-40), (hgt * 0.7))
-        self.shimmer.set_filled(True)
-        self.shimmer.set_fill_color(Ui.with_alpha(Color.WHITE, 70))
-        self.shimmer.set_color(Ui.with_alpha(Color.WHITE, 0))
-        self.shimmer.set_visible(False)
-        self.add(self.shimmer)
-        for i in range(len(self.slices)):
-            self.slices[i] = Ui.rect(0, 0, 10, 4, MenuScreen.BG, MenuScreen.BG)
-            self.slices[i].set_visible(False)
-            self.add(self.slices[i])
-        self.intro_bar = Ui.rect((800 - 560), (MenuScreen.LOGO_Y - 80), 1120, 6, Ui.with_alpha(Color.WHITE, 160), Ui.with_alpha(MenuScreen.CYAN, 0))
-        self.add(self.intro_bar)
-        self.emblem = LogoEmblem(130)
-        self.emblem.set_location(800, 150)
+        self.emblem = LogoEmblem(120)
+        self.emblem.set_location(800, 158)
         self.add(self.emblem)
-        self.subtitle = Ui.label(MenuScreen.spaced('THE LAST LINE OF CODE'), 0, 0, MenuScreen.menu_font(Font.BOLD, 26), MenuScreen.CYAN)
-        self.subtitle.set_location(((Ui.W - self.subtitle.get_width()) / 2), 428)
+        self.subtitle = Ui.label('THE LAST LINE OF CODE', 0, 0, MenuScreen.menu_font(Font.BOLD, 22), MenuScreen.CYAN)
+        self.subtitle.set_location(((Ui.W - self.subtitle.get_width()) / 2), 426)
         self.add(self.subtitle)
-        self.tagline = Ui.label(MenuScreen.spaced('DEPLOY. UPGRADE. DEFEND.'), 0, 0, MenuScreen.menu_font(Font.PLAIN, 14), Ui.with_alpha(MenuScreen.MAGENTA, 220))
-        self.tagline.set_location(((Ui.W - self.tagline.get_width()) / 2), 456)
+        self.tagline = Ui.label('Deploy. Upgrade. Defend.', 0, 0, Cyber.body(Font.PLAIN, 15), Cyber.MUTED)
+        self.tagline.set_location(((Ui.W - self.tagline.get_width()) / 2), 452)
         self.add(self.tagline)
-        bf = MenuScreen.menu_font(Font.BOLD, 24)
+        bf = MenuScreen.menu_font(Font.BOLD, 22)
         self.saved_run, notice = savegame.menu_entry()
         # the button stack: (y of the first row, row pitch, button height); a saved run adds CONTINUE on top
         y, step, bh = (MenuScreen.STACK_Y, 58, 50) if self.saved_run is None else (MenuScreen.STACK_Y - 6, 52, 46)
@@ -151,39 +91,30 @@ blinking readouts, neon buttons, and a 1.3 s boot-up intro that any input skips.
             _j_add(self.buttons, self.continue_button)
             self.add(self.continue_button)
             y += MenuScreen.CONTINUE_H + (step - bh)
-        play = NeonButton(((Ui.W / 2.0) - 150), y, 300, bh, 'PLAY', bf, MenuScreen.CYAN, _j.Fn(app.show_map_select))
-        tut = NeonButton(((Ui.W / 2.0) - 150), (y + step), 300, bh, 'TUTORIAL', bf, Color(0x3bff8a), _j.Fn(app.start_tutorial))
+        # CAMPAIGN leads; CLASSIC (the 100-wave game on any map: map select, daily run, seeds, challenges) and TUTORIAL
+        # share the second row, so the stack keeps its six rows
+        play = NeonButton(((Ui.W / 2.0) - 150), y, 300, bh, 'CAMPAIGN', bf, MenuScreen.CYAN, _j.Fn(lambda: app.show_campaign()))
+        play.set_primary(self.saved_run is None)
+        classic = NeonButton(((Ui.W / 2.0) - 150), (y + step), 146, bh, 'CLASSIC', bf, MenuScreen.CYAN, _j.Fn(app.show_map_select))
+        tut = NeonButton(((Ui.W / 2.0) + 4), (y + step), 146, bh, 'TUTORIAL', bf, MenuScreen.CYAN, _j.Fn(app.start_tutorial))
         cat = NeonButton(((Ui.W / 2.0) - 150), (y + (2 * step)), 146, bh, 'CATALOG', bf, MenuScreen.CYAN, _j.Fn(self.toggle_catalog))
-        stats = NeonButton(((Ui.W / 2.0) + 4), (y + (2 * step)), 146, bh, 'RECORDS', bf, MenuScreen.YELLOW, _j.Fn(self.toggle_stats))
-        how = NeonButton(((Ui.W / 2.0) - 150), (y + (3 * step)), 300, bh, 'HOW TO PLAY', bf, MenuScreen.MAGENTA, _j.Fn(self.toggle_help))
-        set_ = NeonButton(((Ui.W / 2.0) - 150), (y + (4 * step)), 300, bh, 'SETTINGS', bf, Color(0x9b7bff), _j.Fn(self.toggle_settings))
-        quit = NeonButton(((Ui.W / 2.0) - 150), (y + (5 * step)), 300, bh, 'QUIT', bf, MenuScreen.YELLOW, _j.Fn(app.quit))
-        for b in [play, tut, cat, stats, how, set_, quit]:
+        stats = NeonButton(((Ui.W / 2.0) + 4), (y + (2 * step)), 146, bh, 'RECORDS', bf, MenuScreen.CYAN, _j.Fn(self.toggle_stats))
+        how = NeonButton(((Ui.W / 2.0) - 150), (y + (3 * step)), 300, bh, 'HOW TO PLAY', bf, MenuScreen.CYAN, _j.Fn(self.toggle_help))
+        set_ = NeonButton(((Ui.W / 2.0) - 150), (y + (4 * step)), 300, bh, 'SETTINGS', bf, MenuScreen.CYAN, _j.Fn(self.toggle_settings))
+        quit = NeonButton(((Ui.W / 2.0) - 150), (y + (5 * step)), 300, bh, 'QUIT', bf, Cyber.MUTED, _j.Fn(app.quit))
+        for b in [play, classic, tut, cat, stats, how, set_, quit]:
             _j_add(self.buttons, b)
             self.add(b)
         chips_y = ((y + (5 * step)) + bh) + 14
         self.audio_toggles = AudioToggle.pair(((Ui.W / 2.0) - 150), chips_y, 145, 38, 10, 'SOUND', 'MUSIC', self.chips)
         for c in self.chips:
             self.add(c)
-        for y in range(0, Ui.H, 4):
-            l = GLine(0, y, Ui.W, y)
-            l.set_color(Ui.with_alpha(Color.BLACK, 46))
-            self.add(l)
-        self.scan_bar = Ui.rect(0, (-120), Ui.W, 90, Ui.with_alpha(Color.WHITE, 9), Ui.with_alpha(Color.WHITE, 0))
-        self.add(self.scan_bar)
-        self.build_brackets()
-        mono = Cyber.mono(Font.BOLD, 14)
-        self.sys_label = Ui.label('SYS.ONLINE  •', 44, 52, mono, Color(0x3bff8a))
-        self.threat_label = Ui.label('THREAT LVL: PALANTIR', 44, (Ui.H - 40), mono, MenuScreen.MAGENTA)
-        self.ver_label = Ui.label(version.LABEL, (Ui.W - 150), 52, mono, MenuScreen.YELLOW)
-        self.ticker_label = Ui.label(_j.cat('LINDEFENSE // 100 WAVES // 18 TOWERS // ', len(TowerType.heroes()), ' HEROES // 7 MAPS'), 0, (Ui.H - 40), mono, Ui.with_alpha(MenuScreen.CYAN, 200))
-        self.ticker_label.set_location(((Ui.W - 44) - self.ticker_label.get_width()), (Ui.H - 40))
-        self.add(self.sys_label)
-        self.add(self.threat_label)
+        small = Cyber.mono(Font.BOLD, 13)
+        self.ver_label = Ui.label(version.LABEL, 0, 44, small, Cyber.DIM)
+        self.ver_label.set_location(((Ui.W - 40) - self.ver_label.get_width()), 44)
         self.add(self.ver_label)
-        self.add(self.ticker_label)
-        foot = Ui.label('PYTHON + SKIA GRAPHICS  •  RESIZE THE WINDOW FREELY  •  F11: FULL SCREEN', 0, 0, MenuScreen.menu_font(Font.PLAIN, 12), Ui.with_alpha(MenuScreen.CYAN, 120))
-        foot.set_location(((Ui.W - foot.get_width()) / 2), (Ui.H - 14))
+        foot = Ui.label('Resize the window freely  ·  F11: full screen', 0, 0, Cyber.body(Font.PLAIN, 13), Cyber.DIM)
+        foot.set_location(((Ui.W - foot.get_width()) / 2), (Ui.H - 22))
         self.add(foot)
         self.notice = Ui.label('', 0, (chips_y + 66), Cyber.mono(Font.BOLD, 14), Cyber.RED)
         self.add(self.notice)
@@ -198,14 +129,13 @@ blinking readouts, neon buttons, and a 1.3 s boot-up intro that any input skips.
         self.catalog = CatalogScreen(_j.Fn(self.toggle_catalog))
         self.catalog.set_visible(False)
         self.add(self.catalog)
-        i = 0
-        while i < self.main.get_letter_count():
-            self.set_letter_stack_visible(i, False)
-            i += 1
+        for i in range(self.main.get_letter_count()):
+            self.main.set_letter_visible(i, False)
     def build_continue(self, app, info, y):
         """CONTINUE (only with a valid saved run): the run's map, difficulty and wave under the title."""
         w = 380.0
-        b = NeonButton(((Ui.W - w) / 2), y, w, MenuScreen.CONTINUE_H, 'CONTINUE', MenuScreen.menu_font(Font.BOLD, 24), MenuScreen.ORANGE, _j.Fn(lambda: app.continue_run()))
+        b = NeonButton(((Ui.W - w) / 2), y, w, MenuScreen.CONTINUE_H, 'CONTINUE', MenuScreen.menu_font(Font.BOLD, 22), MenuScreen.ORANGE, _j.Fn(lambda: app.continue_run()))
+        b.set_primary(True)
         b.text.set_location(((w - b.text.get_width()) / 2), 27)
         f = Cyber.mono(Font.BOLD, 13)
         d = info.get_difficulty()
@@ -215,7 +145,7 @@ blinking readouts, neon buttons, and a 1.3 s boot-up intro that any input skips.
         while (detail.get_width() > (w - 28)) and (size > 10):
             size -= 1
             detail.set_font(Cyber.mono(Font.BOLD, size))
-        detail.set_color(Ui.with_alpha(Color(0xffe2b8), 230))
+        detail.set_color(Color(0x2a1a06))
         detail.set_location(((w - detail.get_width()) / 2), 47)
         b.add(detail)
         return b
@@ -228,108 +158,22 @@ blinking readouts, neon buttons, and a 1.3 s boot-up intro that any input skips.
     def menu_font(style, size):
         """Font fallback chain for small text."""
         return Cyber.display(style, size)
-    @staticmethod
-    def spaced(s):
-        sb = _j.StringBuilder()
-        for c in list(s):
-            sb.append(c)
-            sb.append(' ')
-        return _j.trim(sb.to_string())
-    def build_rain(self):
-        for c in range(MenuScreen.RAIN_COLUMNS):
-            col = GCompound()
-            f = Cyber.mono(Font.PLAIN, 13)
-            for k in range(MenuScreen.RAIN_LEN):
-                g = Cyber.Text(_j.s(MenuScreen.GLYPHS[self.rnd.next_int(len(MenuScreen.GLYPHS))]), 0, (k * 16))
-                g.set_font(f)
-                a = (150 if (k == (MenuScreen.RAIN_LEN - 1)) else (25 + (k * 9)))
-                g.set_color(Ui.with_alpha((Color.WHITE if (k == (MenuScreen.RAIN_LEN - 1)) else (MenuScreen.MAGENTA if (_j.imod(c, 3) == 0) else MenuScreen.CYAN)), a))
-                col.add(g)
-            col.set_location((20 + self.rnd.next_int((Ui.W - 40))), (-self.rnd.next_int(Ui.H)))
-            self.rain_speed[c] = (60 + self.rnd.next_int(110))
-            _j_add(self.rain_cols, col)
-            self.add(col)
-    def build_sun_and_skyline(self):
-        r = 150.0
-        sun = Ui.oval((800 - r), (MenuScreen.HORIZON - r), (2 * r), (2 * r), Color(0xff4fc3), Ui.with_alpha(MenuScreen.MAGENTA, 0))
-        self.add(sun)
-        sun_top = Ui.oval((800 - (r * 0.92)), (MenuScreen.HORIZON - (r * 0.98)), ((2 * r) * 0.92), (r * 1.1), Color(0xffb347), Ui.with_alpha(MenuScreen.YELLOW, 0))
-        self.add(sun_top)
-        for i in range(7):
-            y = ((MenuScreen.HORIZON - 8) - (i * (14 + (i * 3))))
-            self.add(Ui.rect((800 - r), y, (2 * r), (3 + (i * 0.6)), MenuScreen.BG, MenuScreen.BG))
-        x = 0.0
-        b = 0
-        while x < Ui.W:
-            w = (28 + self.rnd.next_int(60))
-            h = (30 + self.rnd.next_int((190 if (_j.imod(b, 5) == 2) else 110)))
-            if abs(((x + (w / 2)) - 800)) < 120:
-                h *= 0.5
-            self.add(Ui.rect(x, (MenuScreen.HORIZON - h), w, h, Color(0x04050c), Color(0x101430)))
-            if _j.imod(b, 4) == 0:
-                spire = Ui.rect(((x + (w / 2)) - 2), ((MenuScreen.HORIZON - h) - 26), 4, 26, Color(0x0a0c1c), Color(0x0a0c1c))
-                self.add(spire)
-                beacon = Ui.oval(((x + (w / 2)) - 3), ((MenuScreen.HORIZON - h) - 30), 6, 6, Ui.with_alpha(MenuScreen.MAGENTA, 220), Ui.with_alpha(MenuScreen.MAGENTA, 0))
-                self.add(beacon)
-            k = 0
-            while k < (2 + self.rnd.next_int(3)):
-                wx = ((x + 6) + self.rnd.next_int(_j.to_int(_j.dmax(1, (w - 14)))))
-                wy = (((MenuScreen.HORIZON - h) + 8) + self.rnd.next_int(_j.to_int(_j.dmax(1, (h - 20)))))
-                win = Ui.rect(wx, wy, 5, 7, Ui.with_alpha((MenuScreen.YELLOW if self.rnd.next_boolean() else MenuScreen.CYAN), 180), Ui.with_alpha(MenuScreen.YELLOW, 0))
-                _j_add(self.windows, win)
-                self.add(win)
-                k += 1
-            x += ((w + 3) + self.rnd.next_int(10))
-            b += 1
-        self.add(Ui.rect(0, MenuScreen.HORIZON, Ui.W, (Ui.H - MenuScreen.HORIZON), Color(0x070616), Color(0x070616)))
-        for i in range(4, 0, -1):
-            self.add(Ui.rect(0, (MenuScreen.HORIZON - (i * 2)), Ui.W, (i * 4), Ui.with_alpha(MenuScreen.CYAN, (18 + (10 * (4 - i)))), Ui.with_alpha(MenuScreen.CYAN, 0)))
-        hl = GLine(0, MenuScreen.HORIZON, Ui.W, MenuScreen.HORIZON)
-        hl.set_color(MenuScreen.CYAN)
-        self.add(hl)
-    def build_grid(self):
-        for k in range((-14), 15):
-            bx = (800 + (k * 150))
-            tx = (800 + ((bx - 800) * 0.03))
-            l = GLine(tx, (MenuScreen.HORIZON + 2), bx, Ui.H)
-            l.set_color(Ui.with_alpha(MenuScreen.MAGENTA, 110))
-            self.add(l)
-        for i in range(MenuScreen.GRID_ROWS):
-            self.grid_rows[i] = GLine(0, MenuScreen.HORIZON, Ui.W, MenuScreen.HORIZON)
-            self.grid_rows[i].set_color(Ui.with_alpha(MenuScreen.CYAN, 120))
-            self.add(self.grid_rows[i])
-    def build_brackets(self):
-        m = 24.0
-        len_ = 60.0
-        c = [[m, m, 1, 1], [(Ui.W - m), m, (-1), 1], [m, (Ui.H - m), 1, (-1)], [(Ui.W - m), (Ui.H - m), (-1), (-1)]]
-        for k in c:
-            a = GLine(k[0], k[1], (k[0] + (len_ * k[2])), k[1])
-            b = GLine(k[0], k[1], k[0], (k[1] + (len_ * k[3])))
-            a.set_color(Ui.with_alpha(MenuScreen.CYAN, 200))
-            b.set_color(Ui.with_alpha(MenuScreen.CYAN, 200))
-            self.add(a)
-            self.add(b)
-            a2 = GLine((k[0] + (4 * k[2])), (k[1] + (4 * k[3])), (k[0] + ((len_ - 20) * k[2])), (k[1] + (4 * k[3])))
-            a2.set_color(Ui.with_alpha(MenuScreen.MAGENTA, 160))
-            self.add(a2)
-        frame = Ui.rect((m + 8), (m + 8), ((Ui.W - (2 * m)) - 16), ((Ui.H - (2 * m)) - 16), None, Ui.with_alpha(MenuScreen.CYAN, 35))
-        self.add(frame)
     def build_help(self):
-        self.help.add(Ui.rect(((Ui.W / 2.0) - 440), 110, 880, 780, Ui.with_alpha(Color(0x070a16), 245), MenuScreen.CYAN))
-        self.help.add(Ui.rect(((Ui.W / 2.0) - 434), 116, 868, 768, None, Ui.with_alpha(MenuScreen.MAGENTA, 90)))
-        y = 146.0
+        self.help.add(Ui.rect(0, 0, Ui.W, Ui.H, Cyber.SCRIM, Ui.with_alpha(Cyber.SCRIM, 0)))
+        self.help.add(Cyber.Chamfer(((Ui.W / 2.0) - 440), 106, 880, 790, 6))
+        y = 132.0
         x = ((Ui.W / 2.0) - 410)
-        sections = [['GOAL', 'Survive all 100 waves and destroy Palantir, the BAD-class final boss, on Wave 100. You start with $650 and 100 lives.'], ['BUILDING', 'Pick a faction tab (or press B for all towers), click a tower, then click a free spot beside the track. Each tower has three upgrades named after its model lineup (Zethos has four) and several targeting priorities. Once a tower has every upgrade (Zethos: all four), buy its overpowered ability for $15,000 (U or the side panel).'], ['HERO STORE', 'Press HEROES (or K) in game. Buy a hero once to unlock it for good: 18 heroes, up to Mr. Lindemann, the strongest. Unlocked heroes cost a bit of cash to deploy, once per match, at most 3 per game, and level up with three upgrades. New here? Try TUTORIAL; look anything up in CATALOG.'], ['ECONOMY', 'Enemies pay cash when destroyed; every wave pays a bonus. Perplexity earns research income. Selling refunds 70% of everything spent on a tower.'], ['ENEMIES', 'Data structures and sorting algorithms, each with a mechanic: Bubble Sort swaps places, Heap Sort shields allies and is Lead-type (Sharp damage cannot hurt it), Merge/Quick/Counting/TimSort split, Bucket Sort stores weaker enemies, Radix Sort turns Lead-type in its armoured phases, Shell Sort gap-jumps.'], ['MODIFIERS', 'Camo needs detection (Grok, Perplexity and its radius, Gemini / Llama U2). Regrow heals. Fortified has double HP. Prompt Injection hijacks nearby towers; Claude, Copilot, DeepSeek, Perplexity and Mr. Lindemann are immune.'], ['BOSSES', 'Bellarmine College Prep (MOAB, wave 40: Crest Shield at half health), SW Resource Consultant (BFB, 60: outsources Quick Sorts), 3Com (ZOMG, 80: a hub that shields nearby enemies), Lockheed Martin (DDT, 90: afterburner) and Palantir (BAD, 100): Predictive Surveillance, a trick per phase - Panopticon sweep, Prompt Broadcast with decoys, a System Takeover that grabs your window - and escort squadrons whose Swarm Uplink shields it.'], ['CONTROLS', 'Space: next wave.  O: auto waves.  1/2/3: speed.  P: pause (you can still build, upgrade and sell).  Esc: cancel / deselect, else pause menu.  Right-click: cancel.  B: all towers.  Shift+1-9: place the Nth shop card.  Tab / Shift+Tab: next / previous tower.  U: upgrade / buy ability.  S: sell.  A: ability.  T / Shift+T: targeting.  K: Hero Store.  H: help.  M / N: music / sound.  F11 (Mac: Cmd+Ctrl+F): full screen.']]
-        hf = MenuScreen.menu_font(Font.BOLD, 18)
+        sections = [['GOAL', 'CAMPAIGN: 15 levels, each win unlocks new towers, up to the Palantir finale. CLASSIC: survive 100 waves, then Palantir.'], ['BUILDING', 'Pick a faction tab (or press B for all towers), click a tower, then click a free spot beside the track. Each tower has three upgrades named after its model lineup (Zethos has four) and several targeting priorities. Once a tower has every upgrade (Zethos: all four), buy its overpowered ability for $15,000 (U or the side panel).'], ['HERO STORE', 'Press HEROES (or K) in game. Buy a hero once to unlock it for good: 18 heroes, up to Mr. Lindemann, the strongest. Unlocked heroes cost a bit of cash to deploy, once per match, at most 3 per game, and level up with three upgrades. New here? Try TUTORIAL; look anything up in CATALOG.'], ['ECONOMY', 'Enemies pay cash when destroyed; every wave pays a bonus. Perplexity earns research income. Selling refunds 70% of everything spent on a tower.'], ['ENEMIES', 'Data structures and sorting algorithms, each with a mechanic: Bubble Sort swaps places, Heap Sort shields allies and is Lead-type (Sharp damage cannot hurt it), Merge/Quick/Counting/TimSort split, Bucket Sort stores weaker enemies, Radix Sort turns Lead-type in its armoured phases, Shell Sort gap-jumps.'], ['MODIFIERS', 'Camo needs detection (Grok, Perplexity and its radius, Gemini / Llama U2). Regrow heals. Fortified has double HP. Prompt Injection hijacks nearby towers; Claude, Copilot, DeepSeek, Perplexity and Mr. Lindemann are immune.'], ['BOSSES', 'Bellarmine College Prep (MOAB, wave 40: Crest Shield at half health), SW Resource Consultant (BFB, 60: outsources Quick Sorts), 3Com (ZOMG, 80: a hub that shields nearby enemies), Lockheed Martin (DDT, 90: afterburner) and Palantir (BAD, 100): Predictive Surveillance, a trick per phase - Panopticon sweep, Prompt Broadcast with decoys, a System Takeover that grabs your window - and escort squadrons whose Swarm Uplink shields it.'], ['CONTROLS', 'Space: next wave.  O: auto waves.  1/2/3: speed.  P: pause (you can still build, upgrade and sell).  Esc: cancel / deselect, else pause menu.  Right-click: cancel.  B: all towers.  Shift+1-9: place the Nth shop card.  Tab / Shift+Tab: next / previous tower.  U: upgrade / buy ability.  S: sell.  A: ability.  T / Shift+T: targeting.  K: Hero Store.  H: help.  M / N: music / sound.  F11 (Mac: Cmd+Ctrl+F): full screen.']]
+        hf = MenuScreen.menu_font(Font.BOLD, 16)
         bf = Cyber.body(Font.PLAIN, 14)
         for s in sections:
             y += 26
             self.help.add(Ui.label(s[0], x, y, hf, MenuScreen.CYAN))
             for l in Ui.wrap(s[1], bf, 820):
                 y += 20
-                self.help.add(Ui.label(l, x, y, bf, Ui.TEXT))
+                self.help.add(Ui.label(l, x, y, bf, Cyber.lerp(Ui.TEXT, Cyber.MUTED, 0.25)))
             y += 6
-        close = NeonButton(((Ui.W / 2.0) - 100), 822, 200, 48, 'CLOSE', MenuScreen.menu_font(Font.BOLD, 20), MenuScreen.MAGENTA, _j.Fn(self.toggle_help))
+        close = NeonButton(((Ui.W / 2.0) - 100), 826, 200, 46, 'CLOSE', MenuScreen.menu_font(Font.BOLD, 20), MenuScreen.CYAN, _j.Fn(self.toggle_help))
         self.help.add(close)
         _j_add(self.buttons, close)
     def toggle_help(self):
@@ -340,11 +184,8 @@ blinking readouts, neon buttons, and a 1.3 s boot-up intro that any input skips.
         if self.intro_done:
             return
         self.intro_done = True
-        self.intro_bar.set_visible(False)
-        i = 0
-        while i < self.main.get_letter_count():
-            self.set_letter_stack_visible(i, True)
-            i += 1
+        for i in range(self.main.get_letter_count()):
+            self.main.set_letter_visible(i, True)
     def toggle_catalog(self):
         """CATALOG button: opens / closes the catalog as a pop-up panel over the menu (never a separate screen)."""
         self.catalog_shown = (not self.catalog_shown)
@@ -405,26 +246,25 @@ blinking readouts, neon buttons, and a 1.3 s boot-up intro that any input skips.
         h = 920.0
         x = ((Ui.W - w) / 2)
         y = 40.0
-        self.settings.add(Ui.rect(0, 0, Ui.W, Ui.H, Ui.with_alpha(Color(0x02030a), 170), Ui.with_alpha(Color(0x02030a), 0)))
-        self.settings.add(Cyber.Chamfer(x, y, w, h, 18).fill(Color(7, 10, 22, 248)).border(MenuScreen.CYAN).glow(1).ticks(True))
-        title = Ui.label('SETTINGS', 0, 0, MenuScreen.menu_font(Font.BOLD, 32), MenuScreen.CYAN)
-        title.set_location(((Ui.W - title.get_width()) / 2), (y + 52))
+        self.settings.add(Ui.rect(0, 0, Ui.W, Ui.H, Cyber.SCRIM, Ui.with_alpha(Cyber.SCRIM, 0)))
+        self.settings.add(Cyber.Chamfer(x, y, w, h, 6))
+        title = Ui.label('SETTINGS', (x + 40), (y + 56), MenuScreen.menu_font(Font.BOLD, 30), Cyber.TEXT)
         self.settings.add(title)
         lx = (x + 40)
         ty = (y + 100)
         ty = self.build_audio_settings(lx, ty, (w - 80))
         ty = self.build_display_settings(lx, ty, (w - 80))
         ty = self.build_accessibility_settings(lx, ty, (w - 80))
-        self.settings.add(Ui.label('ADMIN CODE', lx, ty, MenuScreen.menu_font(Font.BOLD, 20), Color(0x9b7bff)))
+        self.settings.add(Ui.label('ADMIN CODE', lx, ty, MenuScreen.SECTION_FONT, Cyber.TEXT))
         body = Cyber.body(Font.PLAIN, 14)
-        for l in Ui.wrap('Enter the admin code to unlock the cheat checklist. Each option can be switched on and off on its own and applies to matches started from PLAY.', body, (w - 80)):
+        for l in Ui.wrap('Enter the admin code to unlock the cheat checklist. Each option can be switched on and off on its own and applies to matches started from CLASSIC.', body, (w - 80)):
             ty += 20
-            self.settings.add(Ui.label(l, lx, ty, body, Ui.TEXT))
+            self.settings.add(Ui.label(l, lx, ty, body, Cyber.MUTED))
         by = (ty + 22)
-        self.settings.add(Cyber.Chamfer(lx, by, 380, 48, 8).fill(Color(2, 4, 12, 240)).border(Ui.with_alpha(MenuScreen.CYAN, 200)).scan(False))
+        self.settings.add(Cyber.Chamfer(lx, by, 380, 48, 4).fill(Color(4, 7, 16, 240)).border(Cyber.EDGE_HI))
         self.code_label = Ui.label('', (lx + 16), (by + 32), Cyber.mono(Font.BOLD, 20), Cyber.TEXT)
         self.settings.add(self.code_label)
-        submit = NeonButton((lx + 400), by, 200, 48, 'ENTER', MenuScreen.menu_font(Font.BOLD, 20), Color(0x3bff8a), _j.Fn(self.submit_code))
+        submit = NeonButton((lx + 400), by, 200, 48, 'ENTER', MenuScreen.menu_font(Font.BOLD, 20), MenuScreen.CYAN, _j.Fn(self.submit_code))
         self.settings.add(submit)
         _j_add(self.buttons, submit)
         self.admin_status = Ui.label('', lx, (by + 76), Cyber.mono(Font.BOLD, 15), Cyber.DIM)
@@ -437,7 +277,7 @@ blinking readouts, neon buttons, and a 1.3 s boot-up intro that any input skips.
         oy = (by + 112)
         for i in range(len(opts)):
             o = opts[i]
-            t = NeonButton(lx, oy, 360, 40, o.label, MenuScreen.menu_font(Font.BOLD, 17), Color(0x3bff8a), _j.Fn(lambda o=o: self.toggle_option(o)))
+            t = NeonButton(lx, oy, 360, 40, o.label, MenuScreen.menu_font(Font.BOLD, 17), MenuScreen.CYAN, _j.Fn(lambda o=o: self.toggle_option(o)))
             self.settings.add(t)
             _j_add(self.buttons, t)
             self.option_buttons[i] = t
@@ -448,18 +288,18 @@ blinking readouts, neon buttons, and a 1.3 s boot-up intro that any input skips.
         self.f_disable_admin = NeonButton(lx, (oy + 6), 360, 40, 'LOCK ADMIN (CODE AGAIN)', MenuScreen.menu_font(Font.BOLD, 15), Cyber.RED, _j.Fn(self.disable_admin))
         self.settings.add(self.f_disable_admin)
         _j_add(self.buttons, self.f_disable_admin)
-        close = NeonButton(((Ui.W - 200) / 2.0), ((y + h) - 62), 200, 46, 'CLOSE', MenuScreen.menu_font(Font.BOLD, 20), MenuScreen.MAGENTA, _j.Fn(self.toggle_settings))
+        close = NeonButton(((Ui.W - 200) / 2.0), ((y + h) - 70), 200, 46, 'CLOSE', MenuScreen.menu_font(Font.BOLD, 20), MenuScreen.CYAN, _j.Fn(self.toggle_settings))
         self.settings.add(close)
         _j_add(self.buttons, close)
         self.refresh_settings()
     def build_audio_settings(self, lx, ty, cw):
         """SETTINGS > AUDIO: per channel an on/off chip and a volume slider, the two channels side by side. Returns the
 baseline y of the next section."""
-        self.settings.add(Ui.label('AUDIO', lx, ty, MenuScreen.menu_font(Font.BOLD, 20), MenuScreen.CYAN))
+        self.settings.add(Ui.label('AUDIO', lx, ty, MenuScreen.SECTION_FONT, Cyber.TEXT))
         body = Cyber.body(Font.PLAIN, 14)
         for l in Ui.wrap('Levels are saved. Switching a channel off keeps its level. Outside SETTINGS, M toggles music and N sound.', body, cw):
             ty += 20
-            self.settings.add(Ui.label(l, lx, ty, body, Ui.TEXT))
+            self.settings.add(Ui.label(l, lx, ty, body, Cyber.MUTED))
         ry = (ty + 16)
         rh = 40.0
         chip_w = 150.0
@@ -475,7 +315,7 @@ baseline y of the next section."""
         for sl in self.settings_sliders:
             self.settings.add(sl)
         div_y = ((ry + rh) + 22)
-        self.settings.add(Ui.rect(lx, div_y, cw, 1, Ui.with_alpha(MenuScreen.CYAN, 70), Ui.with_alpha(MenuScreen.CYAN, 0)))
+        self.settings.add(Ui.rect(lx, div_y, cw, 1, Cyber.EDGE, Ui.with_alpha(Cyber.EDGE, 0)))
         return div_y + 40
     def chip_row(self, lx, cy, cw, actions):
         """A row of equal SETTINGS chips (12 px apart) across cw, one per action; returns the chips."""
@@ -494,28 +334,28 @@ baseline y of the next section."""
         """SETTINGS > DISPLAY: one row of chips (graphics quality preset, frame-rate cap, full screen, FPS counter) and a
 hint line: the chosen preset, or what the hovered chip does. Each chip cycles its value on click. Returns the baseline y
 of the next section."""
-        self.settings.add(Ui.label('DISPLAY', lx, ty, MenuScreen.menu_font(Font.BOLD, 20), MenuScreen.CYAN))
+        self.settings.add(Ui.label('DISPLAY', lx, ty, MenuScreen.SECTION_FONT, Cyber.TEXT))
         cy = (ty + 14)
         ch = 38.0
         self.quality_chip, self.fps_chip, self.fullscreen_chip, self.fps_counter_chip = self.chip_row(lx, cy, cw, [self.cycle_quality, self.cycle_fps, self.toggle_fullscreen, self.toggle_fps_counter])
-        self.display_hint = Ui.label('', lx, ((cy + ch) + 24), Cyber.body(Font.PLAIN, 14), Ui.TEXT)
+        self.display_hint = Ui.label('', lx, ((cy + ch) + 24), Cyber.body(Font.PLAIN, 14), Cyber.MUTED)
         self.settings.add(self.display_hint)
         div_y = ((cy + ch) + 42)
-        self.settings.add(Ui.rect(lx, div_y, cw, 1, Ui.with_alpha(MenuScreen.CYAN, 70), Ui.with_alpha(MenuScreen.CYAN, 0)))
+        self.settings.add(Ui.rect(lx, div_y, cw, 1, Cyber.EDGE, Ui.with_alpha(Cyber.EDGE, 0)))
         return div_y + 40
     def build_accessibility_settings(self, lx, ty, cw):
         """SETTINGS > ACCESSIBILITY: reduced motion, the colour-blind-safe palette and Palantir's window effects, with a
 hint line for the hovered chip. Returns the baseline y of the next section."""
-        self.settings.add(Ui.label('ACCESSIBILITY', lx, ty, MenuScreen.menu_font(Font.BOLD, 20), MenuScreen.CYAN))
+        self.settings.add(Ui.label('ACCESSIBILITY', lx, ty, MenuScreen.SECTION_FONT, Cyber.TEXT))
         cy = (ty + 14)
         ch = 38.0
         self.motion_chip, self.colour_chip, self.window_chip = self.chip_row(lx, cy, cw, [self.toggle_reduced_motion, self.toggle_colour_blind, self.toggle_window_effects])
-        self.access_hint = Ui.label('', lx, ((cy + ch) + 24), Cyber.body(Font.PLAIN, 14), Ui.TEXT)
+        self.access_hint = Ui.label('', lx, ((cy + ch) + 24), Cyber.body(Font.PLAIN, 14), Cyber.MUTED)
         self.settings.add(self.access_hint)
         self.sync_window_chip()
         self.sync_display_chips()
         div_y = ((cy + ch) + 42)
-        self.settings.add(Ui.rect(lx, div_y, cw, 1, Ui.with_alpha(MenuScreen.CYAN, 70), Ui.with_alpha(MenuScreen.CYAN, 0)))
+        self.settings.add(Ui.rect(lx, div_y, cw, 1, Cyber.EDGE, Ui.with_alpha(Cyber.EDGE, 0)))
         return div_y + 40
     def cycle_quality(self):
         """QUALITY chip: LOW -> MEDIUM -> HIGH -> LOW; takes effect on the next frame."""
@@ -533,7 +373,7 @@ hint line for the hovered chip. Returns the baseline y of the next section."""
         gs = GraphicsSettings.get()
         ds = DisplaySettings.get()
         self.display_state = self.display_state_key()
-        for chip, label, on, accent in ((self.fullscreen_chip, 'FULLSCREEN', ds.fullscreen, MenuScreen.CYAN), (self.fps_counter_chip, 'FPS COUNTER', ds.show_fps, MenuScreen.CYAN), (self.motion_chip, 'REDUCED MOTION', ds.reduced_motion, Cyber.GREEN), (self.colour_chip, 'COLOUR-BLIND SAFE', ds.colour_blind, Cyber.YELLOW)):
+        for chip, label, on, accent in ((self.fullscreen_chip, 'FULLSCREEN', ds.fullscreen, MenuScreen.CYAN), (self.fps_counter_chip, 'FPS COUNTER', ds.show_fps, MenuScreen.CYAN), (self.motion_chip, 'REDUCED MOTION', ds.reduced_motion, MenuScreen.CYAN), (self.colour_chip, 'COLOUR-BLIND SAFE', ds.colour_blind, MenuScreen.CYAN)):
             if chip is not None:
                 chip.set_text(_j.cat(label, (': ON' if on else ': OFF')))
                 chip.set_selected(on)
@@ -541,7 +381,7 @@ hint line for the hovered chip. Returns the baseline y of the next section."""
         q = gs.quality()
         self.quality_chip.set_text(_j.cat('QUALITY: ', q.label.upper()))
         self.quality_chip.set_selected((q is GraphicsSettings.Quality.HIGH))
-        self.quality_chip.set_accent((MenuScreen.CYAN if (q is GraphicsSettings.Quality.HIGH) else (Cyber.YELLOW if (q is GraphicsSettings.Quality.MEDIUM) else Cyber.DIM)))
+        self.quality_chip.set_accent((MenuScreen.CYAN if (q is not GraphicsSettings.Quality.LOW) else Cyber.DIM))
         self.fps_chip.set_text(_j.cat('MAX FPS: ', gs.get_max_fps()))
         self.fps_chip.set_selected((gs.get_max_fps() > GraphicsSettings.DEFAULT_FPS))
         self.fps_chip.set_accent((MenuScreen.CYAN if (gs.get_max_fps() >= GraphicsSettings.DEFAULT_FPS) else Cyber.DIM))
@@ -597,7 +437,7 @@ hint line for the hovered chip. Returns the baseline y of the next section."""
         on = WindowEffects.is_enabled()
         self.window_chip.set_text(_j.cat('WINDOW EFFECTS: ', ('ON' if on else 'OFF')))
         self.window_chip.set_selected(on)
-        self.window_chip.set_accent((Cyber.MAGENTA if on else Cyber.DIM))
+        self.window_chip.set_accent((MenuScreen.CYAN if on else Cyber.DIM))
     def toggle_settings(self):
         self.settings_shown = (not self.settings_shown)
         if self.settings_shown:
@@ -719,12 +559,6 @@ keys type the code: Enter submits, Backspace deletes, Esc closes."""
     def mouse_released(self):
         """Mouse release: ends a SETTINGS volume-slider drag (the level is saved)."""
         Slider.release_all(self.settings_sliders)
-    def set_letter_stack_visible(self, i, v):
-        self.main.set_letter_visible(i, v)
-        for g in self.glow:
-            g.set_letter_visible(i, v)
-        self.chroma_m.set_letter_visible(i, v)
-        self.chroma_c.set_letter_visible(i, v)
     def frame(self, dt):
         self.t += dt
         if self.stats_shown:
@@ -749,109 +583,25 @@ keys type the code: Enter submits, Backspace deletes, Esc closes."""
                 c.animate(dt)
             Slider.frame_all(dt, self.settings_sliders)
         self.animate_intro(dt)
-        self.animate_logo(dt)
-        self.animate_backdrop(dt)
-        self.emblem.animate(self.t)
         for b in self.buttons:
             b.animate(dt)
         AudioToggle.sync_all(self.audio_toggles)
         for c in self.chips:
             c.animate(dt)
-        calm = display_settings.reduced_motion()   # REDUCED MOTION: the blinking readouts hold still
-        self.sys_label.set_visible((calm or (_j.imod(_j.to_int((self.t * 1.6)), 2) == 0) or (_j.fmod(self.t, 1) > 0.2)))
-        self.threat_label.set_color((MenuScreen.MAGENTA if (calm or (_j.imod(_j.to_int((self.t * 2)), 2) == 0)) else Ui.with_alpha(MenuScreen.MAGENTA, 120)))
-        self.ver_label.set_color(Ui.with_alpha(MenuScreen.YELLOW, _j.to_int((170 + (80 * math.sin((self.t * 4)))))))
     def animate_intro(self, dt):
+        """The wordmark's letters appear one after another over INTRO_TIME (skipped with REDUCED MOTION or any input)."""
         if self.intro_done:
             return
-        if display_settings.reduced_motion():   # no flickering letter-by-letter boot-up
+        if display_settings.reduced_motion():
             self.skip_intro()
             return
         self.intro_t += dt
         n = self.main.get_letter_count()
         shown = _j.to_int(_j.dmin(n, float(math.floor(((self.intro_t / MenuScreen.INTRO_TIME) * (n + 1))))))
         for i in range(n):
-            v = (i < shown)
-            if (i == shown) and (self.rnd.next_double() < 0.5):
-                v = True
-            self.set_letter_stack_visible(i, v)
-        p = _j.dmin(1, (self.intro_t / MenuScreen.INTRO_TIME))
-        self.intro_bar.set_location((800 - 560), ((MenuScreen.LOGO_Y - 90) + (180 * p)))
-        self.intro_bar.set_fill_color(Ui.with_alpha(Color.WHITE, _j.to_int((200 * (1 - (p * 0.6))))))
+            self.main.set_letter_visible(i, (i < shown))
         if self.intro_t >= (MenuScreen.INTRO_TIME + 0.05):
             self.skip_intro()
-    def animate_logo(self, dt):
-        breathe = (0.5 + (0.5 * math.sin((self.t * 1.7))))
-        for i in range(3):
-            a = _j.to_int(((14 + (16 * i)) * (0.7 + (0.6 * breathe))))
-            self.glow[i].set_tint(Ui.with_alpha(MenuScreen.CYAN, a), Ui.with_alpha(MenuScreen.CYAN, (a + 25)))
-        self.flicker_timer -= dt
-        if self.flicker_left > 0:
-            self.flicker_left -= dt
-            dim = (self.rnd.next_double() < 0.6)
-            self.main.set_letter_tint(self.flicker_letter, (Ui.with_alpha(Color(0xeafcff), 70) if dim else Color(0xeafcff)), (Ui.with_alpha(MenuScreen.CYAN, 90) if dim else MenuScreen.CYAN))
-            if self.flicker_left <= 0:
-                self.main.set_letter_tint(self.flicker_letter, Color(0xeafcff), MenuScreen.CYAN)
-                self.flicker_letter = (-1)
-        elif ((self.flicker_timer <= 0) and self.intro_done) and (not display_settings.reduced_motion()):
-            self.flicker_timer = (1.8 + (self.rnd.next_double() * 2.5))
-            self.flicker_left = (0.12 + (self.rnd.next_double() * 0.25))
-            self.flicker_letter = self.rnd.next_int(self.main.get_letter_count())
-        self.glitch_timer -= dt
-        if self.glitch_left > 0:
-            self.glitch_left -= dt
-            dx = (4 + (self.rnd.next_double() * 12))
-            dy = ((self.rnd.next_double() * 4) - 2)
-            self.chroma_m.set_location((800 - dx), (MenuScreen.LOGO_Y + dy))
-            self.chroma_c.set_location((800 + dx), (MenuScreen.LOGO_Y - dy))
-            self.chroma_m.set_visible(True)
-            self.chroma_c.set_visible(True)
-            for s in self.slices:
-                s.set_visible(True)
-                y = ((MenuScreen.LOGO_Y - 60) + (self.rnd.next_double() * 120))
-                s.set_bounds(((800 - 520) + (self.rnd.next_double() * 80)), y, (1000 + (self.rnd.next_double() * 80)), (2 + (self.rnd.next_double() * 5)))
-                s.set_fill_color((Ui.with_alpha(MenuScreen.CYAN, 120) if (self.rnd.next_double() < 0.3) else MenuScreen.BG))
-                s.set_color(s.get_fill_color())
-            if self.glitch_left <= 0:
-                self.chroma_m.set_visible(False)
-                self.chroma_c.set_visible(False)
-                for s in self.slices:
-                    s.set_visible(False)
-        elif (self.glitch_timer <= 0) and (not display_settings.reduced_motion()):   # no glitch bursts with reduced motion
-            self.glitch_timer = (2.5 + (self.rnd.next_double() * 4))
-            self.glitch_left = (0.14 + (self.rnd.next_double() * 0.2))
-        self.shimmer_timer -= dt
-        if self.shimmer_left > 0:
-            self.shimmer_left -= dt
-            p = (1 - (self.shimmer_left / 0.8))
-            self.shimmer.set_visible(True)
-            self.shimmer.set_location(((800 - 560) + (1120 * p)), MenuScreen.LOGO_Y)
-            if self.shimmer_left <= 0:
-                self.shimmer.set_visible(False)
-        elif self.shimmer_timer <= 0:
-            self.shimmer_timer = (3.5 + (self.rnd.next_double() * 2))
-            self.shimmer_left = 0.8
-    def animate_backdrop(self, dt):
-        self.grid_phase = _j.fmod((self.grid_phase + (dt * 0.45)), 1.0)
-        for i in range(MenuScreen.GRID_ROWS):
-            p = ((i + self.grid_phase) / MenuScreen.GRID_ROWS)
-            y = (MenuScreen.HORIZON + ((Ui.H - MenuScreen.HORIZON) * math.pow(p, 2.3)))
-            self.grid_rows[i].set_start_point(0, y)
-            self.grid_rows[i].set_end_point(Ui.W, y)
-            self.grid_rows[i].set_color(Ui.with_alpha(MenuScreen.CYAN, _j.to_int((30 + (170 * p)))))
-        self.sun_glow.set_fill_color(Ui.with_alpha(MenuScreen.MAGENTA, _j.to_int((20 + (14 * math.sin((self.t * 1.3)))))))
-        for c in range(len(self.rain_cols)):
-            col = self.rain_cols[c]
-            col.move(0, (self.rain_speed[c] * dt))
-            if col.get_y() > Ui.H:
-                col.set_location((20 + self.rnd.next_int((Ui.W - 40))), (((-MenuScreen.RAIN_LEN) * 16) - self.rnd.next_int(300)))
-            if self.rnd.next_double() < 0.08:
-                g = col.get_element(self.rnd.next_int(MenuScreen.RAIN_LEN))
-                g.set_label(_j.s(MenuScreen.GLYPHS[self.rnd.next_int(len(MenuScreen.GLYPHS))]))
-        self.scan_bar.set_location(0, (_j.fmod((self.t * 70), (Ui.H + 200)) - 150))
-        if (self.rnd.next_double() < 0.3) and (not (len(self.windows) == 0)):
-            w = self.windows[self.rnd.next_int(len(self.windows))]
-            w.set_fill_color(Ui.with_alpha((MenuScreen.YELLOW if self.rnd.next_boolean() else MenuScreen.CYAN), (40 + self.rnd.next_int(200))))
 
 
 # deferred imports (after the class definitions, so import cycles resolve)
@@ -869,7 +619,6 @@ from lindefense.ui.neon_button import NeonButton  # noqa: E402
 from lindefense.ui.slider import Slider  # noqa: E402
 from lindefense.ui.stats_screen import StatsScreen  # noqa: E402
 from lindefense.ui.ui import Ui  # noqa: E402
-from lindefense.tower.tower_type import TowerType  # noqa: E402
 from lindefense.ui.ui_button import UIButton  # noqa: E402
 from lindefense.ui.window_effects import WindowEffects  # noqa: E402
 
@@ -881,10 +630,6 @@ MenuScreen.YELLOW = LogoEmblem.YELLOW
 MenuScreen.ORANGE = Color(0xffb347)
 MenuScreen.STACK_Y = 488.0
 MenuScreen.CONTINUE_H = 58.0
-MenuScreen.INTRO_TIME = 1.3
-MenuScreen.HORIZON = 612.0
+MenuScreen.INTRO_TIME = 0.9
 MenuScreen.LOGO_Y = 330.0
-MenuScreen.GRID_ROWS = 14
-MenuScreen.RAIN_COLUMNS = 34
-MenuScreen.RAIN_LEN = 9
-MenuScreen.GLYPHS = '01010110ABCDEF{}[]<>->∑#$%&*+=/;:'
+MenuScreen.SECTION_FONT = Cyber.display(Font.BOLD, 18)

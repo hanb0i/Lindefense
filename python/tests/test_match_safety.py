@@ -546,7 +546,7 @@ def test_tactical_pause_keeps_the_map_usable(check):
     _click(s, s.hud.pause_btn)
     check(s.is_tactically_paused() and not s.is_menu_open(), "HUD pause button: tactical pause, no menu")
     texts = _texts(s.overlay)
-    check("PAUSED" in texts and "PRESS P TO RESUME" in texts and s.pause_banner is not None, "PAUSED banner shows")
+    check("PAUSED" in texts and "Press P to resume" in texts and s.pause_banner is not None, "PAUSED banner shows")
     check(len(s.overlay_buttons) == 0, "the banner has no buttons (map clicks go through)")
     _press(s, KeyEvent.VK_P)
     check(not g.is_paused() and s.pause_banner is None, "P resumes and the banner goes")
@@ -592,7 +592,7 @@ def test_tactical_pause_keeps_the_map_usable(check):
     check(s.get_selected_tower() is None and not s.is_menu_open(), "then deselects")
     _press(s, KeyEvent.VK_ESCAPE)
     check(s.is_menu_open(), "then opens the pause menu")
-    check(any(x.startswith("P to resume  /  Esc stays paused") for x in _texts(s.overlay)), "menu hint explains Esc")
+    check(any(x.startswith("P to resume, Esc stays paused") for x in _texts(s.overlay)), "menu hint explains Esc")
     _press(s, KeyEvent.VK_ESCAPE)
     check(s.is_tactically_paused(), "Esc closes the menu back into the tactical pause")
     _click(s, s.hud.menu_btn)
@@ -761,3 +761,27 @@ def test_help_lists_every_key(check):
     for k in ("O: auto waves", "Shift+1-9", "Tab / Shift+Tab", "T / Shift+T", "Esc: cancel / deselect, else pause menu",
               "P: pause (you can still build"):
         check(k in controls, "main menu CONTROLS mentions %r" % k)
+
+
+def test_deploying_a_hero_ends_its_placement(check):
+    """A hero deploys once per match: after it is placed by a click the cursor no longer carries it, while an ordinary
+    tower keeps placing as long as it is affordable."""
+    from kit import buildable_near, new_game
+    from lindefense.sim.vec import Vec
+    from lindefense.tower.tower_type import TowerType as T
+    from lindefense.ui.game_screen import GameScreen
+    g = new_game(0)
+    g.add_cash(50_000, None)
+    s = GameScreen(None, g)
+    s.frame(0.02)
+    s.placing = T.GPT
+    _click_world(s, buildable_near(g, Vec(400, 300), 160))
+    check(s.placing is T.GPT and len(g.get_tower_manager().get_towers()) == 1, "a tower keeps placing while affordable")
+    hero = next(h for h in T.heroes() if g.hero_purchase_problem(h) is None) if hasattr(g, "hero_purchase_problem") else T.heroes()[0]
+    if hasattr(g, "purchase_hero"):
+        g.purchase_hero(hero)
+    s.placing = hero
+    _click_world(s, buildable_near(g, Vec(700, 600), 160))
+    placed = [t for t in g.get_tower_manager().get_towers() if t.get_type() is hero]
+    check(len(placed) == 1, "the hero was deployed by the click (%s)" % hero)
+    check(s.placing is None and s.selected_tower is placed[0] if placed else False, "hero placement ends and the hero is selected")

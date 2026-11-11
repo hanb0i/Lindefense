@@ -1,6 +1,8 @@
 """Headless balance probe: the scripted near-optimal DefenderAI plays the campaign on every map.
 
 Usage: python -m lindefense.tools.auto_player [maxWave] [mapIdx] [verbose]
+       python -m lindefense.tools.auto_player campaign [level ...]   (campaign levels: the bot may only build the
+       level's unlocked towers, heroes only once the Hero Store is open; BOT_SEED / BOT_SEEDS pick the seeds)
 Environment: BOT_DIFFICULTY=O1|ON|ON2|ONN, BOT_SEED=N, BOT_SEEDS=K, BOT_MAX_MINUTES=N, BOT_MAX_TOWERS=N,
 BOT_RANDOM=true, BOT_VARIANCE=random|first, BOT_OPEN=TYPE:copy:tier,..., BOT_DUMP=true, BOT_DUMP_WAVE=N,
 BOT_REPORT_EVERY=N, BOT_FREEPLAY=true (after winning, continue into Freeplay until lives run out or maxWave; pass a
@@ -185,6 +187,108 @@ def run(map_idx, seed, diff, max_waves, max_towers=999, random=False, report=Fal
     return r
 
 
+def _camo_ahead(g):
+    """Campaign levels: camo in the current wave or the next two of the level (the bot's camo look-ahead)."""
+    from lindefense.enemy.types import Modifier
+    c = g.get_campaign()
+    n = g.get_wave()
+    for w in range(max(1, n), n + 3):
+        if w <= c.wave_count():
+            for gr in c.wave(w).groups:
+                if Modifier.CAMO in gr.modifiers or gr.type.has_innate_camo():
+                    return True
+    return False
+
+
+def campaign_options(g):
+    """The balance bot's Options for a campaign Game: the level's towers only (heroes once the Hero Store is open,
+    ability unlocks once they are allowed, with the classic ABILITY_POLICY), plan thresholds on the base waves the
+    level plays, camo look-ahead over the level's own waves."""
+    c = g.get_campaign()
+    opt = Options()
+    opt.plan = Plan.EFFICIENT
+    allowed = set(c.allowed)
+    if c.heroes:
+        allowed.update(TowerType.heroes())
+    opt.allowed = allowed
+    opt.wave_source = lambda: c.base_wave(max(1, g.get_wave()))   # before wave 1: the level's first base wave
+    opt.camo_alarm = lambda: _camo_ahead(g)
+    if c.abilities:   # once the level allows $15,000 ability unlocks, the bot buys them like in the classic calibration
+        opt.unlock_abilities = True
+        opt.boss_focus = True
+        opt.unlock_min_towers, opt.unlock_towers_per = ABILITY_POLICY
+    return opt
+
+
+SETUP_ACTIONS = 600
+
+
+def setup_phase(ai, limit=SETUP_ACTIONS):
+    """Before wave 1 a player spends the starting cash: the bot keeps buying (one action per manage() pass) until it
+    stops acting (out of cash, or saving up for its next step). Returns the number of actions."""
+    n = 0
+    while n < limit:
+        before = ai.get_action_count()
+        ai.manage()
+        if ai.get_action_count() == before:
+            break
+        n += 1
+    return n
+
+
+def run_level(level, seed, start_cash=None, max_minutes=120, hp=None):
+    """Plays one campaign level (Level, id or 1-based index) with the bot and returns a Result (lives, waves cleared,
+    game time in result.game.get_time()). start_cash and hp=(first, last wave health multiplier) override the level's
+    BALANCE entry (calibration probes only; the level's own values are in sim/campaign.py)."""
+    from lindefense.sim import campaign
+    g = campaign.new_game(level, seed)
+    if start_cash is not None:
+        g._cash = float(start_cash)
+    if hp is not None:
+        g.get_campaign().hp, g.get_campaign().hp_end = float(hp[0]), float(hp[1])
+    ai = DefenderAI(g, campaign_options(g))
+    setup_phase(ai)
+    ticks = 0
+    max_ticks = 60 * 60 * max_minutes
+    while ticks < max_ticks and g.get_state() is State.PLAYING:
+        if ticks % 15 == 0:
+            ai.manage()
+        if g.get_wave_manager().can_start_next_wave():
+            g.start_next_wave()
+        g.step(Game.DT)
+        g.get_events().clear()
+        ticks += 1
+    r = Result()
+    r.state = g.get_state()
+    r.completed = g.get_last_completed_wave()
+    r.lives = g.get_lives()
+    r.cash = g.get_cash()
+    r.earned = g.get_total_cash_earned()
+    r.towers = len(g.get_tower_manager().get_player_towers())
+    r.maxed = _count_maxed(g)
+    r.map = g.get_map().get_name()
+    r.game = g
+    return r
+
+
+def campaign_main(args):
+    from lindefense.sim import campaign
+    seed0 = _env_int("BOT_SEED", 1234)
+    seeds = _env_int("BOT_SEEDS", 2)
+    pick = [campaign.level(int(a) if a.isdigit() else a) for a in args] or list(campaign.LEVELS)
+    for lv in pick:
+        for k in range(seeds):
+            r = run_level(lv, seed0 + k * 766)
+            pal = r.game.get_palantir()
+            route = ("  palantir reached %2.0f%% of its route" % (100.0 * pal.get_distance() / pal.get_route().get_total_length())
+                     if pal is not None else "")
+            print("[campaign] %2d %-22s %-22s waves %2d cash %6d lives %3d hp %.3g-%.3g seed %-5d %-7s cleared %2d "
+                  "lives %3d time %5.0fs towers %3d%s" % (lv.index, lv.title, r.map, lv.wave_count(), lv.start_cash,
+                                                          lv.start_lives, lv.hp_range()[0], lv.hp_range()[1], seed0 + k * 766,
+                                                          r.state, r.completed, r.lives, r.game.get_time(), r.towers, route),
+                  flush=True)
+
+
 class AutoPlayer:
     """Class-style entry points used by the ported UI (demo / tooling)."""
     Result = Result
@@ -193,6 +297,9 @@ class AutoPlayer:
 
 def main(argv=None):
     args = sys.argv[1:] if argv is None else argv
+    if args and args[0] == "campaign":
+        campaign_main(args[1:])
+        return
     max_waves = int(args[0]) if len(args) > 0 else 100
     only = int(args[1]) if len(args) > 1 else -1
     verbose = len(args) > 2

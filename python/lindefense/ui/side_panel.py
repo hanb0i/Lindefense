@@ -18,6 +18,7 @@ from lindefense.tower.tower_type import Targeting
 from lindefense.tower.tower_type import TowerType
 from lindefense.ui.cyber import Cyber
 from lindefense.ui import intel
+from lindefense.sim import campaign
 
 
 class SidePanel(GCompound):
@@ -36,6 +37,7 @@ Upgrade pips and labels are derived from TowerDef.upgrades / tierLabels, never h
             self.name = None
             self.icon = None
             self.badge = None
+            self.locked = False    # campaign: a tower this level does not allow (greyed, never enabled)
             self.cell = cell
             self.button = button
             self.price = price
@@ -89,35 +91,35 @@ Upgrade pips and labels are derived from TowerDef.upgrades / tierLabels, never h
         self.text_w = (Ui.PANEL_W - 44)
         self.screen = screen
         self.game = screen.get_game()
-        self.add(Cyber.Chamfer(Ui.PANEL_X, (-2), (Ui.PANEL_W + 2), (Ui.H + 4), 0).fill(Color(5, 9, 22)).border(Cyber.alpha(Cyber.CYAN, 130)).line_width(2))
-        self.add(Ui.rect((Ui.PANEL_X + 2), 0, 3, 90, Cyber.MAGENTA, Cyber.MAGENTA))
-        self.add(Ui.label(Cyber.spaced('armory'), (Ui.PANEL_X + 18), 27, Cyber.display(Font.BOLD, 22), Cyber.TEXT))
+        self.add(Ui.rect(Ui.PANEL_X, 0, Ui.PANEL_W, Ui.H, SidePanel.BG, SidePanel.BG))
+        self.add(Ui.rect(Ui.PANEL_X, 0, 1, Ui.H, Cyber.EDGE, Cyber.EDGE))
+        self.add(Ui.label('ARMORY', (Ui.PANEL_X + 18), 28, Cyber.display(Font.BOLD, 20), Cyber.TEXT))
         self.help_btn = UIButton((((Ui.PANEL_X + Ui.PANEL_W) - 8) - 92), 8, 92, 26, '? HELP  [H]', Cyber.mono(Font.BOLD, 11), _j.Fn(screen.toggle_help))
-        self.help_btn.set_accent(Cyber.MAGENTA)
         self.add(self.help_btn)
         self.collapse_btn = UIButton(((self.help_btn.get_x() - 8) - 132), 8, 132, 26, 'COLLAPSE SHOP', Cyber.mono(Font.BOLD, 10), _j.Fn(self.toggle_shop_collapsed))
-        self.collapse_btn.set_accent(Cyber.CYAN)
         self.add(self.collapse_btn)
         x = (Ui.PANEL_X + 8)
         tab_w = 60.0
         for f in ShopLayout.shop_factions():
             b = UIButton(x, 40, tab_w, 30, f.label.upper(), Cyber.display_compact(Font.BOLD, 12), _j.Fn(lambda f=f: self.set_tab(f)))   # bind per iteration (Java captures the loop variable)
             b.set_accent(Ui.c(f.rgb))
+            b.set_flat(True)
             _j_add(self.tab_buttons, b)
             self.add(b)
             x += (tab_w + 3)
         self.all_button = UIButton(x, 40, (((Ui.PANEL_X + Ui.PANEL_W) - 8) - x), 30, 'ALL', Cyber.display(Font.BOLD, 14), _j.Fn(self.toggle_all))
         self.all_button.set_accent(Cyber.YELLOW)
+        self.all_button.set_flat(True)
         self.add(self.all_button)
         self.add(self.card_layer)
-        self.info_frame = Cyber.Chamfer((Ui.PANEL_X + 8), self.info_y, (Ui.PANEL_W - 16), ((Ui.H - self.info_y) - 8), 14).fill(Color(7, 12, 28, 235)).border(Cyber.alpha(Cyber.CYAN, 150)).glow(0.5).ticks(True)
+        self.info_frame = Cyber.Chamfer((Ui.PANEL_X + 8), self.info_y, (Ui.PANEL_W - 16), ((Ui.H - self.info_y) - 8), 4).fill(Cyber.SURFACE_2).border(None)
         self.add(self.info_frame)
         self.add(self.info)
-        self.tip_frame = Cyber.Chamfer(0, 0, 280, 78, 10).fill(Color(5, 9, 22, 245)).border(Cyber.CYAN).glow(0.8).scan(False)
+        self.tip_frame = Cyber.Chamfer(0, 0, 280, 78, 4).fill(Color(9, 14, 28, 250)).border(Cyber.EDGE_HI)
         self.tip.add(self.tip_frame)
         self.tip_title = Ui.label('', 14, 28, Cyber.display(Font.BOLD, 20), Cyber.TEXT)
         self.tip_sub = Ui.label('', 14, 47, SidePanel.F_TXT, Cyber.MUTED)
-        self.tip_status = Ui.label('', 14, 67, Cyber.mono(Font.BOLD, 11), Cyber.CYAN)
+        self.tip_status = Ui.label('', 14, 67, Cyber.body(Font.BOLD, 12), Cyber.CYAN)
         self.tip.add(self.tip_title)
         self.tip.add(self.tip_sub)
         self.tip.add(self.tip_status)
@@ -167,11 +169,11 @@ Upgrade pips and labels are derived from TowerDef.upgrades / tierLabels, never h
             t = c.type
             d = catalog.get(t)
             b = UIButton(c.x, c.y, c.w, c.h, '', _j.Fn(lambda t=t: self.screen.begin_placing(t)))   # bind per iteration
-            b.set_accent(Cyber.lerp(Ui.c(t.primary_rgb), Cyber.CYAN, 0.35))
+            b.set_accent(Cyber.CYAN)
             self.card_layer.add(b)
             if self.all_mode:
                 if c.first_of_faction:
-                    self.card_layer.add(Ui.label(t.faction.label.upper(), (ShopLayout.CARDS_X + 5), ((c.y + (c.h / 2)) + 4), Cyber.mono(Font.BOLD, 9), Ui.c(t.faction.rgb)))
+                    self.card_layer.add(Ui.label(t.faction.label.upper(), (ShopLayout.CARDS_X + 5), ((c.y + (c.h / 2)) + 4), Cyber.mono(Font.BOLD, 9), Cyber.lerp(Ui.c(t.faction.rgb), Cyber.MUTED, 0.3)))
                     self.card_layer.add(Ui.rect(ShopLayout.CARDS_X, (c.y + 2), 2, (c.h - 4), Ui.c(t.faction.rgb), Ui.c(t.faction.rgb)))
                 label = SidePanel.short_label(t)
                 if c.h >= 64:
@@ -207,11 +209,19 @@ Upgrade pips and labels are derived from TowerDef.upgrades / tierLabels, never h
             self.card_layer.add(name)
             self.card_layer.add(price)
             card = SidePanel.Card(c, b, price, name, icon)
+            if self.game.tower_lock_problem(t) is not None:   # campaign: shown greyed, with the level that unlocks it
+                lv = campaign.unlock_level(t)
+                mid = (price.get_x() + (price.get_width() / 2))
+                Cyber.set_text(price, ('LOCKED' if (lv is None) else _j.cat('AFTER L', lv.index)))
+                price.set_font(SidePanel.fit_font(price.get_label(), price.get_font(), ((c.x + c.w) - 6) - price.get_x(), 9))
+                if self.all_mode and (c.h >= 64):   # that layout centres the price under the icon
+                    price.set_location((mid - (price.get_width() / 2)), price.get_y())
+                card.locked = True
             if t.is_hero():
                 badge = GCompound()
                 bl = Ui.label('PLACED', 0, 0, Cyber.mono(Font.BOLD, 11), Cyber.YELLOW)
                 bw = (bl.get_width() + 16)
-                badge.add(Cyber.Chamfer(0, 0, bw, 18, 5).scan(False).fill(Color(20, 16, 4, 235)).border(Cyber.YELLOW))
+                badge.add(Cyber.Chamfer(0, 0, bw, 18, 3).fill(Color(40, 34, 8, 240)).border(None))
                 bl.set_location(8, 13)
                 badge.add(bl)
                 badge.set_location((((c.x + c.w) - bw) - 4), (c.y + 4))
@@ -274,6 +284,14 @@ Upgrade pips and labels are derived from TowerDef.upgrades / tierLabels, never h
         cash = self.game.get_cash()
         for c in self.cards:
             placed = (c.cell.type.is_hero() and self.game.get_tower_manager().hero_placed(c.cell.type))
+            if c.locked:
+                c.button.set_selected(False)
+                c.button.set_enabled(False)
+                Cyber.set_color(c.price, Cyber.DIM)
+                Cyber.set_color(c.name, Color(0x4f5f78))
+                if isinstance(c.icon, SidePanel.ShopIcon):
+                    c.icon.set_dimmed(True)
+                continue
             ok = (ShopLayout.affordable(self.game, c.cell.type) and (not placed))
             if (c.badge is not None) and (c.badge.is_visible() != placed):
                 c.badge.set_visible(placed)
@@ -333,15 +351,17 @@ Upgrade pips and labels are derived from TowerDef.upgrades / tierLabels, never h
         d = catalog.get(hover.cell.type)
         need = ShopLayout.shortfall(self.game, hover.cell.type)
         self.tip_title.set_label(_j.cat(hover.cell.type.display_name, '   ', Ui.money(shop.price_of(hover.cell.type, self.game))))
-        Cyber.set_text(self.tip_sub, _j.cat(d.subtitle, '  //  ', hover.cell.type.faction.label))
+        Cyber.set_text(self.tip_sub, _j.cat(d.subtitle, '  ·  ', hover.cell.type.faction.label))
         block = (shop.unavailable_reason(self.game, hover.cell.type) if (hover.cell.type.is_hero() and self.game.get_tower_manager().hero_placed(hover.cell.type)) else None)
+        if block is None:
+            block = self.game.tower_lock_problem(hover.cell.type)   # campaign: "Grok unlocks after level 8"
         n = (self.cards.index(hover) + 1)
-        Cyber.set_text(self.tip_status, (block.upper() if (block is not None) else (_j.cat('NEED ', Ui.money(need), ' MORE') if (need > 0) else (_j.cat('CLICK OR SHIFT+', n, ', THEN PLACE ON THE MAP') if (n <= 9) else 'CLICK, THEN PLACE ON THE MAP'))))
+        Cyber.set_text(self.tip_status, (block if (block is not None) else (_j.cat('Need ', Ui.money(need), ' more') if (need > 0) else (_j.cat('Click or Shift+', n, ', then place it on the map') if (n <= 9) else 'Click, then place it on the map'))))
         accent = (Cyber.YELLOW if (block is not None) else (Cyber.cant_afford() if (need > 0) else Cyber.CYAN))
         Cyber.set_color(self.tip_status, accent)
         Cyber.set_color(self.tip_title, (Cyber.lerp(Cyber.TEXT, Cyber.cant_afford(), 0.15) if ((need > 0) and (block is None)) else Cyber.TEXT))
         w = _j.dmax(240, (_j.dmax(_j.dmax(self.tip_title.get_width(), self.tip_sub.get_width()), self.tip_status.get_width()) + 28))
-        self.tip_frame.size(w, 78).border(accent)
+        self.tip_frame.size(w, 78)
         y = _j.dmax((Ui.WORLD_Y + 6), _j.dmin(((hover.cell.y + (hover.cell.h / 2)) - 39), (Ui.BOTTOM_Y - 90)))
         self.tip.set_location(((Ui.PANEL_X - w) - 8), y)
         self.tip.set_visible(True)
@@ -355,6 +375,10 @@ Upgrade pips and labels are derived from TowerDef.upgrades / tierLabels, never h
         if self.screen.get_selected_enemy() is not None:
             return _j.cat(base, 'E', self.screen.get_selected_enemy().get_id())
         return _j.cat(base, 'none')
+    @staticmethod
+    def sentence(s):
+        """'dmg dealt' / 'PIERCE' -> 'Dmg dealt' / 'Pierce': captions are small sentence-case text, not spaced capitals."""
+        return (s[0:1].upper() + s[1:].lower()) if s else s
     def put(self, s, x, baseline, f, c):
         l = Ui.label(s, x, baseline, f, c)
         self.info.add(l)
@@ -369,10 +393,10 @@ Upgrade pips and labels are derived from TowerDef.upgrades / tierLabels, never h
             self.put(l, self.x0, self.y, f, c)
             n += 1
     def section(self, title):
-        self.y += 12
-        l = self.put(Cyber.spaced(_j.cat('// ', title)), self.x0, (self.y + 9), SidePanel.F_MICRO, Cyber.alpha(Cyber.CYAN, 230))
-        ln = GLine(((self.x0 + l.get_width()) + 8), (self.y + 5.5), (self.x0 + self.text_w), (self.y + 5.5))
-        ln.set_color(Cyber.alpha(Cyber.CYAN, 70))
+        self.y += 14
+        l = self.put(SidePanel.sentence(title), self.x0, (self.y + 9), SidePanel.F_SEC, Cyber.MUTED)
+        ln = GLine(((self.x0 + l.get_width()) + 10), (self.y + 5.5), (self.x0 + self.text_w), (self.y + 5.5))
+        ln.set_color(Cyber.EDGE)
         self.info.add(ln)
         self.y += 13
     def button(self, bx, by, w, h, text, r):
@@ -382,7 +406,7 @@ Upgrade pips and labels are derived from TowerDef.upgrades / tierLabels, never h
         return b
     def stat_cell(self, cx, cy, label, val, vc):
         """Micro-label over a value; the value is refreshed from the supplier by #update(double)."""
-        self.put(Cyber.spaced(label), cx, (cy + 9), SidePanel.F_MICRO, Cyber.alpha(Cyber.CYAN, 190))
+        self.put(SidePanel.sentence(label), cx, (cy + 9), SidePanel.F_MICRO, Cyber.MUTED)
         v = self.put(val(), cx, (cy + 27), SidePanel.F_VAL, vc)
         _j_add(self.dyn, _j.Fn(lambda : Cyber.set_text(v, val())))
     def rebuild_info(self):
@@ -411,11 +435,10 @@ Upgrade pips and labels are derived from TowerDef.upgrades / tierLabels, never h
                 self.build_help()
     def build_help(self):
         """Compact 3-line briefing strip anchored at the bottom of the panel (full controls live in the Help overlay)."""
-        self.put(Cyber.spaced('sector'), self.x0, (self.y + 16), SidePanel.F_MICRO, Cyber.alpha(Cyber.CYAN, 230))
-        nm = self.put(self.game.get_map().get_name().upper(), (self.x0 + 62), (self.y + 18), Cyber.display(Font.BOLD, 18), Cyber.YELLOW)
-        hint = self.put('[H] HELP', 0, (self.y + 16), SidePanel.F_MICRO, Cyber.DIM)
+        nm = self.put(self.game.get_map().get_name().upper(), self.x0, (self.y + 18), Cyber.display(Font.BOLD, 18), Cyber.TEXT)
+        hint = self.put('H: help', 0, (self.y + 16), SidePanel.F_MICRO, Cyber.DIM)
         hint.set_location(((self.x0 + self.text_w) - hint.get_width()), (self.y + 16))
-        room = ((hint.get_x() - 8) - (self.x0 + 62))
+        room = ((hint.get_x() - 8) - self.x0)
         sz = 18
         while (nm.get_width() > room) and (sz > 8):
             nm.set_font(Cyber.display_compact(Font.BOLD, sz))
@@ -518,14 +541,16 @@ Upgrade pips and labels are derived from TowerDef.upgrades / tierLabels, never h
         return 'MODE' if (s.kind is AttackKind.PULSE) else ('CHAIN' if (s.kind is AttackKind.CHAIN) else 'PIERCE')
     def header(self, name, name_color, badge, badge_color):
         self.y += 28
-        n = self.put(name, self.x0, self.y, SidePanel.F_NAME, name_color)
-        if badge is not None:
-            b = Ui.label(badge, 0, 0, Cyber.mono(Font.BOLD, 11), badge_color)
-            bw = (b.get_width() + 18)
+        b = (None if (badge is None) else Ui.label(badge, 0, 0, Cyber.mono(Font.BOLD, 11), badge_color))
+        bw = (0 if (b is None) else (b.get_width() + 18))
+        # a long name shrinks to leave room for its badge ("SW Resource Consultant" + "BFB BOSS" ran off the panel)
+        nf = SidePanel.fit_font(name, SidePanel.F_NAME, (self.text_w - ((bw + 8) if (b is not None) else 0)), 16)
+        n = self.put(name, self.x0, self.y, nf, name_color)
+        if b is not None:
             bx = ((self.x0 + self.text_w) - bw)
             if bx < ((self.x0 + n.get_width()) + 8):
                 bx = ((self.x0 + n.get_width()) + 8)
-            self.info.add(Cyber.Chamfer(bx, (self.y - 17), bw, 20, 5).scan(False).fill(Cyber.alpha(badge_color, 40)).border(badge_color))
+            self.info.add(Cyber.Chamfer(bx, (self.y - 17), bw, 20, 3).fill(Cyber.alpha(badge_color, 32)).border(None))
             b.set_location((bx + 9), (self.y - 2.5))
             self.info.add(b)
     def build_shop_info(self, type_):
@@ -533,7 +558,7 @@ Upgrade pips and labels are derived from TowerDef.upgrades / tierLabels, never h
         tc = Cyber.lerp(Ui.c(type_.primary_rgb), Color.WHITE, 0.3)
         self.header(type_.display_name, tc, (_j.cat('DEPLOY  ', Ui.money(shop.price_of(type_, self.game))) if type_.is_hero() else Ui.money(shop.price_of(type_, self.game))), Cyber.YELLOW)
         self.y += 4
-        self.put(_j.cat(d.subtitle, '  //  ', type_.faction.label.upper()), self.x0, (self.y + 12), SidePanel.F_TXT, Ui.c(type_.faction.rgb))
+        self.put(_j.cat(d.subtitle, '  ·  ', type_.faction.label), self.x0, (self.y + 12), SidePanel.F_TXT, Cyber.MUTED)
         self.y += 14
         self.para(d.description, SidePanel.F_TXT, Cyber.TEXT, 0)
         self.section('stats')
@@ -568,7 +593,8 @@ Upgrade pips and labels are derived from TowerDef.upgrades / tierLabels, never h
             pr.set_location(((self.x0 + self.text_w) - pr.get_width()), self.y)
         if d.ability is not None:
             locked = catalog.ability_needs_unlock(type_)
-            self.section(('ability  //  unlock at max tier' if locked else 'ability'))
+            camp_lock = (locked and (self.game.ability_lock_problem() is not None))   # campaign: not before a level
+            self.section(((_j.cat('ability, opens after level ', campaign.abilities_level().index) if camp_lock else 'ability, unlocks at max tier') if locked else 'ability'))
             self.y += 16
             self.put(d.ability.name, self.x0, self.y, Cyber.display(Font.BOLD, 15), Cyber.MAGENTA)
             cd = (self.put(Ui.money(shop.ability_unlock_cost(self.game)), 0, self.y, Cyber.mono(Font.BOLD, 12), Cyber.YELLOW) if locked else self.put(_j.cat(_j.to_int(d.ability.cooldown), 's cooldown'), 0, self.y, Cyber.mono(Font.BOLD, 11), Cyber.MUTED))
@@ -586,8 +612,8 @@ Upgrade pips and labels are derived from TowerDef.upgrades / tierLabels, never h
         badge = ('HERO' if hero else ('MAX' if maxed else _j.cat('TIER ', t.get_tier(), '/', t.get_max_tier())))
         self.header(ty.display_name, tc, badge, (Cyber.YELLOW if maxed else Cyber.CYAN))
         self.y += 4
-        sub = self.put(_j.cat(d.subtitle, '  //  '), self.x0, (self.y + 12), SidePanel.F_TXT, Cyber.MUTED)
-        self.put(t.get_tier_label(), (self.x0 + sub.get_width()), (self.y + 12), Cyber.body(Font.BOLD, 12), Cyber.CYAN)
+        sub = self.put(_j.cat(d.subtitle, '  ·  '), self.x0, (self.y + 12), SidePanel.F_TXT, Cyber.MUTED)
+        self.put(t.get_tier_label(), (self.x0 + sub.get_width()), (self.y + 12), Cyber.body(Font.BOLD, 12), Cyber.TEXT)
         self.y += 14
         self.section('stats')
         base = t.get_stats()
@@ -597,16 +623,16 @@ Upgrade pips and labels are derived from TowerDef.upgrades / tierLabels, never h
             self.stat_cell((self.x0 + 180), yy, 'interval', _j.Fn(lambda : _j.cat(Ui.fmt((1.0 / _j.dmax(0.01, t.effective_rate(self.game)))), 's')), Cyber.TEXT)
             self.stat_cell(self.x0, (yy + 34), 'range', _j.Fn(lambda : HeroStatText.range(t.get_type(), t.effective_range(self.game))), Cyber.TEXT)
             self.stat_cell((self.x0 + 180), (yy + 34), SidePanel.mode_label(base), _j.Fn(lambda : SidePanel.tower_mode_text(t)), Cyber.TEXT)
-            self.stat_cell(self.x0, (yy + 68), 'kills', _j.Fn(lambda : Cyber.commas(t.get_kills())), Cyber.GREEN)
-            self.stat_cell((self.x0 + 92), (yy + 68), 'dmg dealt', _j.Fn(lambda : intel.compact(t.get_damage_dealt())), Cyber.GREEN)
+            self.stat_cell(self.x0, (yy + 68), 'kills', _j.Fn(lambda : Cyber.commas(t.get_kills())), Cyber.TEXT)
+            self.stat_cell((self.x0 + 92), (yy + 68), 'dmg dealt', _j.Fn(lambda : intel.compact(t.get_damage_dealt())), Cyber.TEXT)
             if t.get_ability() is not None:
                 self.stat_cell((self.x0 + 180), (yy + 68), 'ability', _j.Fn(lambda : ('READY' if t.is_ability_ready() else _j.cat(_j.to_int(float(math.ceil(t.get_ability_cooldown_remaining()))), 's'))), Cyber.MAGENTA)
             else:
                 self.stat_cell((self.x0 + 180), (yy + 68), 'invested', _j.Fn(lambda : Ui.money(t.get_invested_cost())), Cyber.YELLOW)
             self.y += 102
         else:
-            self.stat_cell(self.x0, yy, 'kills', _j.Fn(lambda : Cyber.commas(t.get_kills())), Cyber.GREEN)
-            self.stat_cell((self.x0 + 92), yy, 'dmg dealt', _j.Fn(lambda : intel.compact(t.get_damage_dealt())), Cyber.GREEN)
+            self.stat_cell(self.x0, yy, 'kills', _j.Fn(lambda : Cyber.commas(t.get_kills())), Cyber.TEXT)
+            self.stat_cell((self.x0 + 92), yy, 'dmg dealt', _j.Fn(lambda : intel.compact(t.get_damage_dealt())), Cyber.TEXT)
             self.stat_cell((self.x0 + 180), yy, 'invested', _j.Fn(lambda : Ui.money(t.get_invested_cost())), Cyber.YELLOW)
             self.y += 34
         fx = SidePanel.effects_text(base, True)
@@ -642,7 +668,7 @@ Upgrade pips and labels are derived from TowerDef.upgrades / tierLabels, never h
             owned = (i < t.get_tier())
             next_ = (i == t.get_tier())
             pc = (Cyber.CYAN if owned else (Cyber.YELLOW if next_ else Cyber.DIM))
-            self.info.add(Cyber.Chamfer((self.x0 + (i * (pip_w + gap))), self.y, pip_w, 9, 3).scan(False).fill((Cyber.alpha(Cyber.CYAN, 200) if owned else (Cyber.alpha(Cyber.YELLOW, 45) if next_ else Color(10, 18, 38, 220)))).border((Cyber.CYAN if owned else (Cyber.YELLOW if next_ else Cyber.alpha(Cyber.DIM, 160)))).glow((0.6 if owned else 0)).line_width(1.2))
+            self.info.add(Ui.rect((self.x0 + (i * (pip_w + gap))), (self.y + 2), pip_w, 5, (Cyber.alpha(Cyber.CYAN, 210) if owned else (Cyber.alpha(Cyber.YELLOW, 150) if next_ else Color(255, 255, 255, 22))), None))
             label = d.tier_labels[min((i + 1), (len(d.tier_labels) - 1))]
             lf = SidePanel.fit_font(label, Cyber.body(Font.PLAIN, 11), pip_w, 8)
             self.put(label, (self.x0 + (i * (pip_w + gap))), (self.y + 23), lf, (Cyber.MUTED if owned else (Cyber.YELLOW if next_ else Cyber.DIM)))
@@ -654,7 +680,7 @@ Upgrade pips and labels are derived from TowerDef.upgrades / tierLabels, never h
             ub.set_enabled(can)
             ub.set_accent(Cyber.CYAN)
             self.upgrade_btn = ub
-            self.put(Cyber.spaced('upgrade [u]'), (self.x0 + 12), (self.y + 14), SidePanel.F_MICRO, (Cyber.alpha(Cyber.CYAN, 230) if can else Cyber.DIM))
+            self.put('Upgrade  (U)', (self.x0 + 12), (self.y + 15), SidePanel.F_MICRO, (Cyber.MUTED if can else Cyber.DIM))
             self.put(u.name, (self.x0 + 12), (self.y + 32), Cyber.display(Font.BOLD, 17), (Cyber.TEXT if can else Cyber.lerp(Cyber.MUTED, Cyber.TEXT, 0.4)))
             pr = self.put(Ui.money(shop.upgrade_price(self.game, u)), 0, (self.y + 27), Cyber.mono(Font.BOLD, 16), (Cyber.YELLOW if can else Cyber.cant_afford()))
             pr.set_location((((self.x0 + self.text_w) - 12) - pr.get_width()), (self.y + 27))
@@ -663,28 +689,32 @@ Upgrade pips and labels are derived from TowerDef.upgrades / tierLabels, never h
             locked = (t.get_ability_def() if t.is_ability_locked() else None)
             self.para_fit(u.description, SidePanel.F_TXT_S, Cyber.MUTED, max(1, min(3, self.room_lines(t, (locked is not None)))))
             if locked is not None:
-                self.para(_j.cat('Max tier unlocks ', locked.name, ' (', Ui.money(shop.ability_unlock_cost(self.game)), ').'), SidePanel.F_TXT_S, Cyber.alpha(Cyber.MAGENTA, 220), 1)
+                camp_lock = self.game.ability_lock_problem()   # campaign: max tier does not unlock it before a level
+                self.para((_j.cat(locked.name, ': ', camp_lock, '.') if (camp_lock is not None) else _j.cat('Max tier unlocks ', locked.name, ' (', Ui.money(shop.ability_unlock_cost(self.game)), ').')), SidePanel.F_TXT_S, Cyber.alpha(Cyber.MAGENTA, 220), 1)
         elif (not hero) and t.is_ability_locked():
             a = t.get_ability_def()
             price = shop.ability_unlock_cost(self.game)
-            can = (self.game.has_admin_money() or (self.game.get_cash() >= price))
+            ability_lock = self.game.ability_lock_problem()   # campaign: abilities open after a level
+            can = (ability_lock is None) and (self.game.has_admin_money() or (self.game.get_cash() >= price))
             ub = self.button(self.x0, self.y, self.text_w, 40, '', _j.Fn(lambda : self.screen.unlock_ability_selected()))
             ub.set_enabled(can)
             ub.set_accent(Cyber.MAGENTA)
-            self.put(Cyber.spaced('unlock ability [u]'), (self.x0 + 12), (self.y + 14), SidePanel.F_MICRO, (Cyber.alpha(Cyber.MAGENTA, 235) if can else Cyber.DIM))
+            self.put('Unlock ability  (U)', (self.x0 + 12), (self.y + 15), SidePanel.F_MICRO, (Cyber.alpha(Cyber.MAGENTA, 235) if can else Cyber.DIM))
             nf = SidePanel.fit_font(a.name, Cyber.display(Font.BOLD, 17), (self.text_w - 120), 12)
             self.put(a.name, (self.x0 + 12), (self.y + 32), nf, (Cyber.TEXT if can else Cyber.lerp(Cyber.MUTED, Cyber.TEXT, 0.4)))
             pr = self.put(Ui.money(price), 0, (self.y + 27), Cyber.mono(Font.BOLD, 16), (Cyber.YELLOW if can else Cyber.cant_afford()))
             pr.set_location((((self.x0 + self.text_w) - 12) - pr.get_width()), (self.y + 27))
             self.y += 40
+            if ability_lock is not None:
+                self.para(ability_lock + '.', SidePanel.F_TXT_S, Cyber.alpha(Cyber.MAGENTA, 220), 1)
             self.para(_j.cat(a.description, ' ', _j.to_int(a.cooldown), 's cooldown.'), SidePanel.F_TXT_S, Cyber.MUTED, 3)
         elif not hero:
             self.y += 4
-            self.put(_j.cat('MAX TIER  //  ', t.get_tier_label()), self.x0, (self.y + 14), Cyber.display(Font.BOLD, 16), Cyber.YELLOW)
+            self.put(_j.cat('MAX TIER  ·  ', t.get_tier_label()), self.x0, (self.y + 14), Cyber.display(Font.BOLD, 16), Cyber.YELLOW)
             self.y += 16
         if not base.is_support_only():
             self.y += 12
-            self.put(Cyber.spaced('target [t]'), self.x0, (self.y + 20), SidePanel.F_MICRO, Cyber.alpha(Cyber.CYAN, 230))
+            self.put('Target  (T)', self.x0, (self.y + 19), SidePanel.F_MICRO, Cyber.MUTED)
             self.button((self.x0 + 86), self.y, 34, 28, '<', _j.Fn(lambda : self.screen.cycle_targeting((-1)))).set_accent(Cyber.CYAN)
             tl = ('DENSEST CLUSTER' if (t.get_targeting() is Targeting.DENSEST_CLUSTER) else t.get_targeting().label.upper())
             cur = self.button((self.x0 + 124), self.y, 130, 28, tl, None)
@@ -730,7 +760,7 @@ under the upgrade button. Refreshed with the live stats: a change in the tower's
         x = self.x0
         base = (self.y + 17)
         for r in rows:
-            parts = [(Cyber.spaced(r.label), SidePanel.F_MICRO, Cyber.alpha(Cyber.CYAN, 200), 5), (r.now, vf, Cyber.MUTED, 4), ('→', vf, Cyber.DIM, 4), (r.next, vf, (Cyber.YELLOW if (r.better is None) else (Cyber.good() if r.better else Cyber.bad())), 0)]
+            parts = [(Cyber.spaced(r.label), SidePanel.F_MICRO, Cyber.MUTED, 5), (r.now, vf, Cyber.MUTED, 4), ('→', vf, Cyber.DIM, 4), (r.next, vf, (Cyber.YELLOW if (r.better is None) else (Cyber.good() if r.better else Cyber.bad())), 0)]
             labels = [Ui.label(p[0], 0, 0, p[1], p[2]) for p in parts]
             w = sum((l.get_width() + p[3]) for l, p in zip(labels, parts))
             if (x > self.x0) and ((x + w) > (self.x0 + self.text_w)):
@@ -782,7 +812,7 @@ targeting, sell), so the upgrade preview never pushes the panel past the bottom 
             self.put(mods.to_string().upper(), self.x0, (self.y + 12), Cyber.mono(Font.BOLD, 11), Cyber.YELLOW)
             self.y += 14
         self.y += 8
-        self.enemy_bar = Cyber.Bar(self.x0, self.y, self.text_w, 12, 4).colors(Cyber.GREEN, Color(0, 0, 0, 200), Cyber.alpha(Cyber.CYAN, 120))
+        self.enemy_bar = Cyber.Bar(self.x0, self.y, self.text_w, 10, 0).colors(Cyber.GREEN, Color(255, 255, 255, 22), None)
         self.info.add(self.enemy_bar)
         self.y += 12
         hp = self.put('', self.x0, (self.y + 18), Cyber.mono(Font.BOLD, 13), Cyber.TEXT)
@@ -825,10 +855,11 @@ from lindefense.ui.ui import Ui  # noqa: E402
 from lindefense.ui.ui_button import UIButton  # noqa: E402
 
 SidePanel.serial_version_uid = 1
-SidePanel.F_MICRO = Cyber.mono(Font.BOLD, 9)
+SidePanel.F_MICRO = Cyber.body(Font.PLAIN, 11)
 SidePanel.F_VAL = Cyber.mono(Font.BOLD, 15)
 SidePanel.F_NAME = Cyber.display(Font.BOLD, 26)
-SidePanel.F_SEC = Cyber.display(Font.BOLD, 16)
+SidePanel.F_SEC = Cyber.body(Font.BOLD, 12)
+SidePanel.BG = Color(6, 10, 22)
 SidePanel.F_TXT = Cyber.body(Font.PLAIN, 12)
 SidePanel.F_TXT_S = Cyber.body(Font.PLAIN, 11)
 SidePanel.BRIEF_H = 96.0

@@ -44,7 +44,7 @@ packaging/build_app.sh   # -> dist/Lindefense.app (double-click to play)
 
 | Variable | Effect |
 |---|---|
-| `LINDEFENSE_START=<map>` | skip the menu and start a match on map N (`LINDEFENSE_START_WAVES=1` also starts waves) |
+| `LINDEFENSE_START=<map>` | skip the menu and start a match on map N (`LINDEFENSE_START_WAVES=1` also starts waves); `tutorial` starts the tutorial |
 | `LINDEFENSE_CONTINUE=1` | skip the menu and CONTINUE the saved run |
 | `LINDEFENSE_SMOKE=<sec>[:shot.png]` | run for N seconds, optionally save a screenshot, print fps, quit |
 | `LINDEFENSE_DEMO=<dir>` | scripted UI walkthrough (all screens, resizes, click-to-place, RECORDS, SETTINGS, the daily and seed briefings, CONTINUE, the end-screen REPORT); writes PNGs + PASS/FAIL. Its runs stay out of the player's records and saved run |

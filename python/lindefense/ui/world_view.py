@@ -30,7 +30,8 @@ Big fights
 
   Level of detail: the number of sprites on screen picks a level (see #LOD_DECOR_LOAD) that is
       applied while this view paints (Thick#setLevel): decorative and then fine sprite details are skipped,
-      enemy HP bars are drawn simplified.
+      enemy HP bars are drawn simplified. The minimal style paints at least at #MIN_DETAIL, so the purely
+      decorative parts are never drawn; the effect budget still follows the real level.
   Effect caps: at most #MAX_EFFECTS legacy and #MAX_EFFECTS animated effects at full
       detail, fewer at higher levels of detail (#effectCap()); extra visual events are dropped.
   Effect pool: the simple flash / ring / text effects are pooled. A finished one is hidden and stays in
@@ -165,27 +166,28 @@ Big fights
             self.storm_rect.set_visible(False)
             self.map_fx.add(self.storm_rect)
     def add_marker(self, at, dir_, col, text):
-        """Track entry / exit marker: a ringed chevron inset from the world edge so it is never clipped."""
-        m = 26.0
+        """Track entry / exit marker: a flat coloured disc with a dark direction chevron and a small IN / OUT caption,
+inset from the world edge so it is never clipped."""
+        m = 24.0
         px = _j.dmax(m, _j.dmin((GameMap.WIDTH - m), at.x))
         py = _j.dmax(m, _j.dmin((GameMap.HEIGHT - m), at.y))
-        ring = Cyber.Ring((px - 15), (py - 15), 30, 30, Cyber.alpha(col, 70), Cyber.alpha(col, 235))
-        ring.set_line_width(2)
-        self.background.add(ring)
+        disc = Cyber.Ring((px - 11), (py - 11), 22, 22, Cyber.alpha(col, 225), WorldView.MARKER_INK)
+        disc.set_line_width(1.2)
+        self.background.add(disc)
         n = Vec((-dir_.y), dir_.x)
         chev = GPolygon()
-        chev.add_vertex((px + (dir_.x * 8)), (py + (dir_.y * 8)))
-        chev.add_vertex(((px - (dir_.x * 1)) + (n.x * 8)), ((py - (dir_.y * 1)) + (n.y * 8)))
-        chev.add_vertex(((px - (dir_.x * 1)) + (n.x * 4)), ((py - (dir_.y * 1)) + (n.y * 4)))
-        chev.add_vertex((px + (dir_.x * 3)), (py + (dir_.y * 3)))
-        chev.add_vertex(((px - (dir_.x * 1)) - (n.x * 4)), ((py - (dir_.y * 1)) - (n.y * 4)))
-        chev.add_vertex(((px - (dir_.x * 1)) - (n.x * 8)), ((py - (dir_.y * 1)) - (n.y * 8)))
+        chev.add_vertex((px + (dir_.x * 5.5)), (py + (dir_.y * 5.5)))
+        chev.add_vertex(((px - (dir_.x * 2.5)) + (n.x * 5.5)), ((py - (dir_.y * 2.5)) + (n.y * 5.5)))
+        chev.add_vertex(((px - (dir_.x * 2.5)) + (n.x * 2.6)), ((py - (dir_.y * 2.5)) + (n.y * 2.6)))
+        chev.add_vertex((px + (dir_.x * 1.5)), (py + (dir_.y * 1.5)))
+        chev.add_vertex(((px - (dir_.x * 2.5)) - (n.x * 2.6)), ((py - (dir_.y * 2.5)) - (n.y * 2.6)))
+        chev.add_vertex(((px - (dir_.x * 2.5)) - (n.x * 5.5)), ((py - (dir_.y * 2.5)) - (n.y * 5.5)))
         chev.set_filled(True)
-        chev.set_fill_color(col)
-        chev.set_color(col)
+        chev.set_fill_color(WorldView.MARKER_INK)
+        chev.set_color(WorldView.MARKER_INK)
         self.background.add(chev)
-        l = Ui.label(text, 0, 0, Cyber.mono(Font.BOLD, 11), col)
-        ly = ((py + 31) if ((py + 31) < (GameMap.HEIGHT - 4)) else (py - 21))
+        l = Ui.label(text, 0, 0, Cyber.mono(Font.BOLD, 10), Cyber.alpha(col, 220))
+        ly = ((py + 26) if ((py + 26) < (GameMap.HEIGHT - 4)) else (py - 17))
         l.set_location((px - (l.get_width() / 2)), ly)
         self.background.add(l)
     def segment(self, a, b, hw, col):
@@ -201,19 +203,21 @@ Big fights
         p.set_color(col)
         return p
     def build_overlay(self):
-        self.range_circle = Cyber.Ring(0, 0, 10, 10, Cyber.alpha(Cyber.CYAN, 22), Cyber.alpha(Cyber.CYAN, 215))
+        self.range_circle = Cyber.Ring(0, 0, 10, 10, Cyber.alpha(Cyber.CYAN, 12), Cyber.alpha(Cyber.CYAN, 160))
+        self.range_circle.set_line_width(1.2)
         self.range_circle.set_visible(False)
         self.overlay.add(self.range_circle)
-        self.next_range_circle = Cyber.Ring(0, 0, 10, 10, Cyber.alpha(Cyber.YELLOW, 14), Cyber.alpha(Cyber.YELLOW, 235))
-        self.next_range_circle.set_line_width(2)
+        self.next_range_circle = Cyber.Ring(0, 0, 10, 10, Cyber.alpha(Cyber.YELLOW, 8), Cyber.alpha(Cyber.YELLOW, 210))
+        self.next_range_circle.set_line_width(1.4)
         self.next_range_circle.set_dashed(True)
         self.next_range_circle.set_visible(False)
         self.overlay.add(self.next_range_circle)
-        self.ghost_range = Cyber.Ring(0, 0, 10, 10, Cyber.alpha(Cyber.CYAN, 22), Cyber.alpha(Cyber.CYAN, 215))
+        self.ghost_range = Cyber.Ring(0, 0, 10, 10, Cyber.alpha(Cyber.CYAN, 12), Cyber.alpha(Cyber.CYAN, 160))
+        self.ghost_range.set_line_width(1.2)
         self.ghost_range.set_visible(False)
         self.overlay.add(self.ghost_range)
-        self.ghost = Cyber.Ring(0, 0, 40, 40, Cyber.alpha(Cyber.CYAN, 90), Cyber.CYAN)
-        self.ghost.set_line_width(2.2)
+        self.ghost = Cyber.Ring(0, 0, 40, 40, Cyber.alpha(Cyber.CYAN, 70), Cyber.CYAN)
+        self.ghost.set_line_width(1.5)
         self.ghost.set_visible(False)
         self.overlay.add(self.ghost)
         self.ghost_x1 = GLine(0, 0, 1, 1)
@@ -225,11 +229,11 @@ Big fights
         self.overlay.add(self.ghost_x1)
         self.overlay.add(self.ghost_x2)
         self.reticle_radius = Cyber.Ring(0, 0, 10, 10, Cyber.alpha(Cyber.YELLOW, 28), Cyber.alpha(Cyber.YELLOW, 235))
-        self.reticle_radius.set_line_width(2.4)
+        self.reticle_radius.set_line_width(1.6)
         self.reticle_radius.set_dashed(True)
         self.reticle_radius.set_visible(False)
         self.reticle_dot = Cyber.Ring(0, 0, 10, 10, None, Cyber.YELLOW)
-        self.reticle_dot.set_line_width(2.6)
+        self.reticle_dot.set_line_width(1.8)
         self.reticle_dot.set_visible(False)
         self.reticle_h = GLine(0, 0, 1, 1)
         self.reticle_v = GLine(0, 0, 1, 1)
@@ -328,7 +332,8 @@ Big fights
                         self.effect_layer.add(fx)
                         _j_add(self.animated, fx)
     def sync_hp_bar(self, e):
-        """Compact HP bar centred just above a damaged, non-boss enemy; created lazily, mutated every frame."""
+        """Compact flat HP bar (dark backing and value, no border) centred just above a damaged, non-boss enemy; created
+lazily, mutated every frame."""
         show = (((not e.is_boss()) and e.is_alive()) and (e.get_hp() < (e.get_max_hp() - 1e-9)))
         bar = self.hp_bars.get(e)
         if not show:
@@ -337,15 +342,15 @@ Big fights
             return
         r = e.get_radius()
         w = _j.dmax(16, _j.dmin(48, ((r * 2.0) + 4)))
-        h = (5 if (r > 14) else 4)
+        h = (4 if (r > 14) else 3)
         if bar is None:
-            bar = Cyber.Bar(0, 0, w, h, 0).colors(Cyber.GREEN, Color(4, 6, 14, 215), Color(0, 0, 0, 235))
+            bar = Cyber.Bar(0, 0, w, h, 0).colors(Cyber.GREEN, WorldView.HP_BACK, None).line_width(0)
             self.hp_layer.add(bar)
             _j_put(self.hp_bars, e, bar)
         f = e.get_hp_fraction()
         bar.set_size(w, h)
         bx = (e.get_position().x - (w / 2))
-        by = (((e.get_position().y - r) - h) - 6)
+        by = (((e.get_position().y - r) - h) - 5)
         if (bx != bar.get_x()) or (by != bar.get_y()):
             bar.set_location(bx, by)
         if f != bar.get_value():
@@ -578,14 +583,14 @@ Big fights
             ok = (problem is None)
             col = (Cyber.CYAN if ok else Cyber.bad())
             self.ghost_range.set(mouse.x, mouse.y, r)
-            self.ghost_range.set_fill(Cyber.alpha(col, (20 if ok else 30)))
-            self.ghost_range.set_line(Cyber.alpha(col, (215 if ok else 235)))
+            self.ghost_range.set_fill(Cyber.alpha(col, (12 if ok else 22)))
+            self.ghost_range.set_line(Cyber.alpha(col, (160 if ok else 220)))
             self.ghost_range.set_dashed((not ok))
             self.ghost_range.set_phase((self.time * 14))
             self.ghost_range.set_visible(True)
             tr = catalog.get(placing).radius
             self.ghost.set(mouse.x, mouse.y, tr)
-            self.ghost.set_fill(Cyber.alpha(col, (85 if ok else 110)))
+            self.ghost.set_fill(Cyber.alpha(col, (70 if ok else 100)))
             self.ghost.set_line(col)
             self.ghost.set_visible(True)
             self.ghost_x1.set_visible((not ok))
@@ -667,8 +672,8 @@ if it has one, otherwise the nearest point on the track) and previews the effect
         col = Cyber.lerp(col, Cyber.YELLOW, 0.5)
         r = a.p('radius', 60)
         self.reticle_radius.set(at.x, at.y, r)
-        self.reticle_radius.set_fill(Cyber.alpha(col, 30))
-        self.reticle_radius.set_line(Cyber.alpha(col, 240))
+        self.reticle_radius.set_fill(Cyber.alpha(col, 20))
+        self.reticle_radius.set_line(Cyber.alpha(col, 220))
         self.reticle_radius.set_phase((self.time * 18))
         pr = (11 + (2 * math.sin((self.time * 8))))
         self.reticle_dot.set(at.x, at.y, pr)
@@ -723,7 +728,7 @@ if it has one, otherwise the nearest point on the track) and previews the effect
             g2.translate(self.shake.offset_x(), self.shake.offset_y())
             g2.scale(self.view_scale, self.view_scale)
             g2.clip_rect(0, 0, GameMap.WIDTH, GameMap.HEIGHT)
-            prev_lod = Thick.set_level(self.lod)
+            prev_lod = Thick.set_level(max(self.lod, WorldView.MIN_DETAIL))
             try:
                 super(WorldView, self).paint(g2)
             finally:
@@ -769,3 +774,9 @@ WorldView.LOD_DECOR_LOAD = 60
 WorldView.LOD_FINE_LOAD = 150
 WorldView.LOD_FORCED = _j.get_integer('lindefense.lod', (-1))
 WorldView.TELEGRAPH_RGB = Color(0xff3030)
+WorldView.MARKER_INK = Color(0x0a0f1a)
+WorldView.HP_BACK = Color(6, 8, 16, 200)
+# Minimal style: the world always paints at least at the decorative level of detail, so the purely decorative sprite
+# parts (shadows, gloss, sparkles, cracks, small status accents; see Thick#DETAIL_DECOR) are never drawn. Crowded
+# fights still raise the level further (#lod).
+WorldView.MIN_DETAIL = Thick.DETAIL_DECOR

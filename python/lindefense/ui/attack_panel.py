@@ -82,14 +82,13 @@ it shows changes."""
         self.screen = screen
         self.game = screen.get_game()
         self.match = self.game.get_reverse()
-        self.add(Cyber.Chamfer(AttackPanel.X0, (-2), (Ui.PANEL_W + 2), (Ui.H + 4), 0).fill(Color(9, 5, 20)).border(Cyber.alpha(Cyber.MAGENTA, 140)).line_width(2))
-        self.add(Ui.rect((AttackPanel.X0 + 2), 0, 3, 90, Cyber.CYAN, Cyber.CYAN))
-        self.add(Ui.label(Cyber.spaced('uplink'), (AttackPanel.X0 + 18), 27, Cyber.display(Font.BOLD, 22), Cyber.TEXT))
-        self.add(Ui.label(Cyber.spaced('// adversarial training'), (AttackPanel.X0 + 104), 26, AttackPanel.F_MICRO, Cyber.alpha(Cyber.MAGENTA, 220)))
+        self.add(Ui.rect(AttackPanel.X0, 0, Ui.PANEL_W, Ui.H, AttackPanel.BG, AttackPanel.BG))
+        self.add(Ui.rect(AttackPanel.X0, 0, 1, Ui.H, Cyber.EDGE, Cyber.EDGE))
+        self.add(Ui.label('UPLINK', (AttackPanel.X0 + 18), 28, Cyber.display(Font.BOLD, 20), Cyber.TEXT))
+        self.add(Ui.label('Adversarial training', (AttackPanel.X0 + 98), 27, AttackPanel.F_MICRO, Cyber.MUTED))
         self.help_btn = self.button((((AttackPanel.X0 + Ui.PANEL_W) - 8) - 92), 8, 92, 26, '? HELP  [H]', Cyber.mono(Font.BOLD, 11), _j.Fn(screen.toggle_help))
-        self.help_btn.set_accent(Cyber.MAGENTA)
-        self.add(Cyber.Chamfer((AttackPanel.X0 + AttackPanel.PAD), 38, AttackPanel.INNER, 70, 10).scan(False).fill(Color(14, 10, 30, 235)).border(Cyber.alpha(Cyber.YELLOW, 150)))
-        self.add(Ui.label(Cyber.spaced('compute credits'), (AttackPanel.X0 + 20), 54, AttackPanel.F_MICRO, Cyber.alpha(Cyber.YELLOW, 210)))
+        self.add(Cyber.Chamfer((AttackPanel.X0 + AttackPanel.PAD), 38, AttackPanel.INNER, 70, 4).fill(Cyber.SURFACE_2).border(None))
+        self.add(Ui.label('Compute credits', (AttackPanel.X0 + 20), 55, AttackPanel.F_MICRO, Cyber.MUTED))
         self.credits = Ui.label('', (AttackPanel.X0 + 20), 82, Cyber.mono(Font.BOLD, 26), Cyber.YELLOW)
         self.add(self.credits)
         self.income = Ui.label('', 0, 82, Cyber.mono(Font.BOLD, 14), Cyber.GREEN)
@@ -110,7 +109,7 @@ it shows changes."""
             b = self.button(((AttackPanel.X0 + AttackPanel.PAD) + (_j.imod(i, 2) * (mw + AttackPanel.GAP))), (AttackPanel.MODS_Y + (_j.idiv(i, 2) * AttackPanel.MOD_ROW)), mw, AttackPanel.MOD_H, '', Cyber.display(Font.BOLD, 13), _j.Fn(lambda m=m: self.toggle_mod(m)))   # m=m: bind this iteration's value (Python closures are late-binding)
             b.set_accent((Cyber.lerp(Cyber.CYAN, Color.WHITE, 0.2) if (m is Modifier.CAMO) else (Cyber.GREEN if (m is Modifier.REGROW) else (Cyber.MAGENTA if (m is Modifier.INJECTION) else Cyber.YELLOW))))
             self.mod_btns[i] = b
-        self.add(Ui.label(Cyber.spaced('send'), (AttackPanel.X0 + 14), (AttackPanel.SEND_Y + 21), AttackPanel.F_MICRO, Cyber.alpha(Cyber.CYAN, 200)))
+        self.add(Ui.label('Send', (AttackPanel.X0 + 14), (AttackPanel.SEND_Y + 21), AttackPanel.F_MICRO, Cyber.MUTED))
         qx = (AttackPanel.X0 + 52)
         for i in range(len(AttackPanel.QUANTITIES)):
             k = i
@@ -135,13 +134,13 @@ it shows changes."""
             self.add(self.exploit_bars[i])
             self.exploit_meta[i] = Ui.label('', (ex + 2), (AttackPanel.EXPLOIT_Y + 52), AttackPanel.F_MICRO, Cyber.MUTED)
             self.add(self.exploit_meta[i])
-        self.uplink = Ui.label('', (AttackPanel.X0 + 14), (AttackPanel.UPLINK_Y + 8), AttackPanel.F_MICRO, Cyber.alpha(Cyber.CYAN, 210))
+        self.uplink = Ui.label('', (AttackPanel.X0 + 14), (AttackPanel.UPLINK_Y + 8), AttackPanel.F_MICRO, Cyber.MUTED)
         self.add(self.uplink)
         self.queue_bar = Cyber.Bar((AttackPanel.X0 + 150), (AttackPanel.UPLINK_Y + 1), 110, 6, 0).colors(Cyber.CYAN, Color(255, 255, 255, 26), None)
         self.add(self.queue_bar)
         self.hint = Ui.label('', (AttackPanel.X0 + 270), (AttackPanel.UPLINK_Y + 8), AttackPanel.F_MICRO, Cyber.GREEN)
         self.add(self.hint)
-        self.add(Cyber.Chamfer((AttackPanel.X0 + AttackPanel.PAD), AttackPanel.INFO_Y, AttackPanel.INNER, ((Ui.H - AttackPanel.INFO_Y) - 8), 14).fill(Color(12, 8, 28, 235)).border(Cyber.alpha(Cyber.MAGENTA, 150)).glow(0.4).ticks(True))
+        self.add(Cyber.Chamfer((AttackPanel.X0 + AttackPanel.PAD), AttackPanel.INFO_Y, AttackPanel.INNER, ((Ui.H - AttackPanel.INFO_Y) - 8), 4).fill(Cyber.SURFACE_2).border(None))
         self.add(self.info)
         self.refresh_static()
     def button(self, x, y, w, h, text, f, r):
@@ -155,12 +154,12 @@ it shows changes."""
         lanes = len(self.game.get_map().get_routes())
         l = _j.cat(lanes, (' LANE' if (lanes == 1) else ' LANES'))
         if (b <= 1) and (s <= 1):
-            return _j.cat(l, '  //  STANDARD TRACK')
-        return _j.cat(l, '  //  LONG TRACK: UNITS x', Ui.fmt((_j.jround((s * 100)) / 100.0)), ' SPEED, COMPUTE x', Ui.fmt((_j.jround((b * 100)) / 100.0)))
+            return _j.cat(l, '  ·  STANDARD TRACK')
+        return _j.cat(l, '  ·  LONG TRACK: UNITS x', Ui.fmt((_j.jround((s * 100)) / 100.0)), ' SPEED, COMPUTE x', Ui.fmt((_j.jround((b * 100)) / 100.0)))
     def card(self, u, x, y):
         """A unit card: click target first, the enemy's own art, short name and price over it, a veil while locked."""
         b = self.button(x, y, AttackPanel.CARD_W, AttackPanel.CARD_H, '', Cyber.mono(Font.BOLD, 1), _j.Fn(lambda : self.send(u)))
-        b.set_accent((Cyber.RED if u.is_boss() else (Cyber.MAGENTA if u.type.is_sorting_algorithm() else Cyber.CYAN)))
+        b.set_accent((Cyber.RED if u.is_boss() else Cyber.CYAN))
         box = 46.0
         icon = AttackPanel.enemy_icon(u.type, box)
         icon.set_location((x + 3), (y + ((AttackPanel.CARD_H - box) / 2)))
@@ -170,7 +169,7 @@ it shows changes."""
         self.add(name)
         price = Ui.label('', (x + 50), (y + 46), Cyber.mono(Font.BOLD, 12), Cyber.YELLOW)
         self.add(price)
-        veil = Cyber.Chamfer((x + 1), (y + 1), (AttackPanel.CARD_W - 2), (AttackPanel.CARD_H - 2), 8).scan(False).fill(Color(6, 4, 16, 165)).border(None)
+        veil = Cyber.Chamfer((x + 1), (y + 1), (AttackPanel.CARD_W - 2), (AttackPanel.CARD_H - 2), 4).fill(Color(6, 8, 18, 170)).border(None)
         self.add(veil)
         return AttackPanel.Card(u, b, name, price, veil)
     @staticmethod
@@ -417,9 +416,9 @@ wider than a card, so drawing them live would spill over the neighbouring cards 
         raise TypeError('no overload for %d args' % len(a))
     def section(self, title, c):
         self.y += 10
-        l = self.put(Cyber.spaced(_j.cat('// ', title)), self.tx, (self.y + 9), AttackPanel.F_MICRO, Cyber.alpha(c, 230))
-        ln = GLine(((self.tx + l.get_width()) + 8), (self.y + 5.5), (self.tx + self.tw), (self.y + 5.5))
-        ln.set_color(Cyber.alpha(c, 70))
+        l = self.put((title[0:1].upper() + title[1:]), self.tx, (self.y + 9), Cyber.body(Font.BOLD, 12), Cyber.MUTED)
+        ln = GLine(((self.tx + l.get_width()) + 10), (self.y + 5.5), (self.tx + self.tw), (self.y + 5.5))
+        ln.set_color(Cyber.EDGE)
         self.info.add(ln)
         self.y += 13
     def para(self, s, f, c, max_lines):
@@ -430,7 +429,7 @@ wider than a card, so drawing them live would spill over the neighbouring cards 
             self.y += (f.get_size() + 4)
             self.put(l, self.tx, self.y, f, c)
     def stat_cell(self, cx, cy, label, val, vc):
-        self.put(Cyber.spaced(label), cx, (cy + 9), AttackPanel.F_MICRO, Cyber.alpha(Cyber.CYAN, 190))
+        self.put((label[0:1].upper() + label[1:].lower()), cx, (cy + 9), AttackPanel.F_MICRO, Cyber.MUTED)
         v = self.put(val(), cx, (cy + 26), AttackPanel.F_VAL, vc)
         _j_add(self.dyn, _j.Fn(lambda : Cyber.set_text(v, val())))
     def rebuild_info(self):
@@ -456,7 +455,7 @@ wider than a card, so drawing them live would spill over the neighbouring cards 
             b = Ui.label(badge, 0, 0, Cyber.mono(Font.BOLD, 10), badge_col)
             bw = (b.get_width() + 14)
             bx = ((self.tx + self.tw) - bw)
-            self.info.add(Cyber.Chamfer(bx, (self.y - 14), bw, 18, 5).scan(False).fill(Cyber.alpha(badge_col, 40)).border(badge_col))
+            self.info.add(Cyber.Chamfer(bx, (self.y - 14), bw, 18, 3).fill(Cyber.alpha(badge_col, 32)).border(None))
             b.set_location((bx + 7), (self.y - 1))
             self.info.add(b)
     def build_unit_info(self, u):
@@ -499,7 +498,7 @@ wider than a card, so drawing them live would spill over the neighbouring cards 
         """A selected tower, read-only: the AI owns it."""
         d = t.get_def()
         self.header(t.get_type().display_name, Cyber.lerp(Ui.c(t.get_type().primary_rgb), Color.WHITE, 0.35), _j.cat('AI  T', t.get_tier(), '/', t.get_max_tier()), Cyber.CYAN)
-        self.para(_j.cat(t.get_tier_label(), '  //  ', d.subtitle), AttackPanel.F_TXT, Cyber.MUTED, 1)
+        self.para(_j.cat(t.get_tier_label(), '  ·  ', d.subtitle), AttackPanel.F_TXT, Cyber.MUTED, 1)
         self.y += 6
         cw = (self.tw / 3)
         self.stat_cell(self.tx, self.y, 'kills', _j.Fn(lambda : Cyber.commas(t.get_kills())), Cyber.TEXT)
@@ -539,11 +538,10 @@ wider than a card, so drawing them live would spill over the neighbouring cards 
     def build_feed(self):
         """The defender AI's latest actions and the match's events, newest first."""
         self.y += 6
-        prof = self.match.get_profile().display_name.upper()
-        self.put(Cyber.spaced(_j.cat('// defender ai: ', prof)), self.tx, (self.y + 9), AttackPanel.F_MICRO, Cyber.alpha(Cyber.MAGENTA, 230))
+        self.put(_j.cat('Defender AI: ', self.match.get_profile().display_name), self.tx, (self.y + 9), Cyber.body(Font.BOLD, 12), Cyber.MUTED)
         cash = self.put('', 0, (self.y + 9), AttackPanel.F_MICRO, Cyber.YELLOW)
         def _lam2():
-            Cyber.set_text(cash, _j.cat('AI CASH ', Ui.money(self.game.get_cash()), '   TOWERS ', len(self.game.get_tower_manager().get_player_towers())))
+            Cyber.set_text(cash, _j.cat('AI cash ', Ui.money(self.game.get_cash()), '   ·   towers ', len(self.game.get_tower_manager().get_player_towers())))
             cash.set_location(((self.tx + self.tw) - cash.get_width()), cash.get_y())
         _j_add(self.dyn, _j.Fn(_lam2))
         self.dyn[0]()
@@ -568,13 +566,13 @@ wider than a card, so drawing them live would spill over the neighbouring cards 
             self.put('The AI is setting up. Click a unit card to send it.', ff, Cyber.MUTED)
     @staticmethod
     def end_texts(g):
-        """Title, micro label, subtitle and accent of the reverse-mode end screen ({title, micro, sub, "win"|"loss"})."""
+        """Title, subtitle and accent of the reverse-mode end screen ({title, sub, "win"|"loss"})."""
         r = g.get_reverse()
         map_ = g.get_map().get_name()
         ai = r.get_profile().display_name
         if r.attacker_won():
-            return ['BREACH', '// adversary wins', _j.cat('You broke the ', ai, ' defender AI on ', map_, ' in ', ReverseMatch.clock(r.get_elapsed()), '. Its integrity hit zero.'), 'win']
-        return ['CONTAINED', '// defender holds', _j.cat('The ', ai, ' AI survived the ', ReverseMatch.clock(ReverseMatch.DURATION), ' training run on ', map_, ' with ', g.get_lives(), ' integrity left.'), 'loss']
+            return ['BREACH', _j.cat('You broke the ', ai, ' defender AI on ', map_, ' in ', ReverseMatch.clock(r.get_elapsed()), '. Its integrity hit zero.'), 'win']
+        return ['CONTAINED', _j.cat('The ', ai, ' AI survived the ', ReverseMatch.clock(ReverseMatch.DURATION), ' training run on ', map_, ' with ', g.get_lives(), ' integrity left.'), 'loss']
     @staticmethod
     def end_stats(g):
         """The four end-screen stat chips: {label, value, accent}."""
@@ -606,7 +604,8 @@ AttackPanel.EXPLOIT_Y = (AttackPanel.SEND_Y + 38)
 AttackPanel.UPLINK_Y = (AttackPanel.EXPLOIT_Y + 58)
 AttackPanel.INFO_Y = (AttackPanel.UPLINK_Y + 20)
 AttackPanel.QUANTITIES = [1, 5, 10, 25]
-AttackPanel.F_MICRO = Cyber.mono(Font.BOLD, 9)
+AttackPanel.F_MICRO = Cyber.body(Font.PLAIN, 11)
+AttackPanel.BG = Color(8, 9, 22)
 AttackPanel.F_VAL = Cyber.mono(Font.BOLD, 14)
 AttackPanel.F_TXT = Cyber.body(Font.PLAIN, 12)
 AttackPanel.HELP_KEYS = [['CLICK', 'send the unit on a card'], ['SPACE', 'repeat the last send'], ['X', 'cycle send quantity'], ['L', 'cycle lane'], ['C', 'scale compute (+4 credits/s)'], ['Q  W  E', 'Overclock / Hotfix / Zero-Day'], ['1  2  3', 'game speed'], ['P', 'pause / resume (you can still send)'], ['ESC', 'deselect, else pause menu'], ['M', 'music on / off'], ['N', 'sound on / off'], ['H', 'toggle this help']]

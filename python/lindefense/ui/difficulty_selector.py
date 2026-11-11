@@ -13,8 +13,8 @@ from lindefense.ui.cyber import Cyber
 
 
 class DifficultySelector(GCompound):
-    """"Difficulty Growth" picker on the map-select screen: four cyberpunk chamfered cards (O(1), O(N), O(N<sup>2</sup>),
-O(N<sup>N</sup>)), the selected one lit with a glow and a solid accent rail, plus a one-line description of the selected
+    """"Difficulty Growth" picker on the map-select screen: four flat cards (O(1), O(N), O(N<sup>2</sup>),
+O(N<sup>N</sup>)), the selected one tinted and outlined in its colour, plus a one-line description of the selected
 mode. Exponents are drawn as a small raised label next to the base instead of relying on tiny superscript glyphs.
 Selection is stored in Difficulty#setSelected; hit-testing uses logical coordinates."""
     def __init__(self, x, y, width):
@@ -37,14 +37,14 @@ Selection is stored in Difficulty#setSelected; hit-testing uses logical coordina
         self.by = y
         for i in range(len(ds)):
             px = (self.bx + (i * (self.bw + self.gap)))
-            c = Cyber.Chamfer(px, self.by, self.bw, self.bh, 12).scan(False)
+            c = Cyber.Chamfer(px, self.by, self.bw, self.bh, 4)
             self.boxes[i] = c
             self.add(c)
             n = DifficultySelector.math_label(ds[i], DifficultySelector.NAME_FONT, DifficultySelector.SUP_FONT, DifficultySelector.COLORS[i])
             n.set_location((px + ((self.bw - DifficultySelector.label_width(n)) / 2)), (self.by + 28))
             self.names[i] = n
             self.add(n)
-            s = Ui.label(_j.replace_all(ds[i].subtitle, ' \\(.*', '').upper(), 0, 0, DifficultySelector.SUB_FONT, Ui.MUTED)
+            s = Ui.label(_j.replace_all(ds[i].subtitle, ' \\(.*', ''), 0, 0, DifficultySelector.SUB_FONT, Ui.MUTED)
             s.set_location((px + ((self.bw - s.get_width()) / 2)), (self.by + 47))
             self.subs[i] = s
             self.add(s)
@@ -103,10 +103,11 @@ with the baseline at y = 0."""
         for i in range(len(ds)):
             on = (ds[i] is sel)
             hv = (i == self.hover)
-            self.boxes[i].fill((Cyber.alpha(DifficultySelector.COLORS[i], 55) if on else Color(8, 14, 32, (235 if hv else 215)))).border((DifficultySelector.COLORS[i] if on else Cyber.alpha(DifficultySelector.COLORS[i], (210 if hv else 120)))).glow((1.0 if on else (0.4 if hv else 0))).line_width((2.4 if on else 1.4)).ticks(on)
+            col = DifficultySelector.COLORS[i]
+            self.boxes[i].fill((Cyber.alpha(col, 34) if on else (Color(16, 24, 44, 240) if hv else Cyber.SURFACE_2))).border((col if on else (Cyber.lerp(Cyber.EDGE_HI, col, 0.5) if hv else Cyber.EDGE)))
             Cyber.set_color(self.subs[i], (Cyber.TEXT if on else Ui.MUTED))
         self.desc.set_label(_j.cat(DifficultySelector.display(sel), '   ', sel.subtitle, '  -  ', sel.description))
-        self.desc.set_color(DifficultySelector.COLORS[sel.ordinal])
+        self.desc.set_color(Cyber.MUTED)
     def index_at(self, lx, ly):
         ox = self.get_x()
         oy = self.get_y()

@@ -186,7 +186,8 @@ def test_persistent_records_live_in_the_prefs_folder(check, tmp_path):
 def test_achievement_table(check):
     a = R.achievements()
     ids = [x.id for x in a]
-    check(20 <= len(a) <= 30 and len(set(ids)) == len(ids), "20-30 unique achievements (%d)" % len(a))
+    check(20 <= len(a) <= 32 and len(set(ids)) == len(ids), "20-32 unique achievements (%d)" % len(a))
+    check(sum(1 for x in a if x.group == "levels") == 3, "three campaign-mode achievements")
     check(all(x.title and x.description and x.mode in ("campaign", "reverse") for x in a), "every entry is complete")
     for n in NAMES:
         check(any(x.id == "win_" + R._slug(n) for x in a), "a win achievement for " + n)
@@ -338,7 +339,7 @@ def test_end_screen_report_and_toast(check):
     s.mouse_pressed(*center(s.overlay_buttons[1]), False)
     check(s.end_page == 1, "REPORT tab opens the report page")
     txt = labels(s.overlay)
-    check("TOP TOWERS  //  BY DAMAGE" in txt and "GPT" in txt and "GRADUATED" in txt, "MVP table and achievements shown")
+    check("Top towers by damage" in txt and "GPT" in txt and "GRADUATED" in txt, "MVP table and achievements shown")
     check(any(t.startswith("T1/") for t in txt), "tier column")
     paint(s)
     s.mouse_pressed(*center(s.overlay_buttons[0]), False)
@@ -439,8 +440,8 @@ def test_menu_records_button_opens_the_stats_screen(check):
     m = MenuScreen(_App())
     m.skip_intro()
     rec_btn = next(b for b in m.buttons if b.text.get_label() == "RECORDS")
-    play = next(b for b in m.buttons if b.text.get_label() == "PLAY")
-    check(play.hit(800, 513), "PLAY did not move")
+    play = next(b for b in m.buttons if b.text.get_label() == "CAMPAIGN")
+    check(play.hit(800, 513), "the first button (CAMPAIGN) did not move")
     m.mouse_pressed(rec_btn.get_x() + 70, rec_btn.get_y() + 25)
     check(m.stats_shown and m.stats is not None, "RECORDS opens the stats screen")
     m.frame(0.05)
@@ -453,7 +454,7 @@ def test_map_cards_show_medals_best_wave_and_remember_difficulty(check):
     Records._shared = _sample_records()
     Difficulty.set_selected(Difficulty.ON)
     ms = MapSelectScreen(_App())
-    marks = {n: [c.f_glow > 0 for c in cs] for n, cs in ms.medal_marks.items()}
+    marks = {n: [c.f_border is not None for c in cs] for n, cs in ms.medal_marks.items()}   # a won medal is outlined
     check(marks[NAMES[0]] == [False, True, False, False], "Silicon Circuit: only the O(N) medal lit (%s)" % marks[NAMES[0]])
     check(marks[NAMES[5]] == [True, False, False, False] and not any(marks[NAMES[2]]), "other cards")
     best = {e[1]: e[0].get_label() for e in ms.best_labels}
@@ -465,7 +466,7 @@ def test_map_cards_show_medals_best_wave_and_remember_difficulty(check):
     check(best[NAMES[2]] == "BEST W57" and best[NAMES[0]] == "BEST  --", "BEST follows the selected mode (%s)" % best)
     ms.open_briefing(2)
     txt = labels(ms.briefing)
-    check("W57" in txt and "BEST WAVE" in txt, "the briefing shows that map's records for the mode")
+    check("W57" in txt and "Best wave" in txt, "the briefing shows that map's records for the mode")
     paint(ms)
     Difficulty.set_selected(None)
     check(R.restore_difficulty() is Difficulty.ON2 and Difficulty.get_selected() is Difficulty.ON2, "the last mode is restored at launch")

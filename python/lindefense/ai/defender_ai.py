@@ -47,6 +47,7 @@ class Options:
         self.camo_alarm = None    # callable -> bool
         self.pressure_window = 0.0
         self.verbose = False
+        self.allowed = None       # None: every tower; else the TowerTypes (heroes included) the bot may build (campaign)
 
 
 def _build_plans():
@@ -93,6 +94,12 @@ _T = TowerType
 OVERFLOW_EFFICIENT = (_T.DEEPSEEK, _T.QWEN, _T.COHERE, _T.GLM, _T.SORA, _T.GROK, _T.LLAMA)
 OVERFLOW_MIXED = (_T.DEEPSEEK, _T.COHERE, _T.QWEN, _T.KIMI, _T.MINIMAX, _T.GEMINI, _T.GPT, _T.CLAUDE, _T.SUNO, _T.GLM,
                   _T.MISTRAL, _T.LLAMA, _T.GROK, _T.SORA)
+# allowlist mode: attack towers the overflow may add after the plan's own list (in this order)
+OVERFLOW_FALLBACK = (_T.GPT, _T.GEMINI, _T.CLAUDE, _T.ZETHOS, _T.COHERE, _T.KIMI, _T.MINIMAX, _T.SUNO, _T.DALLE,
+                     _T.GLM, _T.MISTRAL, _T.LLAMA, _T.GROK, _T.SORA, _T.QWEN, _T.DEEPSEEK)
+PRESSURE_PICKS = (_T.GEMINI, _T.CLAUDE, _T.GPT, _T.COHERE)
+# allowlist mode without Perplexity: camo detection from the first of these that is allowed, at this tier
+ALT_DETECTION = ((_T.GROK, 0), (_T.GEMINI, 2), (_T.LLAMA, 2))
 UNLOCK_ORDER = (_T.DEEPSEEK, _T.QWEN, _T.COHERE, _T.GPT, _T.GEMINI, _T.CLAUDE, _T.SORA, _T.GLM, _T.GROK, _T.LLAMA, _T.KIMI,
                 _T.MINIMAX, _T.SUNO, _T.MISTRAL, _T.DALLE, _T.COPILOT, _T.PERPLEXITY, _T.ZETHOS)
 
@@ -130,6 +137,15 @@ class DefenderAI:
             self._plan = list(o.opening) + list(EFFICIENT_PLAN)
         else:
             self._plan = EFFICIENT_PLAN
+        # allowlist (campaign levels): only the allowed towers' steps, and an overflow list of allowed attackers
+        self._allowed = None if o.allowed is None else frozenset(o.allowed)
+        self._overflow_list = None
+        if self._allowed is not None:
+            self._plan = [st for st in self._plan if st.type in self._allowed]
+            base = OVERFLOW_MIXED if self._mixed else OVERFLOW_EFFICIENT
+            lst = [t for t in base if t in self._allowed]
+            lst += [t for t in OVERFLOW_FALLBACK if t in self._allowed and t not in lst]
+            self._overflow_list = tuple(lst)
         self._lives_at_wave_start = self._lives_prev_wave = game.get_lives()
         self._tracked_wave = 0
         self._lives_history = []
@@ -209,11 +225,33 @@ class DefenderAI:
         return sum(1 for t in self._mine() if t.get_type() is type_)
 
     def has_detection(self):
+        alt = self._allowed is not None and TowerType.PERPLEXITY not in self._allowed
         for t in self._mine():
             if t.get_type() is TowerType.PERPLEXITY and t.get_tier() >= 1:
                 return True
             if t.get_type() is TowerType.GROK:
                 return True
+            if alt and t.get_type() in (TowerType.GEMINI, TowerType.LLAMA) and t.get_tier() >= 2:
+                return True
+        return False
+
+    def _alt_detection(self):
+        """Allowlist mode without Perplexity: camo detection from Grok, else a Gemini or Llama with its second upgrade.
+        True when this pass went into it (bought, upgraded, or saving up for it)."""
+        g = self.g
+        for tt, tier in ALT_DETECTION:
+            if tt not in self._allowed:
+                continue
+            t = self._nth(tt, 0)
+            if t is None:
+                if len(self._mine()) < self.o.max_towers and self._try_buy(tt):
+                    return True
+                return g.get_cash() < self._price(tt)
+            if t.get_tier() < tier:
+                if self._upgrade(t):
+                    return True
+                return g.get_cash() < shop.upgrade_cost(t, g)
+            return False
         return False
 
     def _purchase(self):
@@ -223,7 +261,10 @@ class DefenderAI:
         towers = len(self._mine())
         if (not random or o.camo_alarm is not None) and not self.has_detection() and self._camo_expected(wave):
             per = self._nth(TowerType.PERPLEXITY, 0)
-            if per is None:
+            if self._allowed is not None and TowerType.PERPLEXITY not in self._allowed:
+                if self._alt_detection():
+                    return
+            elif per is None:
                 if towers < o.max_towers and self._try_buy(TowerType.PERPLEXITY):
                     return
                 if g.get_cash() < self._price(TowerType.PERPLEXITY):
@@ -236,12 +277,14 @@ class DefenderAI:
         if pressure and self._attackers() < 5 + wave // 4 and towers < o.max_towers:
             pick = None
             best = 1 << 31
-            for tt in (TowerType.GEMINI, TowerType.CLAUDE, TowerType.GPT, TowerType.COHERE):
+            for tt in PRESSURE_PICKS:
+                if self._allowed is not None and tt not in self._allowed:
+                    continue
                 c = self._count(tt)
                 if c < best:
                     best = c
                     pick = tt
-            if g.get_cash() >= self._price(pick):
+            if pick is not None and g.get_cash() >= self._price(pick):
                 if self._try_buy(pick):
                     return
         for st in self._plan:
@@ -349,7 +392,11 @@ class DefenderAI:
         buy = None
         if len(self._mine()) < self.o.max_towers:
             best_ratio = _MAX
-            for tt in (OVERFLOW_MIXED if self._mixed else OVERFLOW_EFFICIENT):
+            if self._overflow_list is not None:
+                lst = self._overflow_list
+            else:
+                lst = OVERFLOW_MIXED if self._mixed else OVERFLOW_EFFICIENT
+            for tt in lst:
                 if not self._mixed and _is_control_tool(tt) and len(self._mine()) < 30:
                     continue
                 ratio = self._count(tt) / self._weight(tt)

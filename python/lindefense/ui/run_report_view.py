@@ -50,22 +50,22 @@ def records_line(summary, report):
     or why the run is not recorded."""
     why = report.excluded if report is not None else summary.excluded_reason()
     ach = len(report.unlocked) if report is not None else 0
-    tail = ("   //   +%d ACHIEVEMENT%s" % (ach, "" if ach == 1 else "S")) if ach else ""
+    tail = ("   ·   +%d ACHIEVEMENT%s" % (ach, "" if ach == 1 else "S")) if ach else ""
     if why == "tutorial":
-        return "TRAINING RUN  //  NOT RECORDED", Cyber.MUTED
+        return "TRAINING RUN  ·  NOT RECORDED", Cyber.MUTED
     if why == "admin":
-        return "ADMIN MODE  //  RECORDS AND ACHIEVEMENTS OFF", Cyber.MUTED
+        return "ADMIN MODE  ·  RECORDS AND ACHIEVEMENTS OFF", Cyber.MUTED
     if why == "reverse":
-        return "TRAINING MATCH  //  MAP RECORDS UNCHANGED" + tail, (Cyber.YELLOW if ach else Cyber.MUTED)
+        return "TRAINING MATCH  ·  MAP RECORDS UNCHANGED" + tail, (Cyber.YELLOW if ach else Cyber.MUTED)
     if report is None:
         return "", Cyber.MUTED
     if report.new_bests:
         return "  +  ".join(lbl for _, lbl in report.new_bests) + tail, Cyber.YELLOW
     a = report.after
-    best = "BEST ON THIS MAP  //  " + diff_text(summary.difficulty) + "  W" + str(int(a.get("best_wave", 0)))
+    best = "BEST ON THIS MAP  ·  " + diff_text(summary.difficulty) + "  W" + str(int(a.get("best_wave", 0)))
     if a.get("fastest") is not None:
-        best += "  //  FASTEST " + fmt_time(a["fastest"])
-    return best + tail, (Cyber.YELLOW if ach else Cyber.alpha(Cyber.CYAN, 220))
+        best += "  ·  FASTEST " + fmt_time(a["fastest"])
+    return best + tail, (Cyber.YELLOW if ach else Cyber.MUTED)
 
 
 def star(cx, cy, r, col, line=None):
@@ -86,14 +86,14 @@ def add_records_line(into, summary, report, cx, y):
     text, col = records_line(summary, report)
     if not text:
         return
-    f = Cyber.mono(Font.BOLD, 13)
+    f = Cyber.body(Font.BOLD, 14)
     lbl = Ui.label(text, 0, y, f, col)
     best = report is not None and report.new_bests
-    tag = Ui.label("NEW BEST!", 0, y, Cyber.mono(Font.BOLD, 12), Color(0x031219)) if best else None
+    tag = Ui.label("NEW BEST", 0, y, Cyber.body(Font.BOLD, 12), Color(0x1a1405)) if best else None
     tw = (tag.get_width() + 16) if tag is not None else 0
     x = cx - (lbl.get_width() + (tw + 10 if tag is not None else 0)) / 2
     if tag is not None:
-        into.add(Cyber.Chamfer(x, y - 15, tw, 21, 5).scan(False).fill(Cyber.YELLOW).border(Cyber.YELLOW).glow(0.8))
+        into.add(Cyber.Chamfer(x, y - 15, tw, 21, 3).fill(Cyber.YELLOW).border(None))
         tag.set_location(x + 8, y)
         into.add(tag)
         x += tw + 10
@@ -102,12 +102,12 @@ def add_records_line(into, summary, report, cx, y):
 
 
 def _card(into, x, y, w, h, label, value, accent, tag=None):
-    into.add(Cyber.Chamfer(x, y, w, h, 8).scan(False).fill(Color(8, 14, 32, 235)).border(Cyber.alpha(accent, 170)))
-    into.add(Ui.label(Cyber.spaced(label), x + 12, y + 18, Cyber.mono(Font.BOLD, 9), Cyber.alpha(accent, 210)))
-    into.add(Ui.label(value, x + 12, y + h - 12, Cyber.mono(Font.BOLD, 18), Cyber.TEXT))
+    into.add(Cyber.Chamfer(x, y, w, h, 4).fill(Cyber.SURFACE_2))
+    into.add(Ui.label(label[0:1].upper() + label[1:], x + 12, y + 19, Cyber.body(Font.PLAIN, 12), Cyber.MUTED))
+    into.add(Ui.label(value, x + 12, y + h - 11, Cyber.mono(Font.BOLD, 18), Cyber.TEXT))
     if tag:
-        f = Cyber.mono(Font.BOLD, 9)
-        t = Ui.label(tag, 0, 0, f, Color(0x031219))
+        f = Cyber.body(Font.BOLD, 11)
+        t = Ui.label(tag, 0, 0, f, Color(0x1a1405))
         tw = t.get_width() + 12
         into.add(Ui.rect(x + w - tw - 6, y + 6, tw, 15, Cyber.YELLOW, Cyber.YELLOW))
         t.set_location(x + w - tw, y + 17)
@@ -133,7 +133,7 @@ def build_page(into, game, summary, report, px, py, pw, ph, col, title):
     x0 = px + 36
     w = pw - 72
     mode = summary.reverse_level if summary.reverse else summary.difficulty
-    head = Ui.label(title + "   //   " + summary.map_name.upper() + "   //   " + diff_text(mode),
+    head = Ui.label(title + "   ·   " + summary.map_name.upper() + "   ·   " + diff_text(mode),
                     0, py + 76, Cyber.display(Font.BOLD, 18), Cyber.lerp(col, Color.WHITE, 0.25))
     head.set_location(cx - head.get_width() / 2, py + 76)
     into.add(head)
@@ -141,7 +141,7 @@ def build_page(into, game, summary, report, px, py, pw, ph, col, title):
     y = py + 92
     cw = (w - 3 * 10) / 4.0
     best = report.after if report is not None else {}
-    tag = "NEW BEST!" if (report is not None and report.new_bests) else None
+    tag = "NEW BEST" if (report is not None and report.new_bests) else None
     if summary.reverse:
         rec_label, rec_value, tag = "defender ai", game.get_reverse().get_profile().display_name.upper(), None
     elif report is None or not report.counted:
@@ -161,16 +161,16 @@ def build_page(into, game, summary, report, px, py, pw, ph, col, title):
     y = py + 168
     built = len(summary.towers)
     sold = sum(1 for t in summary.towers if t.sold)
-    into.add(Ui.label(("DEFENDER AI TOWERS" if summary.reverse else "TOP TOWERS") + "  //  BY DAMAGE", x0, y,
-                      Cyber.mono(Font.BOLD, 11), Cyber.CYAN))
-    note = Ui.label("%d built  //  %d sold" % (built, sold), 0, y, Cyber.mono(Font.BOLD, 10), Cyber.MUTED)
+    into.add(Ui.label(("Defender AI towers" if summary.reverse else "Top towers") + " by damage", x0, y,
+                      Cyber.body(Font.BOLD, 14), Cyber.MUTED))
+    note = Ui.label("%d built  ·  %d sold" % (built, sold), 0, y, Cyber.body(Font.PLAIN, 13), Cyber.MUTED)
     note.set_location(x0 + w - note.get_width(), y)
     into.add(note)
-    cols = [("#", 0), ("TOWER", 28), ("TIER", 300), ("DAMAGE", 360), ("KILLS", 500), ("COST", 590)]
+    cols = [("#", 0), ("Tower", 28), ("Tier", 300), ("Damage", 360), ("Kills", 500), ("Cost", 590)]
     hy = y + 20
     for name, dx in cols:
-        into.add(Ui.label(name, x0 + dx, hy, Cyber.mono(Font.BOLD, 9), Cyber.DIM))
-    into.add(Ui.rect(x0, hy + 6, w, 1, Cyber.alpha(Cyber.CYAN, 60), Cyber.alpha(Cyber.CYAN, 60)))
+        into.add(Ui.label(name, x0 + dx, hy, Cyber.body(Font.PLAIN, 11), Cyber.DIM))
+    into.add(Ui.rect(x0, hy + 6, w, 1, Cyber.EDGE, Cyber.EDGE))
     rows = summary.mvp(rec.MVP_ROWS)
     top = rows[0].damage if rows and rows[0].damage > 0 else 1.0
     ry = hy + 12
@@ -180,7 +180,7 @@ def build_page(into, game, summary, report, px, py, pw, ph, col, title):
     for i, t in enumerate(rows):
         yy = ry + i * rh
         if i % 2 == 0:
-            into.add(Ui.rect(x0, yy, w, rh - 2, Color(14, 24, 48, 120), Color(14, 24, 48, 0)))
+            into.add(Ui.rect(x0, yy, w, rh - 2, Color(255, 255, 255, 7), Color(255, 255, 255, 0)))
         base = yy + 18
         rank_col = Cyber.YELLOW if i == 0 else Cyber.MUTED
         into.add(Ui.label(str(i + 1), x0 + 8, base, Cyber.mono(Font.BOLD, 13), rank_col))
@@ -192,17 +192,17 @@ def build_page(into, game, summary, report, px, py, pw, ph, col, title):
         into.add(Ui.label(_short(sub, sf, 262 - name.get_width() - 10), x0 + 38 + name.get_width(), base, sf,
                           Cyber.alpha(Cyber.RED, 220) if t.sold else Cyber.MUTED))
         tier = "HERO" if t.hero and t.max_tier == 0 else "T%d/%d" % (t.tier, t.max_tier)
-        into.add(Ui.label(tier, x0 + 300, base, Cyber.mono(Font.BOLD, 12), Cyber.CYAN))
+        into.add(Ui.label(tier, x0 + 300, base, Cyber.mono(Font.BOLD, 12), Cyber.MUTED))
         bar_w = 70.0
-        into.add(Ui.rect(x0 + 360, yy + 9, bar_w, 6, Cyber.alpha(Cyber.CYAN, 40), Cyber.alpha(Cyber.CYAN, 40)))
-        into.add(Ui.rect(x0 + 360, yy + 9, max(2.0, bar_w * t.damage / top), 6, Cyber.alpha(col, 230), Cyber.alpha(col, 230)))
+        into.add(Ui.rect(x0 + 360, yy + 10, bar_w, 4, Color(255, 255, 255, 22), Color(255, 255, 255, 22)))
+        into.add(Ui.rect(x0 + 360, yy + 10, max(2.0, bar_w * t.damage / top), 4, Cyber.alpha(col, 230), Cyber.alpha(col, 230)))
         into.add(Ui.label(Cyber.abbrev(t.damage), x0 + 436, base, Cyber.mono(Font.BOLD, 13), Cyber.TEXT))
         into.add(Ui.label(Cyber.commas(t.kills), x0 + 500, base, Cyber.mono(Font.BOLD, 13), Cyber.TEXT))
         into.add(Ui.label(Ui.money(t.cost), x0 + 590, base, Cyber.mono(Font.BOLD, 13), Cyber.YELLOW))
     # ---- achievements
     y = ry + rec.MVP_ROWS * rh + 22
     unlocked = report.unlocked if report is not None else []
-    into.add(Ui.label("ACHIEVEMENTS UNLOCKED", x0, y, Cyber.mono(Font.BOLD, 11), Cyber.YELLOW))
+    into.add(Ui.label("Achievements unlocked", x0, y, Cyber.body(Font.BOLD, 14), Cyber.MUTED))
     if not unlocked:
         why = report.excluded if report is not None else None
         msg = ("Achievements are off for this run." if why in ("tutorial", "admin")
@@ -223,7 +223,7 @@ def build_page(into, game, summary, report, px, py, pw, ph, col, title):
             more = Ui.label("+%d MORE" % (len(unlocked) - i), x + 4, cy + 15, f, Cyber.YELLOW)
             into.add(more)
             break
-        into.add(Cyber.Chamfer(x, cy, cwid, 22, 6).scan(False).fill(Cyber.alpha(Cyber.YELLOW, 28)).border(Cyber.alpha(Cyber.YELLOW, 200)))
+        into.add(Cyber.Chamfer(x, cy, cwid, 22, 3).fill(Cyber.alpha(Cyber.YELLOW, 26)).border(None))
         into.add(star(x + 13, cy + 11, 6.5, Cyber.YELLOW))
         lbl.set_location(x + 24, cy + 15)
         into.add(lbl)

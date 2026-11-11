@@ -56,13 +56,10 @@ class StatsScreen(GCompound):
         self.page = 0
         self.replay_buttons = []
         self.layer = GCompound()
-        self.add(Ui.rect(0, 0, Ui.W, Ui.H, Ui.c(0x02040a, 205), Ui.c(0x000000, 0)))
-        self.add(Cyber.Chamfer(20, 20, Ui.W - 40, Ui.H - 40, 26).fill(Color(6, 10, 24, 248))
-                 .border(Cyber.alpha(Cyber.YELLOW, 160)).glow(0.8).line_width(2).ticks(True))
-        self.add(Ui.label(Cyber.spaced("// operator records"), X0, 50, Cyber.mono(Font.BOLD, 12), Cyber.alpha(Cyber.MAGENTA, 230)))
-        self.add(Ui.label("RECORDS", X0, 98, Cyber.display(Font.BOLD, 48), Cyber.TEXT))
+        self.add(Ui.rect(0, 0, Ui.W, Ui.H, Cyber.SCRIM, Ui.c(0x000000, 0)))
+        self.add(Cyber.Chamfer(20, 20, Ui.W - 40, Ui.H - 40, 6).fill(Color(9, 14, 28, 250)))
+        self.add(Ui.label("RECORDS", X0, 94, Cyber.display(Font.BOLD, 40), Cyber.TEXT))
         back = UIButton(X1 - 180, 52, 180, 46, "BACK  [ESC]", Cyber.display(Font.BOLD, 18), self.close)
-        back.set_accent(Cyber.MAGENTA)
         self.add(back)
         self.chrome.append(back)
         n_ach = len(rec.achievements())
@@ -74,6 +71,7 @@ class StatsScreen(GCompound):
         for t in Tab.values():
             b = UIButton(tx, 58, widths[t], 40, labels[t], Cyber.display(Font.BOLD, 16), lambda t=t: self.set_tab(t))
             b.set_accent(Cyber.YELLOW if t is Tab.ACHIEVEMENTS else Cyber.CYAN)
+            b.set_flat(True)
             self.add(b)
             self.chrome.append(b)
             self.tabs.append(b)
@@ -103,15 +101,15 @@ class StatsScreen(GCompound):
         {Tab.CAREER: self.build_career, Tab.MAPS: self.build_maps, Tab.ACHIEVEMENTS: self.build_achievements,
          Tab.HISTORY: self.build_history}[self.tab]()
 
-    def heading(self, text, x, y, col=Cyber.CYAN):
-        self.layer.add(Ui.label(Cyber.spaced("// " + text), x, y, Cyber.mono(Font.BOLD, 12), col))
+    def heading(self, text, x, y, col=None):
+        """A section heading: small sentence-case text (the colour only when it means something)."""
+        self.layer.add(Ui.label(text[0:1].upper() + text[1:], x, y, Cyber.body(Font.BOLD, 15), Cyber.MUTED if col is None else col))
 
     def tile(self, x, y, w, h, label, value, sub, accent):
         L = self.layer
-        L.add(Cyber.Chamfer(x, y, w, h, 12).scan(False).fill(Color(8, 14, 32, 235)).border(Cyber.alpha(accent, 170)))
-        L.add(Ui.rect(x + 16, y + 14, 34, 3, accent, accent))
-        L.add(Ui.label(Cyber.spaced(label), x + 16, y + 36, Cyber.mono(Font.BOLD, 12), Cyber.alpha(accent, 220)))
-        L.add(Ui.label(value, x + 16, y + 78, Cyber.mono(Font.BOLD, 34), Cyber.TEXT))
+        L.add(Cyber.Chamfer(x, y, w, h, 4).fill(Cyber.SURFACE_2))
+        L.add(Ui.label(label[0:1].upper() + label[1:], x + 18, y + 34, Cyber.body(Font.PLAIN, 15), Cyber.MUTED))
+        L.add(Ui.label(value, x + 18, y + 78, Cyber.mono(Font.BOLD, 34), Cyber.TEXT))
         if sub:
             L.add(Ui.label(sub, x + 16, y + h - 14, Cyber.body(Font.PLAIN, 14), Cyber.MUTED))
 
@@ -126,7 +124,7 @@ class StatsScreen(GCompound):
         got = r.unlocked_count()
         cells = [
             ("runs", Cyber.commas(runs), "%d won  /  %d lost  /  %d abandoned" % (wins, c["defeats"], c["abandoned"]), Cyber.CYAN),
-            ("victories", Cyber.commas(wins) + rate, "campaigns won on any map and mode", Cyber.YELLOW),
+            ("victories", Cyber.commas(wins) + rate, "CLASSIC runs and campaign levels won", Cyber.YELLOW),
             ("waves cleared", Cyber.commas(int(c["waves_cleared"])), "best wave reached: %d" % c["best_wave"], Cyber.CYAN),
             ("hostiles purged", Cyber.commas(int(c["enemies_killed"])), "%s leaked past the defenses" % Cyber.commas(int(c["leaks"])), Cyber.GREEN),
             ("bosses defeated", Cyber.commas(int(c["bosses_killed"])), "Palantir included", Cyber.RED),
@@ -159,10 +157,9 @@ class StatsScreen(GCompound):
             y = y0 + 18 + i * (row_h + 10)
             won = [r.has_won(n, d) for n in names]
             col = cols[d.ordinal]
-            self.layer.add(Cyber.Chamfer(X0, y, X1 - X0, row_h, 10).scan(False).fill(Color(8, 14, 32, 220))
-                           .border(Cyber.alpha(col, 150 if any(won) else 70)))
+            self.layer.add(Cyber.Chamfer(X0, y, X1 - X0, row_h, 4).fill(Cyber.SURFACE_2))
             self.layer.add(Ui.label(RunReportView.diff_text(d), X0 + 20, y + 30, Cyber.display(Font.BOLD, 22), col))
-            self.layer.add(Ui.label(d.subtitle.upper(), X0 + 20, y + 50, Cyber.mono(Font.BOLD, 10), Cyber.MUTED))
+            self.layer.add(Ui.label(d.subtitle, X0 + 20, y + 50, Cyber.body(Font.PLAIN, 12), Cyber.MUTED))
             cnt = Ui.label("%d / %d" % (sum(won), len(names)), 0, y + 40, Cyber.mono(Font.BOLD, 22), Cyber.TEXT)
             cnt.set_location(X0 + 300 - cnt.get_width(), y + 40)
             self.layer.add(cnt)
@@ -175,7 +172,7 @@ class StatsScreen(GCompound):
                                         nf, Cyber.TEXT if won[k] else Cyber.alpha(Cyber.MUTED, 170)))
                 best = r.best_wave(n, d)
                 self.layer.add(Ui.label(("BEST W%d" % best) if best else "-", mx + k * step + 34, y + 49,
-                                        Cyber.mono(Font.BOLD, 10), Cyber.alpha(col, 200) if best else Cyber.DIM))
+                                        Cyber.mono(Font.BOLD, 10), Cyber.MUTED if best else Cyber.DIM))
 
     @staticmethod
     def short_name(n):
@@ -206,17 +203,16 @@ class StatsScreen(GCompound):
             lbl = DifficultySelector.math_label(d, Cyber.display(Font.BOLD, 20), Cyber.display(Font.BOLD, 12), cols[j])
             lbl.set_location(x + 14, hy + 36)
             self.layer.add(lbl)
-            self.layer.add(Ui.label(d.subtitle.split(" (")[0].upper(), x + 100, hy + 36, Cyber.mono(Font.BOLD, 10), Cyber.MUTED))
+            self.layer.add(Ui.label(d.subtitle.split(" (")[0], x + 100, hy + 36, Cyber.body(Font.PLAIN, 12), Cyber.MUTED))
         row_h = 88.0
         for i, idx in enumerate(order):
             m = ms[idx]
             y = hy + 52 + i * (row_h + 8)
             dc = MapSelectScreen.difficulty_color(m.get_difficulty())
-            self.layer.add(Cyber.Chamfer(X0, y, name_w, row_h, 10).scan(False).fill(Color(8, 14, 32, 230)).border(Cyber.alpha(dc, 130)))
+            self.layer.add(Cyber.Chamfer(X0, y, name_w, row_h, 4).fill(Cyber.SURFACE_2))
             nf = Cyber.display(Font.BOLD, 18)
             self.layer.add(Ui.label(_short(m.get_name().upper(), nf, name_w - 32), X0 + 16, y + 36, nf, Cyber.TEXT))
-            self.layer.add(Ui.label(m.get_difficulty().upper() + "  /  %d LANE%s" % (len(m.get_routes()), "" if len(m.get_routes()) == 1 else "S"),
-                                    X0 + 16, y + 62, Cyber.mono(Font.BOLD, 11), dc))
+            self.layer.add(MapSelectScreen.badge(m, X0 + 16, y + 62, 13, dc))
             for j, d in enumerate(Difficulty.values()):
                 x = X0 + name_w + gap + j * (cw + gap)
                 self.map_cell(x, y, cw, row_h, r.map_record(m.get_name(), d), d, cols[j])
@@ -226,8 +222,8 @@ class StatsScreen(GCompound):
         L = self.layer
         won = mr["victories"] > 0
         played = mr["runs"] > 0
-        L.add(Cyber.Chamfer(x, y, w, h, 10).scan(False).fill(Cyber.alpha(col, 26) if won else Color(8, 14, 32, 220))
-              .border(Cyber.alpha(col, 200 if won else (110 if played else 50))).glow(0.4 if won else 0))
+        L.add(Cyber.Chamfer(x, y, w, h, 4).fill(Cyber.alpha(col, 22) if won else Cyber.SURFACE_2)
+              .border(Cyber.alpha(col, 140) if won else (Cyber.EDGE if played else None)))
         MapSelectScreen.medal(L, d, won, x + 14, y + 14, 30, 22)
         if not played:
             L.add(Ui.label("NOT PLAYED", x + 56, y + 31, Cyber.mono(Font.BOLD, 12), Cyber.DIM))
@@ -250,7 +246,7 @@ class StatsScreen(GCompound):
         all_ = rec.achievements()
         got = r.unlocked()
         n = sum(1 for a in all_ if a.id in got)
-        self.heading("%d of %d unlocked" % (n, len(all_)), X0, TOP + 2, Cyber.YELLOW)
+        self.heading("%d of %d unlocked" % (n, len(all_)), X0, TOP + 2, Cyber.lerp(Cyber.YELLOW, Cyber.TEXT, 0.3))
         bx = X0 + 260
         self.layer.add(Ui.rect(bx, TOP - 6, 400, 8, Cyber.alpha(Cyber.YELLOW, 40), Cyber.alpha(Cyber.YELLOW, 40)))
         self.layer.add(Ui.rect(bx, TOP - 6, max(2.0, 400.0 * n / max(1, len(all_))), 8, Cyber.YELLOW, Cyber.YELLOW))
@@ -267,10 +263,10 @@ class StatsScreen(GCompound):
         L = self.layer
         on = date is not None
         acc = Cyber.MAGENTA if a.mode == "reverse" else Cyber.YELLOW
-        L.add(Cyber.Chamfer(x, y, w, h, 10).scan(False).fill(Cyber.alpha(acc, 24) if on else Color(8, 12, 26, 220))
-              .border(Cyber.alpha(acc, 210) if on else Cyber.alpha(Cyber.DIM, 120)).glow(0.35 if on else 0))
+        L.add(Cyber.Chamfer(x, y, w, h, 4).fill(Cyber.alpha(acc, 20) if on else Cyber.SURFACE_2)
+              .border(Cyber.alpha(acc, 140) if on else None))
         cx, cy = x + 30, y + h / 2
-        L.add(Ui.oval(cx - 17, cy - 17, 34, 34, Cyber.alpha(acc, 50) if on else Color(14, 20, 36), Cyber.alpha(acc, 220) if on else Cyber.alpha(Cyber.DIM, 140)))
+        L.add(Ui.oval(cx - 17, cy - 17, 34, 34, Cyber.alpha(acc, 40) if on else Color(18, 26, 44), Cyber.alpha(acc, 40) if on else Color(18, 26, 44)))
         L.add(RunReportView.star(cx, cy + 1, 10, acc if on else Cyber.alpha(Cyber.DIM, 200)))
         tx = x + 60
         from lindefense.ui.catalog_screen import CatalogScreen
@@ -278,7 +274,7 @@ class StatsScreen(GCompound):
         tf = CatalogScreen.fit_font(a.title.upper(), Cyber.display(Font.BOLD, 15), room, 12)
         L.add(Ui.label(_short(a.title.upper(), tf, room), tx, y + 28, tf, Cyber.TEXT if on else Cyber.alpha(Cyber.MUTED, 230)))
         if on:
-            d = Ui.label(date.split(" ")[0], 0, y + 26, Cyber.mono(Font.BOLD, 10), Cyber.alpha(acc, 220))
+            d = Ui.label(date.split(" ")[0], 0, y + 26, Cyber.mono(Font.BOLD, 10), Cyber.MUTED)
             d.set_location(x + w - 12 - d.get_width(), y + 26)
             L.add(d)
         f = Cyber.body(Font.PLAIN, 13)
@@ -298,9 +294,9 @@ class StatsScreen(GCompound):
         hy = TOP + 34
         for name, dx in cols:
             self.layer.add(Ui.label(name, X0 + 12 + dx, hy, Cyber.mono(Font.BOLD, 10), Cyber.DIM))
-        self.layer.add(Ui.rect(X0, hy + 8, X1 - X0, 1, Cyber.alpha(Cyber.CYAN, 70), Cyber.alpha(Cyber.CYAN, 70)))
+        self.layer.add(Ui.rect(X0, hy + 8, X1 - X0, 1, Cyber.EDGE, Cyber.EDGE))
         if not hist:
-            self.layer.add(Ui.label("No runs recorded yet. Finish or quit a campaign and it shows up here.", X0 + 12, hy + 60,
+            self.layer.add(Ui.label("No runs recorded yet. Finish or quit a CLASSIC run and it shows up here.", X0 + 12, hy + 60,
                                     Cyber.body(Font.PLAIN, 18), Cyber.MUTED))
             return
         names = [m.get_name() for m in maps.create_all()]
@@ -367,7 +363,7 @@ class StatsScreen(GCompound):
                 self.layer.add(more)
                 break
             acc = Cyber.MAGENTA if kind == "tag" else Cyber.CYAN
-            self.layer.add(Ui.rect(cx, y + 4, w, 18, Cyber.alpha(acc, 30), Cyber.alpha(acc, 150)))
+            self.layer.add(Ui.rect(cx, y + 4, w, 18, Cyber.alpha(acc, 30), Cyber.alpha(acc, 30)))
             lbl.set_location(cx + 6, y + 17)
             lbl.set_color(acc if kind == "tag" else Cyber.TEXT)
             self.layer.add(lbl)

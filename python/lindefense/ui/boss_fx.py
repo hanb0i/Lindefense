@@ -66,17 +66,14 @@ def _crest_shield(fx, g, b, ab):
         else:
             fx.path.line_to(x, y)
     fx.path.close_path()
-    g.set_color(fx.col(SHIELD, 30 + 30 * pulse))
+    g.set_color(fx.col(SHIELD, 24 + 24 * pulse))
     g.fill(fx.path)
-    g.set_stroke(fx.st(5))
-    g.set_color(fx.col(fx.INK, 110))
+    g.set_stroke(fx.st(3.5))
+    g.set_color(fx.col(fx.INK, 100))
     g.draw(fx.path)
-    g.set_stroke(fx.st(2.4))
+    g.set_stroke(fx.st(1.8))
     g.set_color(fx.col(SHIELD, 120 + 135 * f))
     g.draw(fx.path)
-    for i in range(6):
-        a = spin + i * math.pi / 3
-        fx.oval(g, p.x + math.cos(a) * R, p.y + math.sin(a) * R * 0.82, 3, 3, fx.col(Color.WHITE, 200), None, 0)
     _bar(fx, g, p.x, p.y - R * 0.82 - 10, r * 1.6, f, SHIELD)
     fx.tag(g, p.x, p.y + R * 0.82 + 16, "CREST SHIELD " + str(int(round(100 * f))) + "%", SHIELD)
 
@@ -137,8 +134,8 @@ def _network_hub(fx, g, b, ab):
         g.draw(fx.line)
         fx.ring(g, q.x, q.y, e.get_radius() + 4, fx.col(HUB, 170), 1.6)
     if b.get_hp() < b.get_max_hp():
-        for i in range(4):
-            ph = _j.fmod(fx.time * 0.8 + i * 0.25, 1.0)
+        for i in range(3):
+            ph = _j.fmod(fx.time * 0.8 + i / 3.0, 1.0)
             mx = p.x + math.sin(i * 2.4 + fx.time) * r * 0.6
             my = p.y + r * 0.3 - ph * r * 1.5
             fx.plus(g, mx, my, 4, fx.col(Color(0x7dffb0), 220 * (1 - ph)))
@@ -185,12 +182,12 @@ def paint_uplinks(fx, g, pal):
         if not e.is_alive():
             continue
         q = e.get_position()
-        g.set_stroke(fx.st(5))
-        g.set_color(fx.col(fx.INK, 110))
+        g.set_stroke(fx.st(3.5))
+        g.set_color(fx.col(fx.INK, 100))
         fx.line.set_line(q.x, q.y, o.x, o.y)
         g.draw(fx.line)
-        g.set_stroke(fx.dashed(2.4, 9, 6, -fx.time * 45))
+        g.set_stroke(fx.dashed(1.8, 9, 6, -fx.time * 45))
         g.set_color(fx.col(UPLINK, 220))
         g.draw(fx.line)
-        fx.ring(g, q.x, q.y, e.get_radius() + 6, fx.col(UPLINK, 200), 2)
+        fx.ring(g, q.x, q.y, e.get_radius() + 6, fx.col(UPLINK, 190), 1.6)
     fx.tag(g, o.x, o.y + pal.get_radius() + 34, "SWARM UPLINK  -" + str(int(round(100 * pr.uplink_reduction()))) + "% damage", UPLINK)

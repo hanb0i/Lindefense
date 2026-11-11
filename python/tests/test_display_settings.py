@@ -199,10 +199,6 @@ def test_reduced_motion_turns_off_shake_bursts_and_flashes(check):
         moved = abs(sh.offset_x()) + abs(sh.offset_y())
         check((sh.trauma() == 0 and moved == 0) if rm else (sh.trauma() > 0 and moved > 0),
               "%s: screen shake trauma %.2f, offset %.2f" % (tag, sh.trauma(), moved))
-        t = Cyber.GlitchText("VICTORY", Cyber.display(1, 40), Cyber.YELLOW)
-        t.burst(0.5)
-        t.animate(0.03)
-        check(t.ghost_a.is_visible() is (not rm), "%s: glitch ghosts visible = %s" % (tag, t.ghost_a.is_visible()))
         gl = GlowLayer(new_game(0))
         gl.flash(Vec(300, 300), 120, 0xff8800)
         check(gl.flash_count() == (0 if rm else 1), "%s: explosion light flash count %d" % (tag, gl.flash_count()))
@@ -212,23 +208,20 @@ def test_reduced_motion_turns_off_shake_bursts_and_flashes(check):
         a_disc, a_ring = e.rings[0].c.get_alpha(), e.rings[1].c.get_alpha()
         check(a_ring == 255 and (a_disc < 100 if rm else a_disc == 255), "%s: flash disc alpha %d, plain ring %d" % (tag, a_disc, a_ring))
 
-    # the main menu: no boot-up letter flicker, no logo glitch bursts or letter flicker, steady readouts
+    # the main menu: the wordmark's letter-by-letter reveal is its only motion, and reduced motion skips it
     for rm in (False, True):
         _settings(reduced_motion=rm)
         m = MenuScreen(_App())
         m.frame(0.016)
         intro = m.intro_done
-        glitched = flicker = blinked = False
-        for _ in range(int(12 / 0.05)):
+        shown = sum(1 for i in range(m.main.get_letter_count()) if m.main.letters[i].is_visible())
+        for _ in range(int(3 / 0.05)):
             m.frame(0.05)
-            glitched |= m.chroma_m.is_visible() or any(s.is_visible() for s in m.slices)
-            flicker |= m.flicker_letter >= 0
-            blinked |= not m.sys_label.is_visible()
+        done = m.intro_done and all(m.main.letters[i].is_visible() for i in range(m.main.get_letter_count()))
         if rm:
-            check(intro and not glitched and not flicker and not blinked,
-                  "reduced motion menu: intro skipped %s, glitch %s, flicker %s, blink %s" % (intro, glitched, flicker, blinked))
+            check(intro and shown == m.main.get_letter_count(), "reduced motion menu: the logo is shown at once (%s, %d letters)" % (intro, shown))
         else:
-            check(not intro and glitched and flicker and blinked, "normal menu still glitches, flickers and blinks")
+            check(not intro and shown < m.main.get_letter_count() and done, "normal menu: the letters appear one by one, then all stay")
 
     # in a match: no HUD toast glitch slices, no screen shake from lost lives, a steady boss alert
     for rm in (False, True):
@@ -238,7 +231,7 @@ def test_reduced_motion_turns_off_shake_bursts_and_flashes(check):
         s.frame(0.02)
         s.hud.flash_banner("WAVE 1 INCOMING", Cyber.CYAN, 2)
         s.hud.update(0.02)
-        check(any(sl.is_visible() for sl in s.hud.toast_slices) is (not rm), "%s: toast glitch slices" % ("reduced" if rm else "normal"))
+        check((s.hud.toast.get_y() == 168) is rm, "%s: the toast %s (y %.1f)" % ("reduced" if rm else "normal", "appears in place" if rm else "slides in", s.hud.toast.get_y()))
         g.lose_lives(5, spawn_at(g, EnemyType.PRIMITIVE_VARIABLE, None, 0, 10))
         s.frame(0.02)
         check((s.world.shake.trauma() == 0) is rm, "%s: losing lives shakes the screen = %s" % ("reduced" if rm else "normal", s.world.shake.trauma() > 0))

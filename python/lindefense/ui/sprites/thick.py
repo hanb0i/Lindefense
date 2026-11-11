@@ -12,8 +12,9 @@ from lindefense.ui.acm import *  # noqa: F401,F403
 
 class Thick:
     """ACM primitives that paint with a configurable, round-joined outline width
-(and anti-aliasing) instead of the fixed one-pixel stroke. The cartoon art
-direction wants a thick dark outline on every shape; these are the only
+(and anti-aliasing) instead of the fixed one-pixel stroke. The art direction
+wants a thin, consistent dark outline on every shape (#NORMAL, #BOSS for
+bosses, #DETAIL for small parts, #LINE for strokes); these are the only
 primitives the sprites use.
 
 Paint cost
@@ -291,10 +292,10 @@ Shapes whose detail level is non-zero and at most lod are skipped."""
             g2.set_rendering_hint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
 
 
-Thick.NORMAL = 2.2
-Thick.BOSS = 3.4
-Thick.DETAIL = 1.4
-Thick.LINE = 1.8
+Thick.NORMAL = 1.6
+Thick.BOSS = 2.4
+Thick.DETAIL = 1.1
+Thick.LINE = 1.5
 Thick.DETAIL_DECOR = 1
 Thick.DETAIL_FINE = 2
 Thick.f_level = 0

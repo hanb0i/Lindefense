@@ -11,6 +11,7 @@ WAVE_COUNT = 100
 
 class SpawnGroup:
     """count enemies of one type spawned every interval seconds, starting start_delay seconds into the wave."""
+    hp_scale = None   # extra health factor for this group's spawns (only the tutorial's small boss sets one)
 
     def __init__(self, type_, count, modifiers, interval, start_delay, route):
         self.type = type_
@@ -321,13 +322,26 @@ def get(wave, seed=0):
 
 
 def exists(game, wave):
-    """Whether this game has a wave `wave`: 1..WAVE_COUNT, plus every later wave once the game is in Freeplay."""
+    """Whether this game has a wave `wave`: 1..WAVE_COUNT, plus every later wave once the game is in Freeplay (or
+    1..n for a game playing its own wave list, see WaveManager.set_wave_list)."""
+    custom = game.get_wave_manager().get_wave_list()
+    if custom is not None:
+        return 1 <= wave <= len(custom)
     return 1 <= wave and (wave <= WAVE_COUNT or game.is_freeplay())
 
 
 def for_game(game, wave):
-    """Base WaveDef of `wave` in this game (Freeplay waves come from the game's run seed)."""
+    """Base WaveDef of `wave` in this game (Freeplay waves come from the game's run seed; a game with its own wave list
+    plays that)."""
+    custom = game.get_wave_manager().get_wave_list()
+    if custom is not None:
+        return custom[wave - 1]
     return get(wave, game.get_seed())
+
+
+def count_for(game):
+    """How many waves this game has before it ends: WAVE_COUNT, or the length of its own wave list."""
+    return game.get_wave_manager().wave_count()
 
 
 def all_waves():
@@ -347,6 +361,19 @@ class WaveManager:
         self._current = None
         self._auto_start = False
         self._prep_timer = 0.0
+        self._wave_list = None   # a game's own waves instead of the campaign (the tutorial); None for every other game
+
+    def set_wave_list(self, defs):
+        """Plays these WaveDefs (waves 1..n) instead of the campaign; None restores the campaign. Set it before the
+        first wave. Only the tutorial uses it: normal runs never call it and play exactly as before."""
+        self._wave_list = None if defs is None else tuple(defs)
+
+    def get_wave_list(self):
+        return self._wave_list
+
+    def wave_count(self):
+        """WAVE_COUNT, or the length of the game's own wave list."""
+        return WAVE_COUNT if self._wave_list is None else len(self._wave_list)
 
     def get_current_wave(self):
         return self._current_wave
@@ -371,7 +398,7 @@ class WaveManager:
         return self._wave_time
 
     def is_campaign_complete(self):
-        return self._current_wave >= WAVE_COUNT and not self._wave_active
+        return self._current_wave >= self.wave_count() and not self._wave_active
 
     def get_remaining_to_spawn(self):
         if not self._wave_active or self._current is None:
@@ -379,7 +406,7 @@ class WaveManager:
         return sum(gr.count - self._progress[i] for i, gr in enumerate(self._current.groups))
 
     def can_start_next_wave(self):
-        return (not self._wave_active and (self._current_wave < WAVE_COUNT or self._game.is_freeplay())
+        return (not self._wave_active and (self._current_wave < self.wave_count() or self._game.is_freeplay())
                 and self._game.get_variance().ready_for(self._current_wave + 1))
 
     def start_next_wave(self):
@@ -387,7 +414,7 @@ class WaveManager:
             return False
         gm = self._game
         self._current_wave += 1
-        self._current = gm.get_difficulty().shape(get(self._current_wave, gm.get_seed()), gm.get_seed())
+        self._current = gm.get_difficulty().shape(for_game(gm, self._current_wave), gm.get_seed())
         self._current = gm.get_variance().shape_wave(self._current)
         self._wave_active = True
         self._wave_time = 0.0
@@ -410,7 +437,11 @@ class WaveManager:
         em = gm.get_enemy_manager()
         for i, gr in enumerate(self._current.groups):
             while self._progress[i] < gr.count and self._wave_time >= self._next_spawn_at[i]:
-                e = em.spawn(gr.type, gr.modifiers, gr.route, 0)
+                if gr.hp_scale is None:
+                    e = em.spawn(gr.type, gr.modifiers, gr.route, 0)
+                else:
+                    e = em.spawn_scaled(gr.type, gr.modifiers, gr.route, 0, gm.get_wave_hp_scale(gr.type) * gr.hp_scale,
+                                        gm.get_wave_speed_scale())
                 if e is not None:
                     self._progress[i] += 1
                 self._next_spawn_at[i] += max(0.05, gr.interval)

@@ -48,6 +48,9 @@ class TowerManager:
     # ---- placement
     def placement_problem(self, type_, p):
         d = catalog.get(type_)
+        locked = self._game.tower_lock_problem(type_)   # campaign levels allow only their unlocked towers
+        if locked is not None:
+            return locked
         hero = self.hero_problem(type_)
         if hero is not None:
             return hero
@@ -69,6 +72,9 @@ class TowerManager:
         if not type_.is_hero():
             return None
         g = self._game
+        locked = g.tower_lock_problem(type_)
+        if locked is not None:
+            return locked
         if not g.is_hero_unlocked(type_):
             return "Unlock " + type_.display_name + " in the Hero Store"
         if g.is_hero_deployed(type_) or self.hero_placed(type_):
@@ -149,6 +155,8 @@ class TowerManager:
         if t is None or not t.is_alive() or not t.can_unlock_ability():
             return False
         g = self._game
+        if g.ability_lock_problem() is not None:
+            return False
         cost = shop.ability_unlock_cost(g)
         if not g.spend_cash(cost):
             return False

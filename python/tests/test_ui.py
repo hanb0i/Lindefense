@@ -1,4 +1,4 @@
-"""UI-layer tests (ports of GraphicsTests, AssetTests, HeadlessTests.shopLayout, HeroStoreTests.uiText / tutorialScript /
+"""UI-layer tests (ports of GraphicsTests, AssetTests, HeadlessTests.shopLayout, HeroStoreTests.uiText /
 catalogEntries, the ShopLayout part of zethosShop, and ReverseModeTests.uiRouting). Screens are built and painted offscreen;
 nothing opens a window."""
 import os
@@ -30,7 +30,6 @@ from lindefense.ui.jawt import BufferedImage, KeyEvent, RenderingHints
 from lindefense.ui.jrt import Preferences
 from lindefense.ui.map_art import MapArt
 from lindefense.ui.shop_layout import ShopLayout
-from lindefense.ui.tutorial_script import TutorialScript
 from lindefense.ui.ui import Ui
 
 Q = GraphicsSettings.Quality
@@ -147,7 +146,7 @@ def test_shop_layout(check):
     check(any(c.type is T.ZETHOS for c in ShopLayout.faction_cells(Faction.PRIMARY)), "Zethos sits in the PRIMARY shop tab")
 
 
-# ---------------------------------------------------------------- hero store UI text, tutorial, catalog
+# ---------------------------------------------------------------- hero store UI text, catalog (the tutorial: test_tutorial.py)
 def test_hero_ui_text(check):
     for h in T.heroes():
         check(bool(HeroStatText.role(h)), "%s has a role line" % h)
@@ -167,48 +166,6 @@ def test_hero_ui_text(check):
         t = g.place_tower(h, buildable_near(g, Vec(150 + (h.ordinal % 7) * 140, 200 + (h.ordinal // 7) * 250), 200))
         if t is not None:
             HeroStatText.live_line(g, t)
-
-
-def test_tutorial_script(check):
-    g = new_game(0)
-    S = TutorialScript.Step
-    ts = TutorialScript(g)
-    check(ts.current() is S.WELCOME and not ts.current().action, "starts on the welcome card")
-    ts.update()
-    check(ts.index() == 0, "info cards wait for NEXT")
-    ts.next()
-    check(ts.current() is S.PLACE, "then: place a tower")
-    ts.update()
-    check(ts.index() == 1, "action steps wait")
-    gpt = g.place_tower(T.GPT, buildable_near(g, Vec(380, 300), 150))
-    check(gpt is not None, "player places GPT")
-    ts.update()
-    check(ts.current() is S.WAVE, "placing a tower advances")
-    g.start_next_wave()
-    ts.update()
-    check(ts.current() is S.UPGRADE and ts.grant_paid(), "starting a wave advances; bonus paid")
-    check(g.upgrade_tower(gpt), "bonus covers the upgrade")
-    ts.update()
-    check(ts.current() is S.TARGETING, "upgrading advances")
-    ts.next()
-    check(ts.current() is S.HERO_STORE and g.get_cash() >= 1000, "Hero Store step funds a hero")
-    check(g.purchase_hero(T.SUNNY_JOE), "buy a hero")
-    ts.update()
-    check(ts.current() is S.DEPLOY, "buying advances")
-    sj = g.place_tower(T.SUNNY_JOE, buildable_near(g, Vec(700, 300), 150))
-    ts.update()
-    check(sj is not None and ts.current() is S.HERO_UPGRADE, "deploying advances")
-    check(g.upgrade_tower(sj), "the bonus covers the hero's first upgrade")
-    ts.update()
-    check(ts.current() is S.ZETHOS, "upgrading the hero advances")
-    ts.next()
-    check(ts.current() is S.DONE, "final card")
-    ts.next()
-    check(ts.is_finished(), "FINISH ends the tutorial")
-    check(g.get_hero_collection() is not HeroCollection.persistent(), "not wired to the saved collection")
-    skip = TutorialScript(new_game(0))
-    skip.skip_all()
-    check(skip.is_finished(), "END TUTORIAL works from any step")
 
 
 def test_catalog_entries(check):

@@ -12,11 +12,11 @@ from lindefense.ui.cyber import Cyber
 
 
 class Nameplate(GCompound):
-    """Small chamfered readout ("Claude · Sonnet 5.5") used for tower hover / selection nameplates and the placement
-ghost caption. Built once; #set only changes text when it differs."""
+    """Small flat readout ("Claude · Sonnet 5.5") used for tower hover / selection nameplates and the placement ghost
+caption: a dark plate with a thin accent border, no glow. Built once; #set only changes text when it differs."""
     def __init__(self):
         GCompound.__init__(self)
-        self.frame = Cyber.Chamfer(0, 0, 100, Nameplate.HEIGHT, 6).fill(Color(5, 9, 22, 232)).scan(False)
+        self.frame = Cyber.Chamfer(0, 0, 100, Nameplate.HEIGHT, 4).fill(Color(5, 9, 20, 225))
         self.name = Cyber.Text('')
         self.tier = Cyber.Text('')
         self.width = 100.0
@@ -47,7 +47,7 @@ ghost caption. Built once; #set only changes text when it differs."""
                 self.tier.set_label('')
             self.width = w
             self.frame.size(w, Nameplate.HEIGHT)
-        self.frame.border(Cyber.alpha(accent, 220)).glow(0.7)
+        self.frame.border(Cyber.alpha(accent, 150))
         Cyber.set_color(self.name, Cyber.TEXT)
         Cyber.set_color(self.tier, accent)
     def place(self, x, y):

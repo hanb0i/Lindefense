@@ -190,8 +190,8 @@ gives the attacker unlimited compute credits instead."""
         """TUTORIAL (main menu): a guided match on the first map at the default difficulty. It uses an in-memory hero
 collection, so practice unlocks never touch the saved Hero Store progress."""
         AudioManager.sfx(Sfx.UI_SELECT)
-        g = Game(maps.create(0), variance.seed_next(), Difficulty.O1)
-        self.start_game(g, True)
+        from lindefense.ui import tutorial_script
+        self.start_game(tutorial_script.create_game(), True)
     def restart_level(self):
         """RESTART: throws the running level away and starts a fresh game on the same map and difficulty."""
         if self.game_screen is None:
@@ -210,7 +210,6 @@ collection, so practice unlocks never touch the saved Hero Store progress."""
             Cyber.quality(g2)
             g2.translate((n / 2.0), (n / 2.0))
             e = LogoEmblem((n * 0.9))
-            e.animate(0.4)
             e.paint(g2)
             g2.dispose()
             f.set_icon_image(img)

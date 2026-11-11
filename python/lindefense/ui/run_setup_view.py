@@ -41,6 +41,7 @@ class SeedField(GCompound):
     deploys and Esc or a click elsewhere drops the focus. A locked field just shows a fixed seed (daily run)."""
     MAX = 20
     PAD = 74.0
+    FILL = Color(4, 7, 16, 240)
 
     def __init__(self, x, y, w, h, on_change=None, locked=False, accent=None):
         GCompound.__init__(self)
@@ -55,11 +56,11 @@ class SeedField(GCompound):
         self.accent = Cyber.CYAN if accent is None else accent
         self.t = 0.0
         self.hover_t = 0.0
-        self.frame = Cyber.Chamfer(0, 0, w, h, 10).scan(False).fill(Color(4, 9, 22, 245)).line_width(1.5)
+        self.frame = Cyber.Chamfer(0, 0, w, h, 4).fill(SeedField.FILL)
         self.add(self.frame)
-        self.tag = Ui.label("SEED", 14, h / 2 + 4.5, Cyber.mono(Font.BOLD, 12), Cyber.alpha(self.accent, 225))
+        self.tag = Ui.label("Seed", 14, h / 2 + 5, Cyber.body(Font.BOLD, 14), Cyber.MUTED)
         self.add(self.tag)
-        self.add(Ui.rect(60, 9, 1, h - 18, Cyber.alpha(self.accent, 90), Cyber.alpha(self.accent, 90)))
+        self.add(Ui.rect(60, 9, 1, h - 18, Cyber.EDGE, Cyber.EDGE))
         self.value = Ui.label("", SeedField.PAD, h / 2 + 7, Cyber.mono(Font.BOLD, 19), Cyber.TEXT)
         self.add(self.value)
         self.caret = Ui.rect(SeedField.PAD, 9, 2, h - 18, self.accent, self.accent)
@@ -163,10 +164,9 @@ class SeedField(GCompound):
     def style(self):
         acc = Cyber.RED if self.error else self.accent
         if self.focused:
-            self.frame.border(acc).glow(0.9).fill(Color(6, 14, 32, 250))
+            self.frame.border(acc).fill(Color(8, 14, 30, 250))
         else:
-            self.frame.border(Cyber.lerp(Cyber.alpha(acc, 150), acc, self.hover_t)).glow(0.5 * self.hover_t) \
-                .fill(Color(4, 9, 22, 245))
+            self.frame.border(Cyber.RED if self.error else Cyber.lerp(Cyber.EDGE_HI, acc, 0.6 * self.hover_t)).fill(SeedField.FILL)
 
 
 # ====================================================================== RUN SETUP band
@@ -188,11 +188,11 @@ class RunSetupBand:
         self.toggles = []
         self.note = None
         acc = Cyber.MAGENTA if daily is not None else Cyber.CYAN
-        head = Ui.label("// DAILY SETUP  -  THE SAME FOR EVERYONE TODAY" if daily is not None else "// RUN SETUP",
-                        x, y, Cyber.mono(Font.BOLD, 12), Cyber.alpha(Cyber.MAGENTA, 230))
+        head = Ui.label("Daily setup  ·  the same for everyone today" if daily is not None else "Run setup",
+                        x, y, Cyber.body(Font.BOLD, 14), Cyber.MUTED)
         into.add(head)
         lx = x + head.get_width() + 14
-        into.add(Ui.rect(lx, y - 5, x + w - lx, 1, Cyber.alpha(acc, 80), Cyber.alpha(acc, 80)))
+        into.add(Ui.rect(lx, y - 5, x + w - lx, 1, Cyber.EDGE, Cyber.EDGE))
         ry = y + 14
         self.field = SeedField(x, ry, RunSetupBand.FIELD_W, 40, self.refresh, daily is not None, acc)
         if daily is not None:
@@ -201,7 +201,7 @@ class RunSetupBand:
         into.add(self.field)
         self.buttons.append(self.field)
         sx = x + RunSetupBand.FIELD_W + 16
-        self.status_head = Ui.label("", sx, ry + 15, Cyber.mono(Font.BOLD, 11), acc)
+        self.status_head = Ui.label("", sx, ry + 15, Cyber.body(Font.BOLD, 12), acc)
         self.status = Ui.label("", sx, ry + 34, Cyber.body(Font.PLAIN, 14), Cyber.MUTED)
         into.add(self.status_head)
         into.add(self.status)
@@ -352,10 +352,10 @@ def _fit(text, f, w):
 
 def reverse_band(into, x, y, w):
     """The band's place in the Adversarial Training briefing: says the run setup does not apply there."""
-    head = Ui.label("// RUN SETUP", x, y, Cyber.mono(Font.BOLD, 12), Cyber.alpha(Cyber.CYAN, 200))
+    head = Ui.label("Run setup", x, y, Cyber.body(Font.BOLD, 14), Cyber.MUTED)
     into.add(head)
     lx = x + head.get_width() + 14
-    into.add(Ui.rect(lx, y - 5, x + w - lx, 1, Cyber.alpha(Cyber.MAGENTA, 80), Cyber.alpha(Cyber.MAGENTA, 80)))
+    into.add(Ui.rect(lx, y - 5, x + w - lx, 1, Cyber.EDGE, Cyber.EDGE))
     f = Cyber.body(Font.PLAIN, 15)
     into.add(Ui.label("Seeds, challenge rules and Patch Notes are for defense runs. In Adversarial Training the defender AI",
                       x, y + 30, f, Cyber.MUTED))
@@ -364,7 +364,7 @@ def reverse_band(into, x, y, w):
 
 # ====================================================================== DAILY card + briefing
 def best_text(best):
-    return "TODAY'S BEST  //  WAVE " + str(best) if best > 0 else "NOT PLAYED TODAY"
+    return "Today's best: wave " + str(best) if best > 0 else "Not played today"
 
 
 def build_daily_card(screen, daily, x, y, w, h):
@@ -372,24 +372,15 @@ def build_daily_card(screen, daily, x, y, w, h):
     Difficulty Growth mode and rule, today's best wave and a PLAY DAILY button that opens the daily briefing. Returns
     the button."""
     from lindefense.ui.map_art import MapArt
-    from lindefense.ui.map_select_screen import MapSelectScreen
     from lindefense.ui.menu_screen import MenuScreen
     from lindefense.ui.neon_button import NeonButton
     m = screen.maps[daily.map_index]
     acc = Cyber.MAGENTA
     rc = Color(daily.rule.rgb)
-    frame = MapSelectScreen.cut(x, y, w, h, 16)
-    frame.set_filled(True)
-    frame.set_fill_color(Color(0x100a22))
-    frame.set_color(Cyber.alpha(acc, 190))
-    screen.add(frame)
-    inner = MapSelectScreen.cut(x + 4, y + 4, w - 8, h - 8, 13)
-    inner.set_color(Cyber.alpha(Cyber.YELLOW, 60))
-    screen.add(inner)
-    screen.add(Ui.rect(x + 24, y + 1, 110, 3, acc, acc))
+    screen.add(Cyber.Chamfer(x, y, w, h, 6).fill(Color(16, 14, 36, 238)).border(Cyber.alpha(acc, 110)))
     compact = h < 520
-    screen.add(Ui.label("// DAILY RUN", x + 16, y + 28, Cyber.mono(Font.BOLD, 12), Cyber.alpha(acc, 235)))
-    dl = Ui.label(daily.label(), 0, y + 28, Cyber.mono(Font.BOLD, 12), Cyber.TEXT)
+    screen.add(Ui.label("Daily run", x + 16, y + 28, Cyber.body(Font.BOLD, 15), Cyber.lerp(acc, Cyber.TEXT, 0.3)))
+    dl = Ui.label(daily.label(), 0, y + 28, Cyber.body(Font.PLAIN, 14), Cyber.MUTED)
     dl.set_location(x + w - 16 - dl.get_width(), y + 28)
     screen.add(dl)
     button_y = y + h - (54 if compact else 70)
@@ -402,24 +393,17 @@ def build_daily_card(screen, daily, x, y, w, h):
     ax = x + (w - aw) / 2
     ay = y + 40
     screen.add(MapArt(m, ax, ay, aw, ah))
-    screen.add(Ui.rect(ax, ay, aw, ah, None, Cyber.alpha(acc, 120)))
-    for side in (-1, 1):   # neon brackets either side of the thumbnail
-        bx = ax - 12 if side < 0 else ax + aw + 10
-        screen.add(Ui.rect(bx, ay, 2, ah, Cyber.alpha(acc, 140), Cyber.alpha(acc, 140)))
-        screen.add(Ui.rect(bx + (0 if side < 0 else -6), ay, 8, 2, acc, acc))
-        screen.add(Ui.rect(bx + (0 if side < 0 else -6), ay + ah - 2, 8, 2, acc, acc))
+    screen.add(Ui.rect(ax, ay, aw, ah, None, Cyber.EDGE))
     tx = x + 16
     ty = ay + ah + (24 if compact else 30)
     name_f = MenuScreen.menu_font(Font.BOLD, 19 if compact else 24)
     screen.add(Ui.label(_fit(m.get_name().upper(), name_f, w - 32), tx, ty, name_f, Ui.TEXT))
     ty += 18 if compact else 24
-    badge = daily.difficulty.label + "  /  " + daily.rule.chip
-    bl = Ui.label(badge, tx + 8, ty, Cyber.display(Font.BOLD, 14 if compact else 16), rc)
-    screen.add(Ui.rect(tx, ty - (13 if compact else 15), bl.get_width() + 16, 19 if compact else 22,
-                       Cyber.alpha(rc, 35), Cyber.alpha(rc, 160)))
+    bl = Ui.label(daily.difficulty.label, tx, ty, Cyber.body(Font.BOLD, 14 if compact else 15), Cyber.MUTED)
     screen.add(bl)
+    screen.add(Ui.label("·  " + daily.rule.chip, tx + bl.get_width() + 8, ty, Cyber.body(Font.BOLD, 14 if compact else 15), rc))
     best = DailyRecords.get().best(daily.date)
-    bt = Ui.label(best_text(best), 0, ty, Cyber.mono(Font.BOLD, 11), Cyber.YELLOW if best > 0 else Cyber.MUTED)
+    bt = Ui.label(best_text(best), 0, ty, Cyber.body(Font.PLAIN, 13), Cyber.YELLOW if best > 0 else Cyber.DIM)
     bt.set_location(x + w - 16 - bt.get_width(), ty)
     screen.add(bt)
     play = NeonButton(x + 16, button_y, w - 32, button_h, "PLAY DAILY", MenuScreen.menu_font(Font.BOLD, 17 if compact else 20),
@@ -441,30 +425,28 @@ def build_daily_briefing(screen, daily):
     dc = Cyber.MAGENTA
     rc = Color(daily.rule.rgb)
     b = GCompound()
-    b.add(Ui.rect(0, 0, Ui.W, Ui.H, Ui.c(0x02040a, 205), Ui.c(0x000000, 0)))
+    b.add(Ui.rect(0, 0, Ui.W, Ui.H, Cyber.SCRIM, Ui.c(0x000000, 0)))
     px, py, pw, ph = M.BRIEF_X, M.BRIEF_Y, M.BRIEF_W, M.BRIEF_H
-    b.add(Cyber.Chamfer(px, py, pw, ph, 26).fill(Color(12, 6, 26, 244)).border(dc).glow(1.1).line_width(2).ticks(True))
-    b.add(Ui.rect(px + 24, py + 12, 140, 3, Cyber.YELLOW, Cyber.YELLOW))
-    b.add(Ui.label(Cyber.spaced("// daily run  -  " + daily.label()), px + M.BRIEF_PAD, py + 40, Cyber.mono(Font.BOLD, 12),
-                   Cyber.alpha(dc, 230)))
+    b.add(Cyber.Chamfer(px, py, pw, ph, 6).fill(Color(14, 10, 28, 246)))
+    b.add(Ui.label("Daily run  ·  " + daily.label().title(), px + M.BRIEF_PAD, py + 40, Cyber.body(Font.PLAIN, 14), Cyber.MUTED))
     ax = px + M.BRIEF_PAD
     ay = py + 60
     aw = M.BRIEF_ART_W
     ah = aw * GameMap.HEIGHT / GameMap.WIDTH
     s = aw / GameMap.WIDTH
     b.add(MapArt(m, ax, ay, aw, ah))
-    b.add(Ui.rect(ax, ay, aw, ah, None, Cyber.alpha(dc, 170)))
+    b.add(Ui.rect(ax, ay, aw, ah, None, Cyber.EDGE_HI))
     for r in m.get_routes():
         b.add(Ui.oval(ax + r.get_start().x * s - 5, ay + r.get_start().y * s - 5, 10, 10, Ui.GREEN, Ui.GREEN))
         b.add(Ui.oval(ax + r.get_end().x * s - 5, ay + r.get_end().y * s - 5, 10, 10, Ui.RED, Ui.RED))
     ly = ay + ah + 30
-    legend_f = Cyber.mono(Font.BOLD, 12)
+    legend_f = Cyber.body(Font.PLAIN, 14)
     b.add(Ui.oval(ax, ly - 9, 10, 10, Ui.GREEN, Ui.GREEN))
-    entry = Ui.label("ENTRY", ax + 16, ly, legend_f, Ui.TEXT)
+    entry = Ui.label("Entry", ax + 16, ly, legend_f, Ui.MUTED)
     b.add(entry)
     ex = ax + 16 + entry.get_width() + 22
     b.add(Ui.oval(ex, ly - 9, 10, 10, Ui.RED, Ui.RED))
-    b.add(Ui.label("EXIT", ex + 16, ly, legend_f, Ui.TEXT))
+    b.add(Ui.label("Exit", ex + 16, ly, legend_f, Ui.MUTED))
     screen.briefing = b
     rx = ax + aw + 36
     rw = px + pw - M.BRIEF_PAD - rx
@@ -474,30 +456,27 @@ def build_daily_briefing(screen, daily):
         b.add(Ui.label(line, rx, ty, name_f, Ui.TEXT))
         ty += 34
     ty += 2
-    badge = "DAILY RUN  /  " + m.get_difficulty().upper() + "  /  " + str(len(m.get_routes())) + \
-        (" LANE" if len(m.get_routes()) == 1 else " LANES")
-    bl = Ui.label(badge, rx + 8, ty, Cyber.display(Font.BOLD, 16), dc)
-    b.add(Ui.rect(rx, ty - 15, bl.get_width() + 16, 22, Cyber.alpha(dc, 35), Cyber.alpha(dc, 160)))
-    b.add(bl)
+    b.add(M.badge(m, rx, ty, 16, M.difficulty_color(m.get_difficulty())))
     ty += 40
-    ty = screen.briefing_section("DAILY RUN", "One run a day, the same for everyone: today's seed, map, difficulty and "
+    ty = screen.briefing_section("Daily run", "One run a day, the same for everyone: today's seed, map, difficulty and "
                                  "rule are fixed. Push as far as you can; your best wave today is kept.", dc, rx, ty, rw)
-    ty = screen.briefing_section("RULE OF THE DAY: " + daily.rule.chip, daily.rule.description, rc, rx, ty, rw)
+    ty = screen.briefing_section("Rule of the day: " + daily.rule.chip, daily.rule.description, rc, rx, ty, rw)
     d = daily.difficulty
-    ty = screen.briefing_section("DIFFICULTY GROWTH", d.label + "  -  " + d.subtitle, Cyber.YELLOW, rx, ty, rw)
-    screen.briefing_section("MAP MECHANICS", m.get_mechanic_summary(), MenuScreen.CYAN, rx, ty, rw)
+    ty = screen.briefing_section("Difficulty growth", d.label + "  -  " + d.subtitle, Cyber.YELLOW, rx, ty, rw)
+    screen.briefing_section("Map mechanics", m.get_mechanic_summary(), MenuScreen.CYAN, rx, ty, rw)
     band = RunSetupBand(b, ax, M.band_y(), pw - 2 * M.BRIEF_PAD, daily)
     dep = M.briefing_deploy_rect()
     best = DailyRecords.get().best(daily.date)
-    b.add(Cyber.Chamfer(ax, dep[1], aw, dep[3], 14).scan(True).fill(Color(16, 10, 30, 235))
-          .border(Cyber.alpha(Cyber.YELLOW if best > 0 else Cyber.DIM, 200)).line_width(1.6))
-    bt = Ui.label(best_text(best), 0, 0, MenuScreen.menu_font(Font.BOLD, 18), Cyber.YELLOW if best > 0 else Cyber.MUTED)
+    b.add(Cyber.Chamfer(ax, dep[1], aw, dep[3], 4).fill(Cyber.SURFACE_2)
+          .border(Cyber.alpha(Cyber.YELLOW, 150) if best > 0 else Cyber.EDGE))
+    bt = Ui.label(best_text(best), 0, 0, Cyber.body(Font.BOLD, 17), Cyber.YELLOW if best > 0 else Cyber.MUTED)
     bt.set_location(ax + (aw - bt.get_width()) / 2, dep[1] + dep[3] / 2 + 7)
     b.add(bt)
     back = NeonButton(rx, dep[1], 150, dep[3], "BACK", MenuScreen.menu_font(Font.BOLD, 18), MenuScreen.CYAN,
                       screen.close_briefing)
     go = NeonButton(dep[0], dep[1], dep[2], dep[3], "START DAILY", MenuScreen.menu_font(Font.BOLD, 22), dc,
                     lambda: screen.deploy(idx))
+    go.set_primary(True)
     b.add(back)
     b.add(go)
     return band, [back, go]
@@ -523,12 +502,12 @@ def rule_chips(game, with_best=False):
         dr = DailyRun(date)
         text = "DAILY " + dr.label()[4:10]
         if with_best:
-            text += "  //  BEST WAVE " + str(max(DailyRecords.get().best(date), game.get_last_completed_wave()))
-        out.append(RuleChip(text, Cyber.MAGENTA, "DAILY RUN", Cyber.spaced("daily run  //  " + dr.label()),
+            text += "  ·  BEST WAVE " + str(max(DailyRecords.get().best(date), game.get_last_completed_wave()))
+        out.append(RuleChip(text, Cyber.MAGENTA, "DAILY RUN", "Daily run  ·  " + dr.label().title(),
                             "Today's seed, map, difficulty and rule are the same for everyone. Your best wave today is "
                             "kept."))
     for c in game.get_challenges():
-        out.append(RuleChip(c.chip, Color(c.rgb), c.title.upper(), Cyber.spaced("challenge rule"), c.description))
+        out.append(RuleChip(c.chip, Color(c.rgb), c.title.upper(), "Challenge rule", c.description))
     return out
 
 
@@ -536,7 +515,7 @@ def fit_chips(chips, f, max_w, gap=6.0):
     """chips as they are if they fit in max_w, else one "RULES x N" chip whose hover card lists them all."""
     if len(chips) < 2 or sum(chip_width(c.text, f) + gap for c in chips) <= max_w:
         return chips
-    return [RuleChip("RULES x" + str(len(chips)), Cyber.MAGENTA, "RUN RULES", Cyber.spaced("this run"),
+    return [RuleChip("RULES x" + str(len(chips)), Cyber.MAGENTA, "RUN RULES", "This run",
                      "  +  ".join(c.title.title() if c.title.isupper() else c.title for c in chips) + ".")]
 
 
@@ -548,8 +527,9 @@ def chip(into, rc, x, y, h, f):
     """One rule chip (the patch-note chip's shape, filled with the rule's colour), top-left at (x, y); returns its
     width."""
     w = chip_width(rc.text, f)
-    into.add(Cyber.Chamfer(x, y, w, h, 5).scan(False).fill(Cyber.alpha(rc.color, 40)).border(Cyber.alpha(rc.color, 220)))
-    into.add(Ui.label(rc.text, x + 9, y + h / 2 + f.get_size() * 0.36, f, Cyber.lerp(rc.color, Color.WHITE, 0.5)))
+    into.add(Cyber.Chamfer(x, y, w, h, 3).fill(Cyber.SURFACE_2))
+    into.add(Ui.rect(x + 1, y + 1, 2, h - 2, rc.color, rc.color))
+    into.add(Ui.label(rc.text, x + 10, y + h / 2 + f.get_size() * 0.36, f, Cyber.TEXT))
     return w
 
 

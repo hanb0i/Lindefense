@@ -56,33 +56,31 @@ TowerCatalog), so the catalog always matches the game."""
         self.tabs = _j.ArrayList()
         self.tab = CatalogScreen.Tab.ENEMIES
         self.on_close = on_close
-        self.add(Ui.rect(0, 0, Ui.W, Ui.H, Ui.c(0x02040a, 205), Ui.c(0x000000, 0)))
-        self.add(Cyber.Chamfer(20, 20, (Ui.W - 40), (Ui.H - 40), 26).fill(Color(6, 10, 24, 248)).border(Cyber.alpha(Cyber.CYAN, 160)).glow(0.8).line_width(2).ticks(True))
-        self.add(Ui.label(Cyber.spaced('// field database'), CatalogScreen.LIST_X, 50, Cyber.mono(Font.BOLD, 12), Cyber.alpha(Cyber.MAGENTA, 230)))
-        self.add(Ui.label('CATALOG', CatalogScreen.LIST_X, 98, Cyber.display(Font.BOLD, 48), Cyber.TEXT))
+        self.add(Ui.rect(0, 0, Ui.W, Ui.H, Cyber.SCRIM, Ui.c(0x000000, 0)))
+        self.add(Cyber.Chamfer(20, 20, (Ui.W - 40), (Ui.H - 40), 6).fill(Color(9, 14, 28, 250)))
+        self.add(Ui.label('CATALOG', CatalogScreen.LIST_X, 94, Cyber.display(Font.BOLD, 40), Cyber.TEXT))
         def _lam1():
             if self.detail_open:
                 self.close_detail()
             else:
                 on_close()
         back = UIButton(((Ui.W - 50) - 180), 52, 180, 46, 'BACK  [ESC]', Cyber.display(Font.BOLD, 18), _j.Fn(_lam1))
-        back.set_accent(Cyber.MAGENTA)
         self.add(back)
         _j_add(self.chrome, back)
         tx = 330.0
         for t in CatalogScreen.Tab.values():
             b = UIButton(tx, 58, 150, 40, _j.cat(t.label, ' (', len(CatalogScreen.entries(t)), ')'), Cyber.display(Font.BOLD, 16), _j.Fn(lambda t=t: self.set_tab(t)))
             b.set_accent((Cyber.YELLOW if (t is CatalogScreen.Tab.HEROES) else (Cyber.RED if (t is CatalogScreen.Tab.BOSSES) else Cyber.CYAN)))
+            b.set_flat(True)
             self.add(b)
             _j_add(self.chrome, b)
             _j_add(self.tabs, b)
             tx += 158
         self.add(self.grid_layer)
-        self.card_frame = Cyber.Chamfer(CatalogScreen.CARD_X, CatalogScreen.CARD_Y, CatalogScreen.CARD_W, CatalogScreen.CARD_H, 22).fill(Color(6, 10, 24, 240)).border(Cyber.alpha(Cyber.CYAN, 160)).glow(0.6).ticks(True)
+        self.card_frame = Cyber.Chamfer(CatalogScreen.CARD_X, CatalogScreen.CARD_Y, CatalogScreen.CARD_W, CatalogScreen.CARD_H, 6).fill(Color(11, 17, 33, 252)).border(Cyber.EDGE_HI)
         self.add(self.card_frame)
         self.add(self.card)
         self.close_detail_btn = UIButton(((CatalogScreen.CARD_X + CatalogScreen.CARD_W) - 46), (CatalogScreen.CARD_Y + 14), 32, 32, 'X', Cyber.display(Font.BOLD, 16), _j.Fn(self.close_detail))
-        self.close_detail_btn.set_accent(Cyber.MAGENTA)
         self.add(self.close_detail_btn)
         _j_add(self.chrome, self.close_detail_btn)
         self.set_tab(CatalogScreen.Tab.ENEMIES)
@@ -167,9 +165,7 @@ TowerCatalog), so the catalog always matches the game."""
             o = es[i]
             name = (o.display_name if isinstance(o, EnemyType) else o.display_name)
             b = UIButton(cx, cy, CatalogScreen.CELL_W, CatalogScreen.CELL_H, '', _j.Fn(lambda idx=idx: self.select(idx)))
-            if isinstance(o, TowerType):
-                b.set_accent(Cyber.lerp(Ui.c(o.primary_rgb), Cyber.CYAN, 0.3))
-            elif o.is_boss():
+            if (not isinstance(o, TowerType)) and o.is_boss():
                 b.set_accent(Cyber.RED)
             self.grid_layer.add(b)
             _j_add(self.grid_buttons, b)
@@ -192,9 +188,9 @@ TowerCatalog), so the catalog always matches the game."""
         tw = (tag.get_width() + 12)
         tx = (((cx + CatalogScreen.CELL_W) - 8) - tw)
         if own:
-            self.grid_layer.add(Ui.rect(tx, (cy + 8), tw, 16, Cyber.GREEN, Cyber.GREEN))
+            self.grid_layer.add(Ui.rect(tx, (cy + 8), tw, 16, Cyber.good(), Cyber.good()))
         else:
-            self.grid_layer.add(Ui.rect(tx, (cy + 8), tw, 16, Color(10, 16, 32, 230), Cyber.alpha(Cyber.MUTED, 160)))
+            self.grid_layer.add(Ui.rect(tx, (cy + 8), tw, 16, Color(255, 255, 255, 14), Color(255, 255, 255, 14)))
         tag.set_location((tx + 6), (cy + 20))
         self.grid_layer.add(tag)
     @staticmethod
@@ -224,8 +220,8 @@ TowerCatalog), so the catalog always matches the game."""
             self.y += (f.get_size() + 5)
             self.card.add(Ui.label(l, x, self.y, f, c))
     def heading(self, s):
-        self.y += 18
-        self.card.add(Ui.label(Cyber.spaced(_j.cat('// ', s)), CatalogScreen.TX, self.y, Cyber.mono(Font.BOLD, 11), Cyber.CYAN))
+        self.y += 24
+        self.card.add(Ui.label((s[0:1].upper() + s[1:]), CatalogScreen.TX, self.y, Cyber.body(Font.BOLD, 14), Cyber.MUTED))
         self.y += 2
     def rebuild_card(self):
         self.card.remove_all()
@@ -314,7 +310,7 @@ TowerCatalog), so the catalog always matches the game."""
         for i in range(len(cells)):
             cx = (x0 + (_j.imod(i, 3) * cw))
             cy = ((self.y + 6) + (_j.idiv(i, 3) * 46))
-            self.card.add(Ui.label(Cyber.spaced(cells[i][0]), cx, (cy + 12), Cyber.mono(Font.BOLD, 10), Cyber.alpha(Cyber.CYAN, 190)))
+            self.card.add(Ui.label((cells[i][0][0:1].upper() + cells[i][0][1:].lower()), cx, (cy + 12), Cyber.body(Font.PLAIN, 12), Cyber.MUTED))
             self.card.add(Ui.label(cells[i][1], cx, (cy + 34), Cyber.mono(Font.BOLD, 17), Cyber.TEXT))
         self.y += (6 + (_j.idiv((len(cells) + 2), 3) * 46))
     def tower_card(self, t):

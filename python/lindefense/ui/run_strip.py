@@ -88,19 +88,17 @@ The playfield shrinks by #height() (like the boss dock) so the strip never cover
         self.shown_rules = self.rules
         self.rule_boxes = []
         y = Ui.WORLD_Y
-        self.add(Ui.rect(0, y, Ui.WORLD_W, RunStrip.H, Color(4, 8, 20, 245), Color(4, 8, 20, 245)))
-        self.add(Ui.rect(0, ((y + RunStrip.H) - 1), Ui.WORLD_W, 1, Cyber.alpha(Cyber.CYAN, 110), Cyber.alpha(Cyber.CYAN, 110)))
-        self.add(Ui.rect(0, ((y + RunStrip.H) - 1), 160, 1, Cyber.alpha(Cyber.MAGENTA, 170), Cyber.alpha(Cyber.MAGENTA, 170)))
-        self.add(Cyber.Chamfer(6, (y + 4), RunStrip.TAG_W, 18, 5).scan(False).fill(Cyber.alpha(Cyber.CYAN, 28)).border(Cyber.alpha(Cyber.CYAN, 170)))
-        self.version_label = Ui.label('', 0, (y + 17), RunStrip.CHIP_FONT, Cyber.CYAN)
+        self.add(Ui.rect(0, y, Ui.WORLD_W, RunStrip.H, Color(6, 10, 22, 245), Color(6, 10, 22, 245)))
+        self.add(Ui.rect(0, ((y + RunStrip.H) - 1), Ui.WORLD_W, 1, Cyber.EDGE, Cyber.EDGE))
+        self.version_label = Ui.label('', 0, (y + 17), RunStrip.LABEL_FONT, Cyber.MUTED)
         self.add(self.version_label)
         self.add(self.chips)
-        self.news_tag = Cyber.Chamfer(0, (y + 4), RunStrip.NEWS_TAG_W, 18, 5).scan(False).fill(Cyber.RED).border(Cyber.lerp(Cyber.RED, Color.WHITE, 0.4))
+        self.news_tag = Cyber.Chamfer(0, (y + 4), RunStrip.NEWS_TAG_W, 18, 3).fill(Cyber.RED).border(None)
         self.news_tag_label = Ui.label('BREAKING', 0, (y + 17), RunStrip.CHIP_FONT, Color.WHITE)
         self.add(self.news_tag)
         self.add(self.news_tag_label)
         self.add(self.ticker)
-        self.quiet_label = Ui.label('', 0, (y + 17), RunStrip.CHIP_FONT, Cyber.DIM)
+        self.quiet_label = Ui.label('', 0, (y + 17), RunStrip.LABEL_FONT, Cyber.DIM)
         self.add(self.quiet_label)
         self.tip.set_visible(False)
         self.add(self.tip)
@@ -126,11 +124,11 @@ The playfield shrinks by #height() (like the boss dock) so the strip never cover
         self.chips.remove_all()
         self.chip_boxes.clear()
         y = Ui.WORLD_Y
-        Cyber.set_text(self.version_label, (_j.cat('PATCH ', v.get_version()) if v.is_enabled() else 'RUN RULES'))
-        self.version_label.set_location((6 + ((RunStrip.TAG_W - self.version_label.get_width()) / 2)), (y + 17))
+        Cyber.set_text(self.version_label, (_j.cat('Patch ', v.get_version()) if v.is_enabled() else 'Run rules'))
+        self.version_label.set_location(12, (y + 17))
         x = ((6 + RunStrip.TAG_W) + 8)
         if (len(v.get_active()) == 0) and v.is_enabled():
-            self.chips.add(Ui.label('NO PATCH NOTES YET', x, (y + 17), RunStrip.CHIP_FONT, Cyber.DIM))
+            self.chips.add(Ui.label('No patch notes yet', x, (y + 17), RunStrip.LABEL_FONT, Cyber.DIM))
             x += 130
         # Freeplay keeps drafting (a note every 20 waves): past what fits, the oldest-first row ends in "+N" instead of
         # running under the news feed and off the playfield (the pause menu and end screen list every note)
@@ -148,7 +146,7 @@ The playfield shrinks by #height() (like the boss dock) so the strip never cover
         self.rule_boxes = []
         self.shown_rules = RunSetupView.fit_chips(self.rules, RunStrip.CHIP_FONT, ((Ui.WORLD_W - RunStrip.QUIET_W) - (x + 11)))
         if self.rules and v.is_enabled():
-            self.chips.add(Ui.rect((x + 2), (y + 7), 1, 12, Cyber.alpha(Cyber.CYAN, 90), Cyber.alpha(Cyber.CYAN, 90)))
+            self.chips.add(Ui.rect((x + 2), (y + 7), 1, 12, Cyber.EDGE_HI, Cyber.EDGE_HI))
             x += 11
         for r in self.shown_rules:
             w = RunSetupView.chip(self.chips, r, x, (y + 4), 18, RunStrip.CHIP_FONT)
@@ -172,7 +170,7 @@ The playfield shrinks by #height() (like the boss dock) so the strip never cover
         self.ticker.set_visible(has)
         self.quiet_label.set_visible((not has))
         if not has:
-            Cyber.set_text(self.quiet_label, (_j.cat('NEWS FEED QUIET   //   ', PatchNotesView.seed_text(self.game)) if v.is_enabled() else PatchNotesView.seed_text(self.game)))
+            Cyber.set_text(self.quiet_label, (_j.cat('News feed quiet   ·   ', PatchNotesView.seed_text(self.game)) if v.is_enabled() else PatchNotesView.seed_text(self.game)))
             self.quiet_label.set_location((right - self.quiet_label.get_width()), (y + 17))
             self.announce_wait = (-1)
             return
@@ -181,8 +179,8 @@ The playfield shrinks by #height() (like the boss dock) so the strip never cover
         self.news_tag_label.set_location((self.news_x + ((RunStrip.NEWS_TAG_W - self.news_tag_label.get_width()) / 2)), (y + 17))
         self.flash = _j.dmax(0, (self.flash - dt))
         pulse = display_settings.calm(((0.5 + (0.5 * math.sin((self.time * 18)))) if (self.flash > 0) else (0.5 + (0.5 * math.sin((self.time * 3))))), (1.0 if (self.flash > 0) else 0.5))
-        self.news_tag.fill(Cyber.alpha(Cyber.RED, _j.to_int((150 + (105 * pulse))))).glow((1 if (self.flash > 0) else (0.3 * pulse)))
-        self.ticker.set(((self.news_x + RunStrip.NEWS_TAG_W) + 8), (y + 3), (right - ((self.news_x + RunStrip.NEWS_TAG_W) + 8)), (RunStrip.H - 6), _j.cat(n.headline(nw), '   //   ', n.flavor, '   //   ', (_j.cat('LIVE ON WAVE ', nw) if live else _j.cat('INCOMING: WAVE ', nw))), (Color.WHITE if (self.flash > 0) else Cyber.lerp(Cyber.RED, Color.WHITE, 0.55)))
+        self.news_tag.fill(Cyber.alpha(Cyber.RED, _j.to_int((150 + (105 * pulse)))))
+        self.ticker.set(((self.news_x + RunStrip.NEWS_TAG_W) + 8), (y + 3), (right - ((self.news_x + RunStrip.NEWS_TAG_W) + 8)), (RunStrip.H - 6), _j.cat(n.headline(nw), '   ·   ', n.flavor, '   ·   ', (_j.cat('LIVE ON WAVE ', nw) if live else _j.cat('INCOMING: WAVE ', nw))), (Color.WHITE if (self.flash > 0) else Cyber.lerp(Cyber.RED, Color.WHITE, 0.55)))
         self.ticker.scroll(dt)
         if (self.announce_wait >= 0) and (not v.is_draft_pending()):
             self.announce_wait += dt
@@ -238,6 +236,7 @@ RunStrip.H = 26.0
 RunStrip.CHIP_FONT = Cyber.mono(Font.BOLD, 10)
 RunStrip.TICK_FONT = Cyber.mono(Font.BOLD, 12)
 RunStrip.TAG_W = 92.0
+RunStrip.LABEL_FONT = Cyber.body(Font.PLAIN, 12)
 RunStrip.NEWS_TAG_W = 88.0
 RunStrip.NEWS_MIN_X = 640.0
 RunStrip.QUIET_W = 240.0

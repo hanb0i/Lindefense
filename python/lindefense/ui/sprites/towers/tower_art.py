@@ -112,6 +112,9 @@ the tower footprint radius (20 for normal towers). Tiers are clamped to 0-4."""
         ring2 = Flat.detail(Art.raw_poly(Art.ring(0, 0, (self.r * 1.35), (self.r * 1.25), 24), Art.alpha(Color.WHITE, 90), Art.alpha(Color.WHITE, 0)), Thick.DETAIL_DECOR)
         self.add(ring2)
         self.spinner(ring2, (-40))
+        # the one part of the superclass aura that is always drawn: a thin, still gold ring (the minimal style drops
+        # the decorative glows and spinning gear rings above)
+        Art.plain(self, Art.ring(0, 0, (self.r * 1.5), (self.r * 1.43), 40), Art.alpha(Art.GOLD, 190))
     def build_plate(self):
         pr = (self.r * (0.98 + (0.03 * self.tier)))
         plate = (Art.shade(Art.SLATE, 1.1) if (self.tier >= 4) else Art.SLATE)

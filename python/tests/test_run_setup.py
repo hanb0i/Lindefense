@@ -455,7 +455,7 @@ def test_daily_card_and_briefing(check):
     b = play[0]
     check(b.get_y() + b.h <= Ui.H and b.get_x() + b.w <= Ui.W, "it fits the 1600x1000 layout")
     labels = [l.get_label() for l in _labels(m)]
-    check("TODAY'S BEST  //  WAVE 17" in labels and DailyRun.today().label() in labels, "the card shows the date and today's best")
+    check("Today's best: wave 17" in labels and DailyRun.today().label() in labels, "the card shows the date and today's best")
     m.mouse_pressed(*_center(b))
     rs = m.get_run_setup()
     check(m.is_daily_briefing() and rs is not None and rs.is_daily(), "PLAY DAILY opens the daily briefing")
@@ -504,7 +504,7 @@ def test_hud_chips_and_end_screen(check):
     so = GameScreen(None, off)
     so.frame(0.02)
     so.frame(0.02)
-    check(so.strip.is_visible() and so.strip.version_label.get_label() == "RUN RULES" and len(so.strip.rule_boxes) == 2,
+    check(so.strip.is_visible() and so.strip.version_label.get_label() == "Run rules" and len(so.strip.rule_boxes) == 2,
           "without Patch Notes the strip still shows the rules")
     plain = Game(maps.create(0), 3)
     sp = GameScreen(None, plain)

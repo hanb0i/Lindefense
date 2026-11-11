@@ -94,6 +94,7 @@ Usage: .venv/bin/python -m lindefense.tools.design_doc_generator ../DESIGN.md   
         w.println("8. [Prompt injection and Palantir's protocols](#8-prompt-injection-and-palantirs-protocols)")
         w.println('9. [Patch Notes and Breaking News](#9-patch-notes-and-breaking-news)')
         w.println('10. [Adversarial Training (reverse mode)](#10-adversarial-training-reverse-mode)')
+        w.println('11. [Campaign mode](#11-campaign-mode)')
         w.println()
         DesignDocGenerator.global_rules(w)
         DesignDocGenerator.towers(w)
@@ -105,6 +106,40 @@ Usage: .venv/bin/python -m lindefense.tools.design_doc_generator ../DESIGN.md   
         DesignDocGenerator.injection_and_protocols(w)
         DesignDocGenerator.run_variance(w)
         DesignDocGenerator.reverse_mode(w)
+        DesignDocGenerator.campaign_mode(w)
+    @staticmethod
+    def campaign_mode(w):
+        from lindefense.sim import campaign
+        from lindefense.map import maps as _maps
+        w.println()
+        w.println('## 11. Campaign mode')
+        w.println()
+        w.println(_j.cat(len(campaign.LEVELS), ' levels (`sim/campaign.py`). Each level plays a deterministic selection of base waves (column "War waves"):'))
+        w.println("its wave n is base wave n's enemies with that base wave's HP / speed / reward scaling and end-of-wave bonus. Every level")
+        w.println('starts fresh (its own cash and integrity, nothing carried over), on O(1), without Patch Notes, Breaking News or Freeplay;')
+        w.println('it is won when its last wave is cleared (the finale: when Palantir dies). "Enemy health" is the level\'s multiplier on')
+        w.println("top of the base waves' HP scaling (bosses and Palantir included, kill rewards unchanged), from its first wave to its")
+        w.println(_j.cat('last: it keeps every starting budget small (at most $', '{:,}'.format(campaign.CASH_CAP), ', the finale $', '{:,}'.format(campaign.FINALE_CASH_CAP), ') while the late levels keep their'))
+        w.println("enemy types, mechanics and bosses; the level's income grows the build. All of a level's numbers are the `BALANCE` table.")
+        w.println('Stars by integrity left: 3 with at least 90%,')
+        w.println(_j.cat('2 with at least 50%, else 1. The first clear of a level unlocks its reward. Starter towers: ', ', '.join(t.display_name for t in campaign.STARTER), '.'))
+        w.println()
+        w.println('| # | Level | Map | Waves | War waves | Start cash | Integrity | Enemy health | Bosses | Towers | First clear unlocks |')
+        w.println('|---|---|---|---|---|---|---|---|---|---|---|')
+        for lv in campaign.LEVELS:
+            bosses = []
+            for _, t in lv.threats()['bosses']:
+                if t.display_name not in bosses:
+                    bosses.append(t.display_name)
+            w.println(_j.cat('| ', lv.index, ' | ', lv.title, ' | ', _maps.create(lv.map_index).get_name(), ' | ', lv.wave_count(), ' ', lv.kind().lower(), ' | ',
+                             lv.bases[0], '-', lv.bases[-1], ' | $', '{:,}'.format(lv.start_cash), ' | ', lv.start_lives, ' | ', lv.hp_text(), ' | ',
+                             (', '.join(bosses) if bosses else '-'), ' | ', len(lv.towers()), ' | ', (lv.reward_text() or 'campaign complete'), ' |'))
+        w.println()
+        w.println(_j.cat('The Hero Store opens after level ', campaign.heroes_level().index, ' and the $15,000 ability unlocks after level ', campaign.abilities_level().index, '.'))
+        w.println('Progress (best stars per level, unlocked towers) is saved in the prefs node `lindefense/campaign`. Campaign levels count')
+        w.println('toward the career totals and the boss / hero / career achievements, plus three campaign achievements (Fully Trained,')
+        w.println('State of the Art, Base Model); never toward the classic map records, run history or classic-run achievements.')
+        w.println('Calibration: `python -m lindefense.tools.auto_player campaign` (the balance bot limited to each level\'s towers, two seeds).')
     @staticmethod
     def injection_and_protocols(w):
         w.println()

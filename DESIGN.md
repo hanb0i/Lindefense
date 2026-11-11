@@ -19,6 +19,7 @@ without touching game logic.
 8. [Prompt injection and Palantir's protocols](#8-prompt-injection-and-palantirs-protocols)
 9. [Patch Notes and Breaking News](#9-patch-notes-and-breaking-news)
 10. [Adversarial Training (reverse mode)](#10-adversarial-training-reverse-mode)
+11. [Campaign mode](#11-campaign-mode)
 
 ## 1. Global rules
 
@@ -1100,3 +1101,39 @@ SCALE COMPUTE and leak bounties). O(N) is the neutral baseline.
 | O(N) | Competent | x1 | 100 | x1 | x1 | x1 | x1 | Efficient build, smart placement and ability micro, but it reacts to camo only once it sees some. |
 | O(N^2) | Expert | x1.1 | 125 | x0.95 | x0.95 | x1.3 | x1 | Builds detection the moment you can buy camo, saves greedily for $15,000 ability unlocks. 1.3x funding. |
 | O(N^N) | Superintelligence | x1.2 | 150 | x0.9 | x0.9 | x1.6 | x1 | Expert play without the greed (unlocks only on a wide tower base), 1.6x funding. Breaking it takes a real plan. |
+
+## 11. Campaign mode
+
+15 levels (`sim/campaign.py`). Each level plays a deterministic selection of base waves (column "War waves"):
+its wave n is base wave n's enemies with that base wave's HP / speed / reward scaling and end-of-wave bonus. Every level
+starts fresh (its own cash and integrity, nothing carried over), on O(1), without Patch Notes, Breaking News or Freeplay;
+it is won when its last wave is cleared (the finale: when Palantir dies). "Enemy health" is the level's multiplier on
+top of the base waves' HP scaling (bosses and Palantir included, kill rewards unchanged), from its first wave to its
+last: it keeps every starting budget small (at most $25,000, the finale $60,000) while the late levels keep their
+enemy types, mechanics and bosses; the level's income grows the build. All of a level's numbers are the `BALANCE` table.
+Stars by integrity left: 3 with at least 90%,
+2 with at least 50%, else 1. The first clear of a level unlocks its reward. Starter towers: Gemini, Claude, GPT.
+
+| # | Level | Map | Waves | War waves | Start cash | Integrity | Enemy health | Bosses | Towers | First clear unlocks |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | Hello, World | The Silicon Circuit | 10 skirmish | 1-12 | $650 | 150 | 100% | - | 3 | Perplexity |
+| 2 | Garbage Collection | Abandoned Data Center | 18 battle | 4-21 | $750 | 150 | 100% | - | 4 | Mistral |
+| 3 | Legacy Code | The Legacy Monolith | 12 skirmish | 18-29 | $4,000 | 150 | 100% | - | 5 | DeepSeek |
+| 4 | Campus Tour | Silicon Valley | 24 siege | 17-40 | $5,000 | 100 | 100% | Bellarmine College Prep | 6 | Suno |
+| 5 | Hallucinations | The Hallucination Canyon | 8 skirmish | 41-52 | $8,000 | 100 | 20-30% | Bellarmine College Prep | 7 | Qwen |
+| 6 | Backpropagation | The Neural Network | 21 siege | 36-56 | $10,000 | 100 | 35-55% | Bellarmine College Prep | 8 | Copilot + Hero Store |
+| 7 | Outsourced | The Silicon Circuit | 14 battle | 47-60 | $12,000 | 100 | 20-30% | Bellarmine College Prep, SW Resource Consultant | 9 | Cohere, DALL·E |
+| 8 | Technical Debt | Abandoned Data Center | 30 siege | 41-70 | $8,000 | 100 | 100% | Bellarmine College Prep, SW Resource Consultant | 11 | Grok |
+| 9 | Event Horizon | The Singularity Core | 10 skirmish | 48-66 | $14,000 | 100 | 15-30% | Bellarmine College Prep, SW Resource Consultant | 12 | Sora |
+| 10 | Network Effect | The Legacy Monolith | 16 battle | 65-80 | $16,000 | 100 | 25-75% | Bellarmine College Prep, SW Resource Consultant, 3Com | 13 | GLM + $15,000 abilities |
+| 11 | Mass Hallucination | The Hallucination Canyon | 25 siege | 58-83 | $18,000 | 100 | 10-45% | Bellarmine College Prep, SW Resource Consultant | 14 | Llama |
+| 12 | Stealth Mode | Silicon Valley | 12 skirmish | 79-90 | $20,000 | 100 | 17-45% | 3Com, Bellarmine College Prep, SW Resource Consultant, Lockheed Martin | 15 | Kimi |
+| 13 | Deep Learning | The Neural Network | 28 siege | 67-94 | $22,000 | 100 | 12-45% | SW Resource Consultant, Bellarmine College Prep, 3Com, Lockheed Martin | 16 | MiniMax |
+| 14 | Singularity | The Singularity Core | 9 skirmish | 90-99 | $25,000 | 100 | 5-12% | Lockheed Martin, Bellarmine College Prep, SW Resource Consultant | 17 | Zethos |
+| 15 | The Last Line of Code | The Silicon Circuit | 22 siege | 79-100 | $60,000 | 100 | 10-26% | 3Com, Bellarmine College Prep, SW Resource Consultant, Lockheed Martin, Palantir | 18 | campaign complete |
+
+The Hero Store opens after level 6 and the $15,000 ability unlocks after level 10.
+Progress (best stars per level, unlocked towers) is saved in the prefs node `lindefense/campaign`. Campaign levels count
+toward the career totals and the boss / hero / career achievements, plus three campaign achievements (Fully Trained,
+State of the Art, Base Model); never toward the classic map records, run history or classic-run achievements.
+Calibration: `python -m lindefense.tools.auto_player campaign` (the balance bot limited to each level's towers, two seeds).

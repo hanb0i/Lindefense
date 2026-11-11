@@ -109,7 +109,7 @@ the warnings spelled out and the wave note."""
 
     # ------------------------------------------------------------------ state
     def show(self, preview, threats, label, min_left=0.0):
-        """Shows a preview (None hides the block); label is the micro heading ("next // wave 41"). The block is kept
+        """Shows a preview (None hides the block); label is the small heading ("Next: wave 41"). The block is kept
 right of min_left: when the full block would cross it, modifier tags get shorter, then are left to the coloured marks
 under the counts, and fewer enemy groups are listed (the hover card always has everything). Returns the block's left x."""
         self.preview = preview
@@ -128,7 +128,7 @@ under the counts, and fewer enemy groups are listed (the hover card always has e
         self.time += dt
         a = display_settings.calm(0.5 + 0.5 * math.sin(self.time * 5), 1.0)   # reduced motion: steady warning frames
         for f, col in self.warn_frames:
-            f.border(Cyber.lerp(Cyber.alpha(col, 150), col, a)).glow(0.25 + 0.6 * a)
+            f.border(Cyber.lerp(Cyber.alpha(col, 60), Cyber.alpha(col, 220), a))
         hover = self.preview is not None and self.is_over(mx, my)
         if hover:
             key = (self.block_key, )
@@ -153,8 +153,9 @@ under the counts, and fewer enemy groups are listed (the hover card always has e
             self.left = self.right
             return
         by = self.top
-        micro_f = Cyber.mono(Font.BOLD, 9)
-        # row 1: warnings, modifier tags, NEXT // WAVE n, FORECAST / NEWS
+        micro_f = Cyber.body(Font.PLAIN, 12)
+        tag_f = Cyber.body(Font.BOLD, 11)
+        # row 1: warnings, modifier tags, "Next: wave n", Forecast / News
         row1 = []
         for th in self.threats:
             if th.kind is Threat.BOSS:
@@ -165,12 +166,12 @@ under the counts, and fewer enemy groups are listed (the hover card always has e
             if (c > 0) and (tags > 0):
                 row1.append(('tag', m, c))
         x = self.right
-        heads = []   # left to right, ending at the right edge with the NEXT // WAVE n heading
+        heads = []   # left to right, ending at the right edge with the "Next: wave n" heading
         if pv.news is not None:
-            heads.append(Ui.label(_j.cat('NEWS: ', pv.news.title.upper()), 0, by + 18, micro_f, Cyber.MAGENTA))
+            heads.append(Ui.label(_j.cat('News: ', pv.news.title), 0, by + 18, micro_f, Cyber.MAGENTA))
         if pv.forecast:
-            heads.append(Ui.label('FORECAST', 0, by + 18, micro_f, Cyber.YELLOW))
-        heads.append(Ui.label(Cyber.spaced(self.label), 0, by + 18, micro_f, Cyber.alpha(Cyber.CYAN, 200)))
+            heads.append(Ui.label('Forecast', 0, by + 18, micro_f, Cyber.YELLOW))
+        heads.append(Ui.label(self.label, 0, by + 18, micro_f, Cyber.MUTED))
         widths = sum(l.get_width() for l in heads) + 10 * (len(heads) - 1)
         hx = x - widths
         for l in heads:
@@ -183,14 +184,14 @@ under the counts, and fewer enemy groups are listed (the hover card always has e
         for it in row1:
             if it[0] == 'tag':
                 m, c = it[1], it[2]
-                l = Ui.label(_j.cat((MODIFIER_TAGS[m] if (tags > 1) else MODIFIER_SHORT_TAGS[m]), ' ', c), 0, by + 18, micro_f, modifier_color(m))
+                l = Ui.label(_j.cat((MODIFIER_TAGS[m] if (tags > 1) else MODIFIER_SHORT_TAGS[m]), ' ', c), 0, by + 18, tag_f, modifier_color(m))
                 items.append((l, None, l.get_width(), 10))
             else:
                 th = it[1]
                 col = Cyber.YELLOW
-                l = Ui.label(_j.cat('! ', th.chip), 0, by + 17, Cyber.mono(Font.BOLD, 9), col)
+                l = Ui.label(_j.cat('! ', th.chip), 0, by + 17, tag_f, col)
                 w = l.get_width() + 14
-                f = Cyber.Chamfer(0, by + 5, w, 16, 4).scan(False).fill(Cyber.alpha(col, 34)).border(col)
+                f = Cyber.Chamfer(0, by + 5, w, 17, 3).fill(Cyber.alpha(col, 26)).border(Cyber.alpha(col, 220))
                 items.append((l, f, w, 8))
                 self.warn_frames.append((f, col))
         for l, f, w, gap in reversed(items):
@@ -240,7 +241,7 @@ under the counts, and fewer enemy groups are listed (the hover card always has e
             bl = Ui.label(boss.chip, 0, by + 39, Cyber.mono(Font.BOLD, 11), Cyber.RED)
             bw = bl.get_width() + 16
             x -= bw - 6
-            self.block.add(Cyber.Chamfer(x, by + 25, bw, 20, 5).scan(False).fill(Cyber.alpha(Cyber.RED, 50)).border(Cyber.RED))
+            self.block.add(Cyber.Chamfer(x, by + 25, bw, 20, 3).fill(Cyber.alpha(Cyber.RED, 40)).border(Cyber.alpha(Cyber.RED, 200)))
             bl.set_location(x + 8, by + 39)
             self.block.add(bl)
         self.left = min(left1, x)
@@ -259,16 +260,16 @@ under the counts, and fewer enemy groups are listed (the hover card always has e
         y = 24.0
         boss_wave = bool(pv.bosses)
         accent = Cyber.RED if boss_wave else Cyber.CYAN
-        content.add(Ui.label(Cyber.spaced(_j.cat(self.label.split(' // ')[0], ' wave')), pad, y - 8, Cyber.mono(Font.BOLD, 9), Cyber.alpha(accent, 220)))
+        content.add(Ui.label(_j.cat(self.label.split(':')[0], ' wave'), pad, y - 8, Cyber.body(Font.PLAIN, 12), Cyber.MUTED))
         y += 14
         content.add(Ui.label(_j.cat('WAVE ', pv.number), pad, y, Cyber.display(Font.BOLD, 20), Cyber.TEXT))
-        tot = Ui.label(_j.cat(pv.total, ' UNITS', ('  //  FORECAST' if pv.forecast else '')), 0, y - 2,
-                       Cyber.mono(Font.BOLD, 12), (Cyber.YELLOW if pv.forecast else Cyber.MUTED))
+        tot = Ui.label(_j.cat(pv.total, ' units', ('  ·  forecast' if pv.forecast else '')), 0, y - 2,
+                       Cyber.body(Font.PLAIN, 13), (Cyber.YELLOW if pv.forecast else Cyber.MUTED))
         tot.set_location(W - pad - tot.get_width(), y - 2)
         content.add(tot)
         y += 10
         ln = GLine(pad, y + 0.5, W - pad, y + 0.5)
-        ln.set_color(Cyber.alpha(accent, 90))
+        ln.set_color(Cyber.alpha(accent, 110) if boss_wave else Cyber.EDGE)
         content.add(ln)
         y += 4
         for gr in pv.groups:
@@ -290,7 +291,7 @@ under the counts, and fewer enemy groups are listed (the hover card always has e
             for m in reversed(gr.modifiers()):
                 c = gr.mods[m]
                 txt = _j.cat(MODIFIER_TAGS[m] if m is not Modifier.INJECTION else 'INJECT', (_j.cat(' ', c) if c != gr.count else ''))
-                tl = Ui.label(txt, 0, cy + 4, Cyber.mono(Font.BOLD, 9), modifier_color(m))
+                tl = Ui.label(txt, 0, cy + 4, Cyber.body(Font.BOLD, 11), modifier_color(m))
                 tx -= tl.get_width()
                 tl.set_location(tx, cy + 4)
                 content.add(tl)
@@ -301,7 +302,7 @@ under the counts, and fewer enemy groups are listed (the hover card always has e
             text = boss_abilities.describe(gr.type) if gr.type.is_boss() else ''
             if text:
                 head, _, body_text = text.partition(': ')
-                lines.append((_j.cat(gr.type.display_name.upper(), '  //  ', head), body_text or text, Cyber.RED))
+                lines.append((_j.cat(gr.type.display_name.upper(), ':  ', head), body_text or text, Cyber.RED))
         for th in self.threats:
             if th.kind is Threat.BOSS:
                 continue
@@ -315,13 +316,13 @@ under the counts, and fewer enemy groups are listed (the hover card always has e
             lines.append(('NOTE', pv.note, Cyber.MUTED))
         for head, text, col in lines:
             y += 8
-            content.add(Ui.label(head, pad, y + 9, Cyber.mono(Font.BOLD, 10), col))
+            content.add(Ui.label(head, pad, y + 9, Cyber.body(Font.BOLD, 12), col))
             y += 12
             for l in Ui.wrap(text, body, tw)[:4]:
                 y += 15
                 content.add(Ui.label(l, pad, y, body, (Cyber.TEXT if col is not Cyber.MUTED else Cyber.MUTED)))
         h = y + 14
-        frame = Cyber.Chamfer(0, 0, W, h, 10).fill(Color(5, 9, 22, 245)).border(accent).glow(0.8).scan(False)
+        frame = Cyber.Chamfer(0, 0, W, h, 4).fill(Color(9, 14, 28, 250)).border(Cyber.EDGE_HI)
         self.card.add(frame)
         self.card.add(content)
         self.card.set_location(self.right - W, self.card_bottom - h)

@@ -37,12 +37,13 @@ Not used in normal play."""
         # the walkthrough keeps its records and saved run to itself: nothing it plays reaches the player's RECORDS or
         # CONTINUE (records in memory, the save slot in the output folder; the menu is rebuilt without a CONTINUE)
         Records._shared = Records.in_memory()
+        CampaignProgress._shared = CampaignProgress.in_memory()   # campaign stars / BOOT CAMP stay with the walkthrough
         savegame._default = savegame.SaveSlot(_j.File(self.out, 'demo_run_save.bin').get_path())
         savegame.slot().delete()
         if app.get_menu() is not None:
             app.show_menu()
-        times = ([0.0] * 49)
-        sched = [[0, 2.6], [1, 2.8], [2, 3.8], [3, 4.0], [4, 10.0], [5, 11.5], [6, 13.0], [7, 13.5], [8, 15.0], [9, 15.5], [10, 17.0], [11, 19.5], [12, 31.6], [13, 10.2], [14, 10.4], [15, 0.5], [16, 1.6], [17, 1.9], [18, 2.2], [19, 2.5], [20, 10.5], [21, 10.7], [22, 10.9], [23, 11.1], [24, 11.3], [25, 19.7], [26, 20.0], [27, 20.1], [28, 20.4], [29, 20.7], [30, 20.8], [31, 23.4], [32, 23.6], [33, 23.7], [34, 25.8], [35, 11.35], [36, 26.0], [37, 26.2], [38, 26.5], [39, 26.9], [40, 27.3], [41, 27.6], [42, 27.9], [43, 28.3], [44, 28.7], [45, 29.1], [46, 29.6], [47, 31.0], [48, 23.5]]
+        times = ([0.0] * 51)
+        sched = [[0, 2.6], [1, 2.8], [2, 3.8], [3, 4.0], [4, 10.0], [5, 11.5], [6, 13.0], [7, 13.5], [8, 15.0], [9, 15.5], [10, 17.0], [11, 19.5], [12, 32.0], [13, 10.2], [14, 10.4], [15, 0.5], [16, 1.6], [17, 1.9], [18, 2.2], [19, 2.5], [20, 10.5], [21, 10.7], [22, 10.9], [23, 11.1], [24, 11.3], [25, 19.7], [26, 20.0], [27, 20.1], [28, 20.4], [29, 20.7], [30, 20.8], [31, 23.4], [32, 23.6], [33, 23.7], [34, 25.8], [35, 11.35], [36, 26.0], [37, 26.2], [38, 26.5], [39, 26.9], [40, 27.3], [41, 27.6], [42, 27.9], [43, 28.3], [44, 28.7], [45, 29.1], [46, 29.6], [47, 31.0], [48, 23.5], [49, 31.3], [50, 31.6]]
         for sc in sched:
             times[_j.to_int(sc[0])] = sc[1]
         for i in range(len(times)):
@@ -64,20 +65,20 @@ Not used in normal play."""
         if _sw1 == 0:
             self.snap('01_menu')
         elif _sw1 == 1:
-            self.click_logical(*self.menu_button_point('PLAY', 513))
+            self.click_logical(*self.menu_button_point('CLASSIC', 571))
         elif _sw1 == 2:
             self.snap('02_mapselect')
             for k in range(3):
                 self.press_key(KeyEvent.VK_ESCAPE)
             on_menu = ((self.app.get_menu() is not None) and (self.app.get_map_select() is None))
-            self.click_logical(*self.menu_button_point('PLAY', 513))
+            self.click_logical(*self.menu_button_point('CLASSIC', 571))
             reopened = ((self.app.get_map_select() is not None) and (self.app.get_menu() is None))
-            _j_add(self.results, _j.cat(('PASS' if (on_menu and reopened) else 'FAIL'), ' Esc to the menu keeps its buttons working (menu ', on_menu, ', PLAY reopened map select ', reopened, ')'))
+            _j_add(self.results, _j.cat(('PASS' if (on_menu and reopened) else 'FAIL'), ' Esc to the menu keeps its buttons working (menu ', on_menu, ', CLASSIC reopened map select ', reopened, ')'))
             self.click_logical(90, 49)
             on_menu2 = ((self.app.get_menu() is not None) and (self.app.get_map_select() is None))
-            self.click_logical(*self.menu_button_point('PLAY', 513))
+            self.click_logical(*self.menu_button_point('CLASSIC', 571))
             reopened2 = ((self.app.get_map_select() is not None) and (self.app.get_menu() is None))
-            _j_add(self.results, _j.cat(('PASS' if (on_menu2 and reopened2) else 'FAIL'), ' BACK button click to the menu keeps its buttons working (menu ', on_menu2, ', PLAY reopened map select ', reopened2, ')'))
+            _j_add(self.results, _j.cat(('PASS' if (on_menu2 and reopened2) else 'FAIL'), ' BACK button click to the menu keeps its buttons working (menu ', on_menu2, ', CLASSIC reopened map select ', reopened2, ')'))
             pass  # break
         elif _sw1 == 3:
             dc = MapSelectScreen.deploy_center(0)
@@ -355,6 +356,10 @@ Not used in normal play."""
             self.end_report_flow()
         elif _sw1 == 48:
             self.victory_report_flow()
+        elif _sw1 == 49:
+            self.campaign_flow()
+        elif _sw1 == 50:
+            self.tutorial_flow()
         elif _sw1 == 12:
             for r in self.results:
                 print(_j.s(r))
@@ -594,12 +599,12 @@ explains itself in the hint line, Esc closes the panel."""
         self.press_key(KeyEvent.VK_ESCAPE)
         self.check((not m.settings_shown), 'Esc closes SETTINGS')
     def daily_and_seed_flow(self):
-        """PLAY -> the DAILY RUN card's briefing (locked seed and rule) -> Esc; a map's briefing: click the SEED field,
+        """CLASSIC -> the DAILY RUN card's briefing (locked seed and rule) -> Esc; a map's briefing: click the SEED field,
 type a run code (M types a letter instead of toggling music), switch NO SELLING on, Enter deploys that seed and rule."""
-        self.click_logical(*self.menu_button_point('PLAY', 513))
+        self.click_logical(*self.menu_button_point('CLASSIC', 571))
         ms = self.app.get_map_select()
         if ms is None:
-            self.check(False, 'PLAY opens map select')
+            self.check(False, 'CLASSIC opens map select')
             return
         daily_btn = None
         for b in ms.buttons:
@@ -701,7 +706,8 @@ map select -> Esc -> the main menu offers CONTINUE -> it restores the run exactl
         if not lost:
             return
         self.press_key(KeyEvent.VK_TAB)
-        report = ((gs.end_page == 1) and any(t.startswith('TOP TOWERS') for t in DemoDriver.labels_in(gs.overlay)))
+        # the REPORT page's tower table ("Top towers by damage" since the minimalist restyle's sentence-case headings)
+        report = ((gs.end_page == 1) and any(t.lower().startswith('top towers') for t in DemoDriver.labels_in(gs.overlay)))
         self.snap('16_end_report')
         summary_tab = self.overlay_button('SUMMARY')
         if summary_tab is not None:
@@ -718,6 +724,119 @@ map select -> Esc -> the main menu offers CONTINUE -> it restores the run exactl
         report = ((gs is not None) and (gs.end_page == 1))
         self.press_key(KeyEvent.VK_TAB)
         self.check(((epilogue and offered) and report), _j.cat('victory: the epilogue, Esc to the stats with CONTINUE - FREEPLAY, Tab to the REPORT (epilogue ', epilogue, ', freeplay ', offered, ', report ', report, ')'))
+    def campaign_flow(self):
+        """CAMPAIGN through the real UI: from the defeat panel's MAIN MENU to the level path; a click on level 1 opens its
+briefing; START plays the level (its own waves, cash and starter towers, no Patch Notes); a locked tower and the
+Hero Store are refused; QUIT LEVEL after building saves the level and returns to the campaign; CONTINUE names and
+restores the level."""
+        b = self.overlay_button('MAIN MENU')
+        if b is not None:
+            self.click_logical(*self.center_of(b))
+        on_menu = (self.app.get_menu() is not None)
+        self.click_logical(*self.menu_button_point('CAMPAIGN', 513))
+        cs = self.app.get_map_select()
+        opened = isinstance(cs, CampaignScreen)
+        self.check((on_menu and opened), _j.cat('MAIN MENU on the end panel, then CAMPAIGN opens the level path (menu ', on_menu, ', campaign ', opened, ')'))
+        if not opened:
+            return
+        cs.frame(0.05)
+        self.snap('17_campaign')
+        x, y, w, h = campaign_slot_rect(1)
+        self.click_logical((x + (w / 2)), (y + (h / 2)))
+        brief = (cs.is_briefing_open() and (cs.get_briefing_level() is campaign.level(1)))
+        cs.frame(0.05)
+        self.snap('17b_campaign_briefing')
+        go = next((b for b in cs.briefing_buttons if (b.get_text() == 'START')), None)
+        if go is not None:
+            self.click_logical(*self.center_of(go))
+        g = self.app.get_game()
+        c = (None if (g is None) else g.get_campaign())
+        lv = campaign.level(1)
+        started = ((c is not None) and (c.level_id == lv.id) and (g.get_wave_count() == lv.wave_count()) and (g.get_cash() == lv.start_cash) and (not g.get_variance().is_enabled()))
+        self.check((brief and started), _j.cat('a click on level 1 opens its briefing and START plays it (briefing ', brief, ', level ', (c.level_id if (c is not None) else None), ')'))
+        if not started:
+            return
+        self.app.autosave = savegame.Autosave(g)   # the walkthrough's own slot (see __init__)
+        gs = self.app.get_game_screen()
+        gs.begin_placing(TowerType.ZETHOS)
+        self.press_key(KeyEvent.VK_K)
+        refused = ((gs.get_placing() is None) and (not gs.is_hero_store_open()))
+        self.place_via_click(TowerType.GPT, Vec(380, 300))
+        built = (len(g.get_tower_manager().get_player_towers()) == 1)
+        gs.frame(0.05)
+        self.snap('17c_campaign_level')
+        self.check((refused and built), _j.cat('level 1 refuses a locked tower and the Hero Store, builds a starter (refused ', refused, ', built ', built, ')'))
+        for k in range(3):
+            if gs.is_menu_open():
+                break
+            self.press_key(KeyEvent.VK_ESCAPE)
+        q = self.overlay_button('QUIT LEVEL')
+        if q is not None:
+            self.click_logical(*self.center_of(q))
+        self.press_key(KeyEvent.VK_ENTER)
+        info = savegame.slot().peek()
+        back = isinstance(self.app.get_map_select(), CampaignScreen)
+        self.check((back and (info is not None) and info.label().startswith('Level 1: Hello, World')), _j.cat('QUIT LEVEL saves the level and returns to the campaign (', (info.label() if (info is not None) else None), ')'))
+        self.press_key(KeyEvent.VK_ESCAPE)
+        m = self.app.get_menu()
+        cont = (m.continue_button if (m is not None) else None)
+        if cont is not None:
+            self.click_logical(*self.center_of(cont))
+        h = self.app.get_game()
+        restored = ((h is not None) and (h is not g) and (h.get_campaign() is not None) and (h.get_campaign().level_id == lv.id) and (len(h.get_tower_manager().get_player_towers()) == 1))
+        self.check(restored, 'CONTINUE restores the campaign level with its tower')
+        if restored:
+            self.app.get_game_screen().frame(0.05)
+            self.snap('17d_campaign_continued')
+            self.app.quit_level()
+        savegame.slot().delete()
+    def tutorial_flow(self):
+        """The tutorial's first steps from the campaign's BOOT CAMP node: the welcome card, NEXT, the build step's
+spotlight (shop card, then the suggested spot) places the first tower and moves on to START WAVE; QUIT LEVEL goes back
+to the campaign and nothing is saved."""
+        cs = self.app.get_map_select()
+        if not isinstance(cs, CampaignScreen):
+            self.check(False, 'the campaign screen is showing for BOOT CAMP')
+            return
+        x, y, w, h = campaign_slot_rect(0)
+        self.click_logical((x + (w / 2)), (y + (h / 2)))
+        gs = self.app.get_game_screen()
+        guide = (None if (gs is None) else gs.tutorial)
+        if guide is None:
+            self.check(False, 'BOOT CAMP starts the tutorial')
+            return
+        sc = guide.get_script()
+        gs.frame(0.05)
+        welcome = (guide.is_shown() and (sc.current().key == 'welcome') and (guide.get_card_rect() is not None))
+        self.snap('18_tutorial_welcome')
+        nxt = next((b for b in guide.get_buttons() if (b.get_text() == 'NEXT')), None)
+        if nxt is not None:
+            self.click_logical(*self.center_of(nxt))
+        gs.frame(0.05)
+        build = ((sc.current().key == 'build') and (guide.get_target_rect() is not None))
+        self.snap('18b_tutorial_build')
+        for k in range(4):
+            if sc.current().key != 'build':
+                break
+            r = guide.resolve(sc.target())
+            if r is not None:
+                self.click_logical((r[0] + (r[2] / 2.0)), (r[1] + (r[3] / 2.0)))
+            gs.frame(0.05)
+        g = gs.get_game()
+        placed = ((sc.current().key == 'start1') and (len(g.get_tower_manager().get_player_towers()) == 1))
+        self.snap('18c_tutorial_built')
+        self.check(((welcome and build) and placed), _j.cat('tutorial: welcome card, NEXT, the spotlit build step places a tower (welcome ', welcome, ', build ', build, ', now ', sc.current().key, ')'))
+        for k in range(3):
+            if gs.is_menu_open():
+                break
+            self.press_key(KeyEvent.VK_ESCAPE)
+        q = self.overlay_button('QUIT LEVEL')
+        if q is not None:
+            self.click_logical(*self.center_of(q))
+        lost = any(('Progress will be lost' in t) for t in DemoDriver.labels_in(gs.overlay))
+        self.press_key(KeyEvent.VK_ENTER)
+        back = isinstance(self.app.get_map_select(), CampaignScreen)
+        self.check(((lost and back) and (not savegame.slot().exists())), _j.cat('tutorial QUIT LEVEL warns, returns to the campaign and saves nothing (warned ', lost, ', campaign ', back, ')'))
     @staticmethod
     def labels_in(c, out=None):
         """Every text label under compound c."""
@@ -790,3 +909,6 @@ from lindefense.ui.map_select_screen import MapSelectScreen  # noqa: E402
 from lindefense.ui.shop_layout import ShopLayout  # noqa: E402
 from lindefense.ui.slider import Slider  # noqa: E402
 from lindefense.ui.ui import Ui  # noqa: E402
+from lindefense.sim import campaign  # noqa: E402
+from lindefense.sim.campaign import CampaignProgress  # noqa: E402
+from lindefense.ui.campaign_screen import CampaignScreen, slot_rect as campaign_slot_rect  # noqa: E402

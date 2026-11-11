@@ -13,8 +13,8 @@ from lindefense.ui.acm import *  # noqa: F401,F403
 class Art:
     """Cartoon drawing helpers shared by every tower, projectile and effect sprite.
 
-The ACM library has no stroke width, so the thick dark outline of the
-Bloons-style look is produced by drawing an "ink" copy of each shape that is
+The ACM library has no stroke width, so the thin dark outline of the
+cartoon look is produced by drawing an "ink" copy of each shape that is
 #OUT logical pixels larger, then the coloured fill on top. Helpers
 that take a GCompound add both pieces to it and return the fill
 object so callers can mutate it later.
@@ -351,7 +351,7 @@ from lindefense.ui.sprites.thick import Thick  # noqa: E402
 from lindefense.ui.sprites.towers.flat import Flat  # noqa: E402
 
 Art.INK = Color(0x1d1430)
-Art.OUT = 2.2
+Art.OUT = 1.5
 Art.GOLD = Color(0xffd34d)
 Art.GOLD_DARK = Color(0xd29a12)
 Art.GOLD_LIGHT = Color(0xfff1a8)

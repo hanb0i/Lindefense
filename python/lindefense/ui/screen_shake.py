@@ -46,5 +46,5 @@ preset."""
 from lindefense.ui import display_settings  # noqa: E402
 from lindefense.ui.graphics_settings import GraphicsSettings  # noqa: E402
 
-ScreenShake.MAX_OFFSET = 7.0
+ScreenShake.MAX_OFFSET = 4.5
 ScreenShake.DECAY = 1.8

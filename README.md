@@ -1,6 +1,6 @@
 # Lindefense - The Last Line of Code
 
-**Version: beta 4.0**
+**Version: beta 4.1**
 
 ![Lindefense title card](docs/titlecard.png)
 
@@ -11,10 +11,27 @@ teacher himself, **Mr. Lindemann**) across seven maps, against 100 waves of comp
 structures, sorting algorithms and four corporate MOAB-class bosses, each with a signature ability - ending with the
 BAD-class final boss **Palantir** on Wave 100. Beat it and the run can go on in endless **Freeplay**.
 
+**CAMPAIGN** (the first button on the main menu) is the way in: 15 levels of 8 to 30 waves across all seven maps, each a
+slice of the war with its own starting cash. You start with three towers and unlock one or two more after every level
+until the finale, where all 18 face Palantir. **CLASSIC** is the full 100-wave game on any map with every tower.
+
 Every shop tower has an overpowered ability you can unlock for $15,000 once it is fully upgraded. Runs autosave
-(**CONTINUE** on the main menu), and your records, career stats, run history and 29 achievements are kept between
+(**CONTINUE** on the main menu), and your records, career stats, run history and 32 achievements are kept between
 sessions. There is a **Daily Run**, seed entry and five challenge rules, four Difficulty Growth modes, a reverse mode
 where you attack an AI defender, a guided **Tutorial** and a **Catalog** of every enemy, tower and hero.
+
+## What's new in beta 4.1
+
+- **Campaign mode** (the first button on the main menu): 15 levels of 8 to 30 waves across all seven maps instead of
+  one 100-wave run. You start with Gemini, Claude and GPT and unlock one or two towers after every level (the Hero Store
+  after level 6, $15,000 abilities after level 10), earn up to 3 stars per level, and face Palantir in the finale.
+  The full 100-wave game is still there as **CLASSIC**.
+- **A new tutorial** (BOOT CAMP): seven short waves, one idea each - building, upgrades, splitters, Lead, camo, the
+  tactical pause, heroes and a boss - with the part of the screen being taught highlighted and tips the first time
+  something happens. SKIP is always available.
+- **A cleaner, more minimalist look**: flat panels and buttons, a quiet main menu, calmer maps without filler
+  decoration, a flat track, thinner outlines and lighter effects. Every gameplay signal is still shown.
+- Fixes: deploying a hero ends its placement, long boss names fit the side panel, clearer campaign lock messages.
 
 ## What's new in beta 4.0
 
@@ -100,6 +117,8 @@ on macOS, `%APPDATA%\Lindefense` on Windows and `~/.config/lindefense` on Linux.
 | Left-click an enemy | Inspect it (HP, speed, mechanic, modifiers) |
 | Right-click | Cancel placement or ability aiming, or deselect |
 | `Esc` | In game it cancels the innermost thing first: HELP, a confirmation (= NO), the pause menu, the Hero Store, ability aiming, a tower placement, the selection; with none of them it opens the pause menu. Closing the pause menu with `Esc` returns to how the game was (running, or the tactical pause). On the map screen it closes the briefing popup, or goes back to the main menu; on the main menu it closes HELP / SETTINGS |
+| **CAMPAIGN** (main menu) | The level path: **BOOT CAMP** (the tutorial) and the 15 levels, each with its state, best stars, map, wave count and reward. Click a level you can play for its briefing (map, waves, starting cash, threats, the towers you have, the reward); **START** or `Enter` plays it, **BACK** / `Esc` closes it; `Enter` on the path briefs the next level; `Esc` goes back to the menu |
+| **CLASSIC** (main menu) | The map select screen below: the 100-wave game on any map with every tower, the daily run, seeds and challenge rules |
 | **DEPLOY** on a map card | Opens the mission briefing: large map preview, description, map mechanics and your Difficulty Growth mode, and the RUN SETUP band (seed, Patch Notes, challenge rules). Its **DEPLOY** (or `Enter`) starts the match; **BACK** / `Esc` closes it |
 | **PLAY DAILY** on the DAILY RUN card | Opens today's daily run briefing; **START DAILY** (or `Enter`) starts it |
 | SEED field in the briefing | Click it, then type or paste (`Cmd+V` / `Ctrl+V`) a run code; `Backspace` deletes, `Enter` deploys, `Esc` or a click elsewhere leaves the field (while it is active `M` / `N` type letters) |
@@ -184,7 +203,7 @@ on macOS, `%APPDATA%\Lindefense` on Windows and `~/.config/lindefense` on Linux.
   unlocked abilities' cooldowns, and Palantir **grabs the game window**, shrinking it to 72%; while the window stays
   under 85% of its size Palantir is **sealed**: it takes 30% damage and regenerates, so drag the window back).
   The window grab only resizes and moves your window inside the screen, never goes full screen, restores the window
-  afterwards, and is off in SETTINGS > DISPLAY > WINDOW EFFECTS. Destroying Palantir wins the campaign.
+  afterwards, and is off in SETTINGS > DISPLAY > WINDOW EFFECTS. Destroying Palantir wins a classic run.
   The first victory of a run plays a short **epilogue and credits** (click or Esc skips it).
 - **Freeplay**: the victory screen offers **CONTINUE - FREEPLAY**. The board, cash, lives and towers carry over and
   endless waves follow from wave 101, generated from the run seed (the same seed always brings the same waves). Enemy
@@ -202,6 +221,14 @@ on macOS, `%APPDATA%\Lindefense` on Windows and `~/.config/lindefense` on Linux.
   wave (GPU shortage, Viral meme: all Camo, DDoS: faster enemies, Bug bounty, Server outage: one lane closed, ...).
   Every run has a short seed code (pause menu and end screen); **REPLAY SEED** on the end screen replays it, and
   the SEED field in the mission briefing (or `LINDEFENSE_SEED=CODE`) picks one. The tutorial plays without Patch Notes or news.
+- **Tutorial** (main menu): seven short waves on The Silicon Circuit, one idea each - build and start a wave,
+  upgrade (reading the upgrade preview) and targeting, splitters, Lead, Camo, the tactical pause, then heroes and a
+  small boss. It is learnt by doing: a spotlight dims everything but the button or panel being taught, a step moves on
+  when you do the thing (NEXT on info cards, SKIP TUTORIAL at any time), credits are topped up whenever a step needs
+  them, and one-off tips explain your first leak, camo slipping past, credits piling up, the first boss ability and the
+  first selected tower. About 5-8 minutes; it is never saved or recorded, and heroes bought there are practice unlocks. The
+  campaign's **BOOT CAMP** card starts it too and shows it done once finished; the completion card offers **START
+  CAMPAIGN**.
 - **Run setup** (the RUN SETUP band at the bottom of the mission briefing):
   - **SEED**: click it, then type or paste (Cmd+V) a run code to play that exact run (same drafts, news and elites);
     leave it blank for a random seed. A code that is not valid is refused with the reason under the field.
@@ -213,6 +240,55 @@ on macOS, `%APPDATA%\Lindefense` on Windows and `~/.config/lindefense` on Linux.
 - **Daily run** (the DAILY RUN card on the map screen): one run a day, the same for everyone on that date: the seed,
   map, Difficulty Growth mode (O(N) or O(N²)) and one challenge rule come from the date, and Patch Notes are always on.
   Your best wave of the day is kept.
+
+### Campaign
+
+**CAMPAIGN** on the main menu opens the level path. Each level replays a slice of the 100-wave war, compressed into its own
+wave list: its waves are chosen base waves (the briefing's "war waves") with their enemies and their HP, speed and reward
+scaling, so the late levels bring the late enemy types, mechanics and bosses. Every level starts fresh with a small budget
+(at most $25,000, the finale $60,000) and its own integrity; nothing carries over. To keep a fresh build fair against late
+waves, a level sets an **enemy health** multiplier on top of the war's HP curve (bosses and Palantir included; kill rewards
+are not reduced), rising from its first wave to its last as your build grows with the level's income: the briefing shows
+it ("Enemy health 10-26%"). Levels play on O(1), without Patch Notes, Breaking News or Freeplay. The HUD counts the
+level's waves (**W 7 / 12**). A level is won when its last wave is cleared; the finale when Palantir falls. Stars by
+integrity left: 3 with at least 90%, 2 with at least half, else 1 (your best is kept).
+
+| # | Level | Map | Waves | War waves | Start cash | Integrity | Enemy health | First clear unlocks |
+|---|---|---|---|---|---|---|---|---|
+| 1 | Hello, World | The Silicon Circuit | 10 | 1-12 | $650 | 150 | 100% | Perplexity |
+| 2 | Garbage Collection | Abandoned Data Center | 18 | 4-21 | $750 | 150 | 100% | Mistral |
+| 3 | Legacy Code | The Legacy Monolith | 12 | 18-29 | $4,000 | 150 | 100% | DeepSeek |
+| 4 | Campus Tour | Silicon Valley | 24 | 17-40 (MOAB finale) | $5,000 | 100 | 100% | Suno |
+| 5 | Hallucinations | The Hallucination Canyon | 8 | 41-52 | $8,000 | 100 | 20-30% | Qwen |
+| 6 | Backpropagation | The Neural Network | 21 | 36-56 | $10,000 | 100 | 35-55% | Copilot + the Hero Store |
+| 7 | Outsourced | The Silicon Circuit | 14 | 47-60 (BFB finale) | $12,000 | 100 | 20-30% | Cohere, DALL·E |
+| 8 | Technical Debt | Abandoned Data Center | 30 | 41-70 | $8,000 | 100 | 100% | Grok |
+| 9 | Event Horizon | The Singularity Core | 10 | 48-66 (the core collapses on war wave 50) | $14,000 | 100 | 15-30% | Sora |
+| 10 | Network Effect | The Legacy Monolith | 16 | 65-80 (ZOMG finale) | $16,000 | 100 | 25-75% | GLM + $15,000 abilities |
+| 11 | Mass Hallucination | The Hallucination Canyon | 25 | 58-83 (all but the ZOMG) | $18,000 | 100 | 10-45% | Llama |
+| 12 | Stealth Mode | Silicon Valley | 12 | 79-90 (DDT finale) | $20,000 | 100 | 17-45% | Kimi |
+| 13 | Deep Learning | The Neural Network | 28 | 67-94 | $22,000 | 100 | 12-45% | MiniMax |
+| 14 | Singularity | The Singularity Core | 9 | 90-99 | $25,000 | 100 | 5-12% | Zethos |
+| 15 | The Last Line of Code | The Silicon Circuit | 22 | 79-100 (Palantir) | $60,000 | 100 | 10-26% | - (campaign complete) |
+
+- **Towers.** You start with **Gemini, Claude and GPT** (Gemini sees camo after its second upgrade, Claude is immune to
+  Prompt Injection, Gemini and GPT hurt Lead). Each first clear unlocks the next tower, chosen so every level's threats
+  have an answer: Perplexity before the first camo waves, DeepSeek before the first MOAB, Qwen before the Fortified MOABs,
+  Copilot as Prompt Injection gets frequent, Cohere and Grok for the BFBs and camo MOABs, Llama before Lockheed Martin,
+  and **Zethos** last. In a level the shop shows every tower: the locked ones are greyed with the level that unlocks them
+  (**AFTER L8**).
+- **Heroes and abilities.** The **Hero Store** opens after level 6, once the basics are learned and bosses start to
+  come in packs (once it is open, heroes you bought in CLASSIC are yours here too). The **$15,000 ability unlocks** open after level 10:
+  only the late levels' budgets can afford them, and they would flatten the middle of the campaign.
+- **End of a level**: **LEVEL COMPLETE** with the stars and a **NEW TOWER UNLOCKED** card for each reward, then **NEXT
+  LEVEL** (its briefing), **CAMPAIGN** or **RETRY**; a defeat offers **RETRY** and **CAMPAIGN**. QUIT LEVEL in the pause
+  menu returns to the level path. A level in progress is saved like any run and CONTINUE names it ("Level 7: Outsourced,
+  wave 3 / 14").
+- Progress (best stars, unlocked towers) is saved on this computer (`lindefense_campaign.json` in the save folder).
+  Campaign levels count toward the career totals and the boss, hero and career achievements, and earn three of their own
+  (**Fully Trained**: finish the campaign; **State of the Art**: 3 stars on every level; **Base Model**: win level 4 or
+  later with only Gemini, Claude and GPT). They never change the CLASSIC map records, run history or the classic-run
+  achievements.
 
 ### Difficulty Growth
 
@@ -251,7 +327,7 @@ after any stat change.
   map card on the map screen shows four medals (lit for each mode you have won on) and your best wave for the selected
   mode; the mission briefing shows the full record.
 - **RECORDS** (main menu, next to CATALOG): **CAREER** (runs, wins, waves, kills, boss kills, credits, play time, a medal
-  cabinet), **MAP RECORDS**, **ACHIEVEMENTS** (29, the locked ones greyed with how to earn them) and **HISTORY** (your
+  cabinet), **MAP RECORDS**, **ACHIEVEMENTS** (32, the locked ones greyed with how to earn them) and **HISTORY** (your
   last 50 runs with date, map, mode, seed, wave, result, Patch Notes and rules; **REPLAY SEED** plays any of them again).
 - **End of a run**: the victory / defeat panel has two tabs (`Tab` switches): **SUMMARY** (with **NEW BEST!** when a
   record fell and the achievements earned) and **REPORT** (leaks, game time, bosses destroyed, your map best and the top
@@ -486,7 +562,8 @@ the daily run and challenge rules, the settings, and the real screens painted of
 | Tool (run from `python/`) | What it does |
 |---|---|
 | `LINDEFENSE_DEMO=<dir> LINDEFENSE_PREFS_DIR=<tmp> .venv/bin/python -m lindefense.app` | Scripted walkthrough of every screen (resizes, click-to-place, pause flows); writes PNGs and PASS / FAIL |
-| `BOT_DIFFICULTY=O1 BOT_SEED=1234 .venv/bin/python -m lindefense.tools.auto_player 100 [map]` | The balance bot plays whole campaigns (`BOT_ABILITIES=true` buys abilities, `BOT_FREEPLAY=true` continues into Freeplay) |
+| `BOT_DIFFICULTY=O1 BOT_SEED=1234 .venv/bin/python -m lindefense.tools.auto_player 100 [map]` | The balance bot plays whole classic runs (`BOT_ABILITIES=true` buys abilities, `BOT_FREEPLAY=true` continues into Freeplay); `auto_player campaign [levels]` plays campaign levels with only that level's towers |
+| `BOT_SEEDS=2 .venv/bin/python -m lindefense.tools.auto_player campaign [level ...]` | The balance bot plays campaign levels, limited to each level's unlocked towers |
 | `.venv/bin/python -m lindefense.tools.reverse_probe` | Reverse-mode balance probe |
 | `.venv/bin/python -m lindefense.tools.design_doc_generator ../DESIGN.md` | Regenerates DESIGN.md |
 | `.venv/bin/python -m lindefense.tools.perf_bench [sim\|render\|all]` | Headless performance benchmark |

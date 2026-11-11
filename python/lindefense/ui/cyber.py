@@ -14,61 +14,29 @@ from lindefense.jenum import JEnum
 class Cyber:
     """Cyberpunk UI toolkit: palette, font fallback chains, number formatting, Java2D
 quality hints and a handful of custom ACM objects that paint with real strokes
-(chamfered glow frames, progress bars, rings, vector icons, glitch text).
+(flat chamfered panels, progress bars, rings, vector icons, a background grid).
 Every object is built once and mutated per frame (setters only change fields)."""
     class Chamfer(GObject):
-        """Chamfered dark-glass frame: translucent fill, scanlines, layered glowing border, corner ticks."""
+        """Flat panel: one fill and one thin border around a rectangle with small cut top-left / bottom-right corners
+(the cut is capped at Cyber.CUT, so every panel, card and button shares the same quiet silhouette)."""
         def __init__(self, x, y, w, h, cut):
-            self.w = 0.0
-            self.h = 0.0
-            self.cut = 0.0
-            self.f_glow = 0.0
-            self.f_ticks = False
-            self.scan_path = None
-            self.scan_y = 0.0
-            self.scan_w = 0.0
-            self.scan_h = 0.0
             GObject.__init__(self)
-            self.f_fill = Cyber.GLASS
-            self.f_border = Cyber.CYAN
-            self.line_w = 1.4
-            self.f_scan = True
+            self.f_fill = Cyber.SURFACE
+            self.f_border = Cyber.EDGE
+            self.line_w = 1.0
             self.f_alpha = 1.0
-            self.scan_x = float('nan')
             self.w = w
             self.h = h
             self.cut = cut
             self.set_location(x, y)
-        def scanlines(self):
-            if ((((self.scan_path is None) or (self.scan_x != self.get_x())) or (self.scan_y != self.get_y())) or (self.scan_w != self.w)) or (self.scan_h != self.h):
-                sp = Path2D.Double()
-                yy = (self.get_y() + 2)
-                while yy < (self.get_y() + self.h):
-                    sp.append(Rectangle2D.Double(self.get_x(), yy, self.w, 1), False)
-                    yy += 3
-                self.scan_path = sp
-                self.scan_x = self.get_x()
-                self.scan_y = self.get_y()
-                self.scan_w = self.w
-                self.scan_h = self.h
-            return self.scan_path
         def fill(self, c):
             self.f_fill = c
             return self
         def border(self, c):
             self.f_border = c
             return self
-        def glow(self, g):
-            self.f_glow = g
-            return self
         def line_width(self, lw):
             self.line_w = lw
-            return self
-        def scan(self, s):
-            self.f_scan = s
-            return self
-        def ticks(self, t):
-            self.f_ticks = t
             return self
         def alpha(self, a):
             self.f_alpha = a
@@ -92,38 +60,66 @@ Every object is built once and mutated per frame (setters only change fields).""
                 if self.f_alpha < 1.0:
                     g2.set_composite(AlphaComposite.SrcOver.derive(self.f_alpha))
                 in_ = (self.line_w / 2)
-                p = Cyber.chamfer((self.get_x() + in_), (self.get_y() + in_), (self.w - self.line_w), (self.h - self.line_w), self.cut)
+                p = Cyber.chamfer((self.get_x() + in_), (self.get_y() + in_), (self.w - self.line_w), (self.h - self.line_w), _j.dmin(self.cut, Cyber.CUT))
                 if (self.f_fill is not None) and (self.f_fill.get_alpha() > 0):
                     g2.set_color(self.f_fill)
                     g2.fill(p)
-                if self.f_scan and (self.f_fill is not None):
-                    old_clip = g2.get_clip()
-                    g2.clip(p)
-                    g2.set_color(Cyber.Chamfer.SCANLINE)
-                    g2.fill(self.scanlines())
-                    g2.set_clip(old_clip)
-                if self.f_border is not None:
-                    ba = self.f_border.get_alpha()
-                    if self.f_glow > 0.01:
-                        for i in range(3, 0, -1):
-                            g2.set_stroke(Cyber.stroke((self.line_w + (i * 2.2))))
-                            g2.set_color(Cyber.alpha(self.f_border, _j.to_int(((ba * self.f_glow) * (0.20 - (0.05 * i))))))
-                            g2.draw(p)
+                if (self.f_border is not None) and (self.f_border.get_alpha() > 0):
                     g2.set_stroke(Cyber.stroke(self.line_w))
                     g2.set_color(self.f_border)
                     g2.draw(p)
-                    if self.f_ticks:
-                        g2.set_stroke(Cyber.stroke((self.line_w + 1.2)))
-                        g2.set_color(Cyber.lerp(self.f_border, Color.WHITE, 0.55))
-                        x0 = (self.get_x() + in_)
-                        y0 = (self.get_y() + in_)
-                        x1 = ((self.get_x() + self.w) - in_)
-                        y1 = ((self.get_y() + self.h) - in_)
-                        t = _j.dmin(12, (_j.dmin(self.w, self.h) / 3))
-                        g2.draw(Line2D.Double((x1 - t), y0, x1, y0))
-                        g2.draw(Line2D.Double(x1, y0, x1, (y0 + t)))
-                        g2.draw(Line2D.Double(x0, (y1 - t), x0, y1))
-                        g2.draw(Line2D.Double(x0, y1, (x0 + t), y1))
+            finally:
+                g2.dispose()
+    class Grid(GObject):
+        """Faint background grid drawn as one path (a full-screen grid is a single fill): 1 px lines every step px."""
+        def __init__(self, x, y, w, h, step, color):
+            GObject.__init__(self)
+            self.w = w
+            self.h = h
+            self.color = color
+            p = Path2D.Double()
+            gx = 0.0
+            while gx <= w:
+                p.append(Rectangle2D.Double(gx, 0, 1, h), False)
+                gx += step
+            gy = 0.0
+            while gy <= h:
+                p.append(Rectangle2D.Double(0, gy, w, 1), False)
+                gy += step
+            self.path = p
+            self.set_location(x, y)
+        def get_bounds(self):
+            return GRectangle(self.get_x(), self.get_y(), self.w, self.h)
+        def paint(self, g):
+            g2 = g.create()
+            try:
+                g2.translate(self.get_x(), self.get_y())
+                g2.set_color(self.color)
+                g2.fill(self.path)
+            finally:
+                g2.dispose()
+    class Light(GObject):
+        """A soft, static pool of light: a radial gradient from color at (cx, cy) to transparent at radius r, stretched
+by sy vertically, filling the w x h rectangle at its location (one draw call)."""
+        def __init__(self, x, y, w, h, cx, cy, r, sy, color):
+            GObject.__init__(self)
+            self.w = w
+            self.h = h
+            self.cx = cx
+            self.cy = cy
+            self.r = r
+            self.sy = sy
+            self.color = color
+            self.set_location(x, y)
+        def get_bounds(self):
+            return GRectangle(self.get_x(), self.get_y(), self.w, self.h)
+        def paint(self, g):
+            g2 = g.create()
+            try:
+                g2.translate(self.cx, self.cy)
+                g2.scale(1.0, self.sy)
+                g2.set_paint(RadialGradientPaint(Point2D.Double(0, 0), self.r, [0.0, 1.0], [self.color, Cyber.alpha(self.color, 0)]))
+                g2.fill(Rectangle2D.Double((self.get_x() - self.cx), ((self.get_y() - self.cy) / self.sy), self.w, (self.h / self.sy)))
             finally:
                 g2.dispose()
     class Ring(GObject):
@@ -486,65 +482,6 @@ the same context at sub-pixel positions, so centring, right-alignment and fittin
                     g2.draw(Line2D.Double(2.6, 1.6, 14.2, 14.4))
             finally:
                 g2.dispose()
-    class GlitchText(GCompound):
-        """Text with a brief chromatic glitch flourish: magenta and cyan ghost copies jitter around the main
-label for a short burst, then settle. Use #burst(double) to trigger it."""
-        def __init__(self, text, font, color):
-            self.main = None
-            self.ghost_a = None
-            self.ghost_b = None
-            self.left = 0.0
-            GCompound.__init__(self)
-            self.rnd = _j.Random()
-            self.glyph_alpha = 1.0
-            self.color = Cyber.TEXT
-            self.ghost_a = Cyber.Text(text)
-            self.ghost_b = Cyber.Text(text)
-            self.main = Cyber.Text(text)
-            for l in [self.ghost_a, self.ghost_b, self.main]:
-                l.set_font(font)
-                self.add(l)
-            self.ghost_a.set_color(Cyber.alpha(Cyber.MAGENTA, 190))
-            self.ghost_b.set_color(Cyber.alpha(Cyber.CYAN, 190))
-            self.ghost_a.set_visible(False)
-            self.ghost_b.set_visible(False)
-            self.set_color(color)
-        def set_color(self, c):
-            self.color = c
-            self.apply_alpha()
-        def set_alpha_factor(self, a):
-            self.glyph_alpha = a
-            self.apply_alpha()
-        def apply_alpha(self):
-            self.main.set_color(Cyber.alpha(self.color, _j.to_int((self.color.get_alpha() * self.glyph_alpha))))
-            self.ghost_a.set_color(Cyber.alpha(Cyber.MAGENTA, _j.to_int((190 * self.glyph_alpha))))
-            self.ghost_b.set_color(Cyber.alpha(Cyber.CYAN, _j.to_int((190 * self.glyph_alpha))))
-        def set_text(self, s):
-            if s == self.main.get_label():
-                return
-            self.main.set_label(s)
-            self.ghost_a.set_label(s)
-            self.ghost_b.set_label(s)
-        def text_width(self):
-            return self.main.get_width()
-        def text_ascent(self):
-            return self.main.get_ascent()
-        def burst(self, seconds):
-            """Starts a glitch burst of the given length (none with REDUCED MOTION on: the title just stays put)."""
-            self.left = (0.0 if display_settings.reduced_motion() else seconds)
-        def animate(self, dt):
-            if self.left > 0:
-                self.left -= dt
-                j = (2 + (self.rnd.next_double() * 5))
-                self.ghost_a.set_location((-j), ((self.rnd.next_double() * 3) - 1.5))
-                self.ghost_b.set_location(j, ((self.rnd.next_double() * 3) - 1.5))
-                self.main.set_location((((self.rnd.next_double() * 6) - 3) if ((self.left > 0.05) and (self.rnd.next_double() < 0.25)) else 0), 0)
-                self.ghost_a.set_visible(True)
-                self.ghost_b.set_visible(True)
-                if self.left <= 0:
-                    self.ghost_a.set_visible(False)
-                    self.ghost_b.set_visible(False)
-                    self.main.set_location(0, 0)
     def __init__(self):
         pass
     @staticmethod
@@ -757,12 +694,17 @@ Cyber.CB_BAD = Color(0xff6b2b)
 Cyber.CB_MARK = Color(0xc28cff)
 Cyber.CB_SHORT = Color(0xff5ab4)
 Cyber.INK = Color(0x05070f)
-Cyber.GLASS = Color(8, 13, 30, 226)
-Cyber.GLASS_DEEP = Color(4, 7, 18, 236)
 Cyber.TEXT = Color(0xe4f8ff)
 Cyber.MUTED = Color(0x8aa0bd)
 Cyber.DIM = Color(0x5a6d88)
 Cyber.LINE = Color(0x1d3a55)
+# minimal chrome: flat surfaces, one thin neutral edge, small cuts; colour is kept for meaning (state, signals, accents)
+Cyber.SURFACE = Color(9, 14, 28, 244)       # panels and pop-ups
+Cyber.SURFACE_2 = Color(14, 21, 40, 236)    # cards and fields inside a panel
+Cyber.EDGE = Color(0x23354d)                # the one thin border
+Cyber.EDGE_HI = Color(0x3b5573)             # hovered / emphasised border
+Cyber.SCRIM = Color(2, 4, 10, 196)          # dims what is behind a pop-up
+Cyber.CUT = 6.0                             # largest corner cut of any panel
 Cyber.FONTS = _j.HashMap()
 Cyber.FILES = _j.HashMap()
 Cyber.loaded = False
@@ -773,10 +715,10 @@ Cyber.VALORAX_MIN = 11
 Cyber.MONO_SCALE = 0.9
 Cyber.DISPLAY_FACE = _j.get_property('lindefense.font', 'mono').lower()
 Cyber.Chamfer.serial_version_uid = 1
-Cyber.Chamfer.SCANLINE = Color(0, 0, 0, 52)
 Cyber.Ring.serial_version_uid = 1
 Cyber.Bar.serial_version_uid = 1
 Cyber.Text.serial_version_uid = 1
 Cyber.Text.FRC = FontRenderContext(None, True, True)
 Cyber.Icon.serial_version_uid = 1
-Cyber.GlitchText.serial_version_uid = 1
+Cyber.Grid.serial_version_uid = 1
+Cyber.Light.serial_version_uid = 1

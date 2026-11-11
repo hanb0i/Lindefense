@@ -162,6 +162,7 @@ class LindefenseApp:
         self.demo = None
         self.window_grab = None
         self.autosave = None       # savegame.Autosave of the match on screen (Save & Continue)
+        self.tutorial_from_campaign = False   # the running tutorial was started from the campaign's BOOT CAMP node
         self.running = True
         self._dragging = False
         self._pumping = False      # True while the main loop is inside pygame.event.get()
@@ -295,7 +296,6 @@ class LindefenseApp:
             g = Graphics2D(cv)
             g.translate(n / 2.0, n / 2.0)
             e = LogoEmblem(n * 0.9)
-            e.animate(0.4)
             e.paint(g)
             reset_canvas_state(cv)
             img = surf.makeImageSnapshot().toarray(colorType=skia.kRGBA_8888_ColorType)
@@ -328,6 +328,31 @@ class LindefenseApp:
         self.root.add(self.map_select)
         AudioManager.menu_music()
         self._settle_heap()
+
+    def show_campaign(self, briefing=None):
+        """CAMPAIGN: the level path (it takes the map-select slot: the same input routing). briefing: a level id whose
+        briefing opens at once (NEXT LEVEL)."""
+        from lindefense.audio.audio_manager import AudioManager
+        from lindefense.ui.campaign_screen import CampaignScreen
+        self._clear_screens()
+        self.map_select = CampaignScreen(self, None, briefing)
+        self.root.add(self.map_select)
+        AudioManager.menu_music()
+        self._settle_heap()
+
+    def start_campaign_level(self, level_id):
+        """START in a campaign briefing: a fresh game of that level with the saved Hero Store collection."""
+        from lindefense.audio.audio_manager import AudioManager
+        from lindefense.audio.sfx import Sfx
+        from lindefense.sim import campaign
+        from lindefense.sim.misc import HeroCollection
+        AudioManager.sfx(Sfx.UI_SELECT)
+        self._start(campaign.new_game(level_id, heroes=HeroCollection.persistent()), False)
+
+    def on_tutorial_complete(self):
+        """The tutorial's completion card: the campaign's BOOT CAMP node is done."""
+        from lindefense.sim.campaign import CampaignProgress
+        CampaignProgress.persistent().mark_boot_camp()
 
     @staticmethod
     def variance_for_players():
@@ -378,14 +403,16 @@ class LindefenseApp:
         self._start(g, False)
 
     def start_tutorial(self):
+        """TUTORIAL (main menu; the campaign offers it as an optional first node): the guided match of
+        ui/tutorial_script.py. Never saved or recorded; its Hero Store is in memory."""
         from lindefense.audio.audio_manager import AudioManager
         from lindefense.audio.sfx import Sfx
-        from lindefense.map import maps
-        from lindefense.sim.difficulty import Difficulty
-        from lindefense.sim.game import Game
-        from lindefense.variance import variance
+        from lindefense.ui import tutorial_script
+        from lindefense.ui.campaign_screen import CampaignScreen
         AudioManager.sfx(Sfx.UI_SELECT)
-        self._start(Game(maps.create(0), variance.seed_next(), Difficulty.O1), True)
+        # QUIT LEVEL goes back where the tutorial was started from: the campaign's BOOT CAMP node, else map select
+        self.tutorial_from_campaign = isinstance(self.map_select, CampaignScreen)
+        self._start(tutorial_script.create_game(), True)
 
     def restart_level(self):
         from lindefense.ai.reverse_match import ReverseMatch
@@ -401,7 +428,12 @@ class LindefenseApp:
         return self.game_screen is not None and self.game_screen.get_tutorial() is not None
 
     def quit_level(self):
-        self.show_map_select()
+        g = self.get_game()
+        if g is not None and (g.get_campaign() is not None
+                              or (self._in_tutorial() and getattr(self, "tutorial_from_campaign", False))):
+            self.show_campaign()
+        else:
+            self.show_map_select()
 
     def replay_run(self, map_index, difficulty, seed, notes=True, challenges=()):
         """REPLAY SEED from the run history: a fresh match on that map, difficulty and seed with that run's challenge
@@ -442,7 +474,10 @@ class LindefenseApp:
             self.show_menu()
             self.menu.show_notice(savegame.LOAD_FAILED_TEXT)
             return
-        self.game_screen.flash_banner("RUN RESTORED  -  WAVE %d" % max(1, game.get_wave()), Cyber.CYAN, 3.0)
+        c = game.get_campaign()
+        text = ("RUN RESTORED  -  WAVE %d" % max(1, game.get_wave()) if c is None else
+                "LEVEL %d RESTORED  -  WAVE %d / %d" % (c.index, max(1, game.get_wave()), c.wave_count()))
+        self.game_screen.flash_banner(text, Cyber.CYAN, 3.0)
 
     @staticmethod
     def _record_replaced_save():
@@ -457,7 +492,9 @@ class LindefenseApp:
             old = s.load()
         except Exception:
             return   # unreadable: nothing to record
-        RunSession(Records.persistent(), old).finish()
+        from lindefense.sim.campaign import CampaignProgress
+        RunSession(Records.persistent(), old, False,
+                   CampaignProgress.persistent() if old.get_campaign() is not None else None).finish()
 
     def on_freeplay(self):
         """CONTINUE - FREEPLAY: the won run goes on, so it can be saved again (the victory deleted its save)."""
@@ -467,6 +504,7 @@ class LindefenseApp:
 
     def _start(self, game, tutorial, restored=False):
         from lindefense import savegame
+        from lindefense.sim.campaign import CampaignProgress
         from lindefense.sim.records import Records, RunSession
         from lindefense.ui.game_screen import GameScreen
         self._clear_screens()
@@ -475,7 +513,8 @@ class LindefenseApp:
             self._guarded("records", self._record_replaced_save)
             savegame.slot().delete()   # a new run on any map replaces the saved one
         self.game_screen = GameScreen(self, game, tutorial)
-        self.game_screen.set_run_session(RunSession(Records.persistent(), game, tutorial))
+        progress = CampaignProgress.persistent() if game.get_campaign() is not None else None
+        self.game_screen.set_run_session(RunSession(Records.persistent(), game, tutorial, progress))
         self.autosave = None if demo else savegame.Autosave(game, tutorial)
         self.root.add(self.game_screen)
         self._settle_heap()
@@ -980,7 +1019,9 @@ class LindefenseApp:
         AudioManager.install()
         records.restore_difficulty()
         self.show_menu()
-        if os.environ.get("LINDEFENSE_START"):   # dev shortcut: jump straight into a match on map N
+        if os.environ.get("LINDEFENSE_START", "").lower() == "tutorial":   # dev shortcut: straight into the tutorial
+            self.start_tutorial()
+        elif os.environ.get("LINDEFENSE_START"):   # dev shortcut: jump straight into a match on map N
             self.start_game(int(os.environ["LINDEFENSE_START"]))
             gs = self.game_screen
             if os.environ.get("LINDEFENSE_START_WAVES"):

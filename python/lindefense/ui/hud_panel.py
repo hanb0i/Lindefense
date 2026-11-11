@@ -20,28 +20,26 @@ from lindefense.wave.freeplay import FreeplayWaves
 
 class HudPanel(GCompound):
     """Top HUD (stat chips, speed / pause controls, Start Wave), bottom status strip (map name, event text,
-next-wave preview) and the notification toast (wave start / boss glitch banners, wave-complete toast).
+next-wave preview) and the notification toast (wave start / boss banners, wave-complete toast).
 Everything is built once; #update(double) only mutates labels, colours and positions."""
     class Chip(GCompound):
-        """A stat chip: icon, micro-label and value inside a small chamfered frame."""
+        """A stat readout: an icon and a value on the bar. Its frame stays invisible until a warning tints it (low lives,
+the training run's last minute)."""
         def __init__(self, x, w, kind, label, accent):
             self.frame = None
             self.icon = None
-            self.micro = None
+            self.name = label
             self.value = None
             self.width = 0.0
             self.accent = None
             GCompound.__init__(self)
             self.width = w
             self.accent = accent
-            self.frame = Cyber.Chamfer(0, 0, w, HudPanel.CHIP_H, 8).scan(False).fill(Color(7, 12, 28, 235)).border(Cyber.alpha(accent, 150))
+            self.frame = Cyber.Chamfer(0, 0, w, HudPanel.CHIP_H, 4).fill(None).border(None)
             self.add(self.frame)
-            self.icon = Cyber.Icon(kind, 18, accent)
-            self.icon.set_location(10, ((HudPanel.CHIP_H - 18) / 2))
+            self.icon = Cyber.Icon(kind, 16, accent)
+            self.icon.set_location(12, ((HudPanel.CHIP_H - 16) / 2))
             self.add(self.icon)
-            self.micro = Ui.label(Cyber.spaced(label), 34, 14, HudPanel.CHIP_LABEL, Cyber.alpha(accent, 190))
-            self.micro.set_visible(False)
-            self.add(self.micro)
             self.value = Ui.label('', 36, (((HudPanel.CHIP_H + HudPanel.CHIP_VALUE.get_size()) / 2) - 3), HudPanel.CHIP_VALUE, Cyber.TEXT)
             self.add(self.value)
             self.set_location(x, HudPanel.CHIP_Y)
@@ -75,12 +73,9 @@ Everything is built once; #update(double) only mutates labels, colours and posit
         self.boss_tag_label = None
         self.toast_frame = None
         self.toast_stripe = None
-        self.toast_micro = None
         self.toast_text = None
-        self.toast_age = 0.0
         self.toast_fade = 0.0
         self.toast_live = False
-        self.toast_special = False
         self.toast_w = 0.0
         self.banner_text = None
         self.banner_color = None
@@ -94,37 +89,27 @@ Everything is built once; #update(double) only mutates labels, colours and posit
         GCompound.__init__(self)
         self.buttons = _j.ArrayList()
         self.toast = GCompound()
-        self.toast_slices = ([None] * 3)
         self.toast_shown = ''
         self.toast_color = Cyber.CYAN
+        self.toast_text_color = Cyber.TEXT
         self.last_lives = (-1)
-        self.rnd = _j.Random(11)
         self.screen = screen
         self.game = screen.get_game()
-        self.add(Ui.rect(0, 0, Ui.WORLD_W, Ui.TOP_H, Color(5, 9, 22), Color(5, 9, 22)))
-        for y in range(2, Ui.TOP_H, 3):
-            l = GLine(0, (y + 0.5), Ui.WORLD_W, (y + 0.5))
-            l.set_color(Color(0, 0, 0, 60))
-            self.add(l)
-        edge = GLine(0, (Ui.TOP_H - 0.5), Ui.WORLD_W, (Ui.TOP_H - 0.5))
-        edge.set_color(Cyber.alpha(Cyber.CYAN, 150))
-        self.add(edge)
-        edge2 = GLine(0, (Ui.TOP_H + 0.5), 220, (Ui.TOP_H + 0.5))
-        edge2.set_color(Cyber.alpha(Cyber.MAGENTA, 170))
-        self.add(edge2)
+        self.add(Ui.rect(0, 0, Ui.WORLD_W, Ui.TOP_H, HudPanel.BAR, HudPanel.BAR))
+        self.add(Ui.rect(0, (Ui.TOP_H - 1), Ui.WORLD_W, 1, Cyber.EDGE, Cyber.EDGE))
         self.cash_chip = HudPanel.Chip(8, 124, Cyber.Kind.CASH, 'credits', Cyber.YELLOW)
         self.lives_chip = HudPanel.Chip(138, 104, Cyber.Kind.HEART, 'integrity', Cyber.RED)
         self.wave_chip = HudPanel.Chip(248, 124, Cyber.Kind.WAVE, 'wave', Cyber.CYAN)
-        self.enemy_chip = HudPanel.Chip(378, 198, Cyber.Kind.ENEMY, 'hostiles', Cyber.MAGENTA)
+        self.enemy_chip = HudPanel.Chip(378, 198, Cyber.Kind.ENEMY, 'hostiles', Cyber.MUTED)
         for c in [self.cash_chip, self.lives_chip, self.wave_chip, self.enemy_chip]:
             self.add(c)
-        self.wave_bar = Cyber.Bar(34, (HudPanel.CHIP_H - 5), ((124 - 34) - 8), 2, 0).colors(Cyber.CYAN, Color(255, 255, 255, 30), None)
+        self.wave_bar = Cyber.Bar(36, (HudPanel.CHIP_H - 6), ((124 - 36) - 10), 2, 0).colors(Cyber.alpha(Cyber.CYAN, 200), Color(255, 255, 255, 22), None)
         self.wave_chip.add(self.wave_bar)
         cx = 586.0
         self.pause_btn = self.btn(cx, 6, 38, 36, '', _j.Fn(lambda *, screen=screen: screen.toggle_pause()))
         self.pause_btn.set_icon(Cyber.Kind.PAUSE)
         cx += 46
-        self.speed_frame = Cyber.Chamfer(cx, 6, ((3 * 38) + 4), 36, 8).scan(False).fill(Color(7, 12, 28, 235)).border(Cyber.alpha(Cyber.CYAN, 120))
+        self.speed_frame = Cyber.Chamfer(cx, 6, ((3 * 38) + 4), 36, 4).fill(UIButton.FILL).border(Cyber.EDGE)
         self.add(self.speed_frame)
         self.s1 = self.seg((cx + 2), '1x', 1)
         self.s2 = self.seg(((cx + 2) + 38), '2x', 2)
@@ -143,31 +128,27 @@ Everything is built once; #update(double) only mutates labels, colours and posit
         cx += (72 + 6)
         self.hero_btn = self.btn(cx, 6, ((Ui.WORLD_W - 6) - cx), 36, 'HEROES', _j.Fn(lambda *, screen=screen: screen.toggle_hero_store()))
         self.hero_btn.set_accent(Cyber.YELLOW)
-        self.add(Ui.rect(0, Ui.BOTTOM_Y, Ui.WORLD_W, (Ui.H - Ui.BOTTOM_Y), Color(5, 9, 22), Color(5, 9, 22)))
-        for y in range((Ui.BOTTOM_Y + 2), Ui.H, 3):
-            l = GLine(0, (y + 0.5), Ui.WORLD_W, (y + 0.5))
-            l.set_color(Color(0, 0, 0, 60))
-            self.add(l)
-        bedge = GLine(0, (Ui.BOTTOM_Y + 0.5), Ui.WORLD_W, (Ui.BOTTOM_Y + 0.5))
-        bedge.set_color(Cyber.alpha(Cyber.CYAN, 150))
-        self.add(bedge)
-        bedge2 = GLine((Ui.WORLD_W - 220), (Ui.BOTTOM_Y - 0.5), Ui.WORLD_W, (Ui.BOTTOM_Y - 0.5))
-        bedge2.set_color(Cyber.alpha(Cyber.MAGENTA, 170))
-        self.add(bedge2)
+        camp = self.game.get_campaign()
+        if (camp is not None) and (not camp.heroes):
+            self.hero_btn.set_accent(Cyber.DIM)   # campaign: the Hero Store opens after a level (a click says which)
+            # the flat restyle tints a resting border only slightly by its accent: grey the label too so it reads locked
+            self.hero_btn.set_text_color(UIButton.DISABLED_TEXT)
+        self.add(Ui.rect(0, Ui.BOTTOM_Y, Ui.WORLD_W, (Ui.H - Ui.BOTTOM_Y), HudPanel.BAR, HudPanel.BAR))
+        self.add(Ui.rect(0, Ui.BOTTOM_Y, Ui.WORLD_W, 1, Cyber.EDGE, Cyber.EDGE))
         by = Ui.BOTTOM_Y
-        self.map_micro = Ui.label(_j.cat(Cyber.spaced('sector'), '   //   MODE ', DifficultySelector.display(self.game.get_difficulty(), HudPanel.CHIP_LABEL)), 18, (by + 18), HudPanel.CHIP_LABEL, Cyber.alpha(Cyber.CYAN, 200))
+        self.map_micro = Ui.label(_j.cat('Mode ', DifficultySelector.display(self.game.get_difficulty(), HudPanel.CHIP_LABEL)), 18, (by + 19), HudPanel.CHIP_LABEL, Cyber.MUTED)
         self.map_name = Ui.label(self.game.get_map().get_name().upper(), 18, (by + 40), Cyber.display(Font.BOLD, 20), Cyber.TEXT)
         self.add(self.map_micro)
         self.add(self.map_name)
-        self.event_label = Ui.label('', 0, (by + 22), Cyber.mono(Font.BOLD, 13), Cyber.MAGENTA)
+        self.event_label = Ui.label('', 0, (by + 22), Cyber.body(Font.BOLD, 13), Cyber.MAGENTA)
         self.note_label = Ui.label('', 0, (by + 41), Cyber.body(Font.PLAIN, 13), Cyber.MUTED)
         self.add(self.event_label)
         self.add(self.note_label)
-        self.next_micro = Ui.label('', 0, (by + 18), HudPanel.CHIP_LABEL, Cyber.alpha(Cyber.CYAN, 200))
+        self.next_micro = Ui.label('', 0, (by + 19), HudPanel.CHIP_LABEL, Cyber.MUTED)
         self.next_line = Ui.label('', 0, (by + 40), Cyber.display(Font.BOLD, 17), Cyber.TEXT)
         self.add(self.next_micro)
         self.add(self.next_line)
-        self.boss_tag = Cyber.Chamfer(0, (by + 26), 60, 18, 5).scan(False).fill(Cyber.alpha(Cyber.RED, 50)).border(Cyber.RED)
+        self.boss_tag = Cyber.Chamfer(0, (by + 26), 60, 18, 3).fill(Cyber.alpha(Cyber.RED, 40)).border(Cyber.alpha(Cyber.RED, 200))
         self.boss_tag_label = Ui.label('BOSS', 0, (by + 39), Cyber.mono(Font.BOLD, 11), Cyber.RED)
         self.boss_tag.set_visible(False)
         self.boss_tag_label.set_visible(False)
@@ -184,19 +165,12 @@ Everything is built once; #update(double) only mutates labels, colours and posit
         self.intel_at = -1.0
         self.strip_time = 0.0
         self.note_key = None
-        self.toast_frame = Cyber.Chamfer(0, 0, 400, 56, 12).scan(True).fill(Color(6, 10, 24, 238)).glow(1).line_width(1.8)
+        self.toast_frame = Cyber.Chamfer(0, 0, 400, HudPanel.TOAST_H, 4).fill(Cyber.SURFACE).border(Cyber.EDGE)
         self.toast.add(self.toast_frame)
-        self.toast_stripe = Ui.rect(0, 0, 5, 56, Cyber.CYAN, Cyber.CYAN)
+        self.toast_stripe = Ui.rect(0, 0, 3, HudPanel.TOAST_H, Cyber.CYAN, Cyber.CYAN)
         self.toast.add(self.toast_stripe)
-        self.toast_micro = Ui.label('', 22, 17, Cyber.mono(Font.BOLD, 10), Cyber.CYAN)
-        self.toast.add(self.toast_micro)
-        self.toast_text = Cyber.GlitchText('', Cyber.display(Font.BOLD, 26), Cyber.TEXT)
-        self.toast_text.set_location(22, 44)
+        self.toast_text = Ui.label('', 24, 33, Cyber.display(Font.BOLD, 22), Cyber.TEXT)
         self.toast.add(self.toast_text)
-        for i in range(len(self.toast_slices)):
-            self.toast_slices[i] = Ui.rect(0, 0, 10, 2, Cyber.CYAN, Cyber.CYAN)
-            self.toast_slices[i].set_visible(False)
-            self.toast.add(self.toast_slices[i])
         self.toast.set_visible(False)
         self.add(self.toast)
         self.rev = self.game.get_reverse()
@@ -204,9 +178,6 @@ Everything is built once; #update(double) only mutates labels, colours and posit
             self.build_reverse()
     def build_reverse(self):
         """The attacker's HUD: compute credits, the AI's integrity, the epoch, the training-run timer and the AI's cash."""
-        Cyber.set_text(self.cash_chip.micro, Cyber.spaced('compute'))
-        Cyber.set_text(self.lives_chip.micro, Cyber.spaced('ai integrity'))
-        Cyber.set_text(self.wave_chip.micro, Cyber.spaced('epoch'))
         self.start_btn.set_visible(False)
         self.auto_btn.set_visible(False)
         self.hero_btn.set_visible(False)
@@ -216,10 +187,9 @@ Everything is built once; #update(double) only mutates labels, colours and posit
         self.add(self.timer_chip)
         self.ai_chip = HudPanel.Chip(self.hero_btn.get_x(), self.hero_btn.get_w(), Cyber.Kind.CASH, 'ai cash', Cyber.YELLOW)
         self.ai_chip.icon.set_visible(False)
-        self.ai_chip.micro.set_location(9, self.ai_chip.micro.get_y())
         self.ai_chip.value.set_location(9, self.ai_chip.value.get_y())
         self.add(self.ai_chip)
-        Cyber.set_text(self.map_micro, _j.cat(Cyber.spaced('sector'), '   //   ADVERSARIAL TRAINING   //   AI ', DifficultySelector.display(self.rev.get_level(), HudPanel.CHIP_LABEL), ' ', self.rev.get_profile().display_name.upper()))
+        Cyber.set_text(self.map_micro, _j.cat('Adversarial training  ·  AI ', DifficultySelector.display(self.rev.get_level(), HudPanel.CHIP_LABEL), ' ', self.rev.get_profile().display_name))
         self.boss_tag.set_visible(False)
         self.boss_tag_label.set_visible(False)
         self.next_wave.set_visible(False)
@@ -237,7 +207,7 @@ Everything is built once; #update(double) only mutates labels, colours and posit
             self.timer_chip.set(_j.cat('OVERTIME  ', ReverseMatch.clock(self.rev.get_overtime_left())), Cyber.YELLOW)
         else:
             self.timer_chip.set(_j.cat(ReverseMatch.clock(self.rev.get_time_left()), '  LEFT'), (Cyber.lerp(Cyber.MAGENTA, Color.WHITE, (pulse * 0.5)) if closing else Cyber.TEXT))
-        self.timer_chip.frame.glow(((0.3 + (0.6 * pulse)) if closing else 0))
+        self.timer_chip.frame.fill((Cyber.alpha(Cyber.MAGENTA, _j.to_int((20 + (40 * pulse)))) if closing else None))
         self.ai_chip.set(HudPanel.compact_money(self.game.get_cash()), Cyber.YELLOW)
         cx_event = (Ui.WORLD_W / 2.0)
         ev = self.game.get_map().get_event_text()
@@ -263,12 +233,12 @@ Everything is built once; #update(double) only mutates labels, colours and posit
             if AttackUnit.modifier_unlock_at(m) == next_:
                 _j_add(names, m.label)
         if next_ == _j.MAX_DOUBLE:
-            micro = 'uplink'
+            micro = 'Uplink'
             line = ('closed' if self.rev.is_uplink_closed() else 'everything unlocked')
         else:
-            micro = _j.cat('next unlock // ', ReverseMatch.clock(next_))
+            micro = _j.cat('Next unlock at ', ReverseMatch.clock(next_))
             line = _j.cat(names[0], (_j.cat('  +', (len(names) - 1)) if (len(names) > 1) else ''))
-        Cyber.set_text(self.next_micro, Cyber.spaced(micro))
+        Cyber.set_text(self.next_micro, micro)
         Cyber.set_text(self.next_line, line)
         right = (Ui.WORLD_W - 18)
         self.next_line.set_location((right - self.next_line.get_width()), self.next_line.get_y())
@@ -305,12 +275,18 @@ Everything is built once; #update(double) only mutates labels, colours and posit
         pulse = (display_settings.calm((0.5 + (0.5 * math.sin((self.time * 7)))), 0.7) if low else 0)
         lc = Cyber.lerp(Cyber.RED, Color.WHITE, _j.dmax(((self.life_flash / 0.6) * 0.7), ((pulse * 0.35) if low else 0)))
         self.lives_chip.set(Cyber.commas(lv), lc)
-        self.lives_chip.frame.border(Cyber.alpha(Cyber.RED, _j.to_int((150 + (105 * pulse))))).glow(((0.4 + (0.8 * pulse)) if low else (1 if (self.life_flash > 0) else 0))).fill((Color((40 + _j.to_int((40 * pulse))), 8, 16, 235) if low else Color(7, 12, 28, 235)))
+        warn = (_j.dmax(pulse, (self.life_flash / 0.6)) if (low or (self.life_flash > 0)) else 0)
+        self.lives_chip.frame.fill((Cyber.alpha(Cyber.RED, _j.to_int((24 + (44 * warn)))) if (warn > 0) else None))
         if self.game.is_freeplay():
             self.update_freeplay_chip(w)
+        elif self.game.get_campaign() is not None:   # a campaign level: "W 7 / 12"
+            n = self.game.get_wave_count()
+            self.wave_chip.set(_j.cat('W ', w, ' / ', n), Cyber.TEXT)
+            self.wave_bar.set_value((w / float(n)))
         else:
-            self.wave_chip.set(_j.cat(w, ' / ', waves.WAVE_COUNT), Cyber.TEXT)
-            self.wave_bar.set_value((w / float(waves.WAVE_COUNT)))
+            n = waves.count_for(self.game)   # 100, or the tutorial's own wave count
+            self.wave_chip.set(_j.cat(w, ' / ', n), Cyber.TEXT)
+            self.wave_bar.set_value((w / float(n)))
         self.enemy_chip.set(_j.cat(alive, ' / ', (alive + to_spawn)), (Cyber.TEXT if ((alive > 0) or (to_spawn > 0)) else Cyber.MUTED))
         paused = self.game.is_paused()
         self.pause_btn.set_selected(paused)
@@ -320,7 +296,6 @@ Everything is built once; #update(double) only mutates labels, colours and posit
         self.s3.set_selected(((self.game.get_speed() == 3) and (not paused)))
         can_start = (self.game.get_wave_manager().can_start_next_wave() and (self.game.get_state() is Game.State.PLAYING))
         self.start_btn.set_enabled(can_start)
-        self.start_btn.set_pulse((0.35 if (can_start and (not self.game.get_wave_manager().is_wave_active())) else 0))
         if can_start:
             t = _j.cat('START WAVE ', (w + 1))
             if self.game.get_wave_manager().is_auto_start() and (w > 0):
@@ -328,7 +303,7 @@ Everything is built once; #update(double) only mutates labels, colours and posit
             self.start_btn.set_text(t)
             self.start_btn.set_icon(Cyber.Kind.PLAY)
         else:
-            self.start_btn.set_text(('PICK A PATCH' if self.game.get_variance().is_draft_pending() else ('FINAL WAVE' if ((w >= waves.WAVE_COUNT) and (not self.game.is_freeplay())) else _j.cat('WAVE ', w, ' LIVE'))))
+            self.start_btn.set_text(('PICK A PATCH' if self.game.get_variance().is_draft_pending() else ('FINAL WAVE' if ((w >= waves.count_for(self.game)) and (not self.game.is_freeplay())) else _j.cat('WAVE ', w, ' LIVE'))))
             self.start_btn.set_icon(None)
         self.auto_btn.set_selected(self.game.get_wave_manager().is_auto_start())
         self.hero_btn.set_selected(self.screen.is_hero_store_open())
@@ -345,8 +320,7 @@ Everything is built once; #update(double) only mutates labels, colours and posit
             self.freeplay_tag.set_location(9, self.wave_chip.value.get_y())
             self.wave_chip.add(self.freeplay_tag)
             self.wave_chip.icon.set_visible(False)
-            self.wave_chip.frame.border(Cyber.alpha(Cyber.YELLOW, 150))
-            self.wave_bar.colors(Cyber.YELLOW, Color(255, 255, 255, 30), None)
+            self.wave_bar.colors(Cyber.YELLOW, Color(255, 255, 255, 22), None)
         Cyber.set_text(self.wave_chip.value, _j.cat('W ', w))
         x = self.freeplay_tag.get_x() + self.freeplay_tag.get_width() + 6
         self.wave_chip.value.set_location(x, self.wave_chip.value.get_y())
@@ -381,7 +355,7 @@ Everything is built once; #update(double) only mutates labels, colours and posit
             block_left = self.next_wave.show(pv, self.intel_threats, self.intel_label, (self.left_block_right() + 150))
         else:
             self.next_wave.show(None, [], '')
-            Cyber.set_text(self.next_micro, Cyber.spaced('final'))
+            Cyber.set_text(self.next_micro, 'Final wave')
             Cyber.set_text(self.next_line, 'stand firm')
             self.next_line.set_location((right - self.next_line.get_width()), self.next_line.get_y())
             self.next_micro.set_location((right - self.next_micro.get_width()), self.next_micro.get_y())
@@ -406,10 +380,10 @@ the live wave is shown."""
         self.intel_key = key
         self.intel_at = self.time
         pv = intel.preview(self.game)
-        label = _j.cat('next // wave ', (w + 1))
+        label = _j.cat('Next: wave ', (w + 1))
         if (pv is None) and active and (def_ is not None):
             pv = intel.WavePreview(def_.number, def_)
-            label = _j.cat('live // wave ', def_.number)
+            label = _j.cat('Live: wave ', def_.number)
         self.intel = pv
         self.intel_threats = intel.threats(self.game, pv)
         self.intel_label = label
@@ -470,48 +444,32 @@ when there is no event and is cut with an ellipsis where it would run into its n
             self.toast_live = False
         target = (1 if self.toast_live else 0)
         self.toast_fade += ((target - self.toast_fade) * _j.dmin(1, (dt * (14 if self.toast_live else 7))))
-        self.toast_age += dt
         if (self.toast_fade < 0.01) and (not self.toast_live):
             self.toast.set_visible(False)
             return
         self.toast.set_visible(True)
-        slide = ((1 - self.toast_fade) * (-14))
+        slide = (0 if display_settings.reduced_motion() else ((1 - self.toast_fade) * (-10)))
         self.toast.set_location(((Ui.WORLD_W - self.toast_w) / 2), (168 + slide))
         a = _j.dmax(0, _j.dmin(1, self.toast_fade))
         self.toast_frame.alpha(a)
         self.toast_stripe.set_fill_color(Cyber.alpha(self.toast_color, _j.to_int((255 * a))))
         self.toast_stripe.set_color(self.toast_stripe.get_fill_color())
-        Cyber.set_color(self.toast_micro, Cyber.alpha(self.toast_color, _j.to_int((220 * a))))
-        self.toast_text.set_alpha_factor(a)
-        self.toast_text.animate(dt)
-        glitch = ((self.toast_special and (self.toast_age < 0.45)) and (not display_settings.reduced_motion()))
-        for s in self.toast_slices:
-            s.set_visible(glitch)
-            if glitch:
-                s.set_bounds((self.rnd.next_double() * (self.toast_w - 120)), (6 + (self.rnd.next_double() * 44)), (40 + (self.rnd.next_double() * 120)), (1 + (self.rnd.next_double() * 3)))
-                s.set_fill_color(Cyber.alpha((Cyber.CYAN if self.rnd.next_boolean() else Cyber.MAGENTA), 150))
-                s.set_color(s.get_fill_color())
+        c = self.toast_text_color
+        Cyber.set_color(self.toast_text, Cyber.alpha(c, _j.to_int((c.get_alpha() * a))))
     def show_toast(self, text, col):
         self.toast_shown = text
         self.toast_live = True
-        self.toast_age = 0.0
         lower = text.lower()
         complete = ('complete' in lower)
         boss = ((((('boss' in lower) or ('palantir' in lower)) or ('entered the track' in lower)) or ('surveillance' in lower)) or ('phase' in lower))
         start = (lower.startswith('wave') and (not complete))
-        self.toast_special = (boss or start)
         self.toast_color = ((Cyber.GREEN if ('blocked' in lower) else Cyber.RED) if boss else (Cyber.GREEN if complete else (Cyber.CYAN if start else col)))
         if 'destroyed' in lower:
             self.toast_color = Cyber.YELLOW
-        micro = ('// wave clear' if complete else ('// warning' if boss else ('// incoming' if start else '// system')))
-        Cyber.set_text(self.toast_micro, Cyber.spaced(micro))
-        self.toast_text.set_text(text.upper())
-        self.toast_text.set_color(Cyber.lerp(self.toast_color, Color.WHITE, 0.55))
-        self.toast_w = _j.dmax(300, (self.toast_text.text_width() + 52))
-        self.toast_frame.size(self.toast_w, 56).border(self.toast_color)
-        self.toast_stripe.set_size(5, 56)
-        if self.toast_special:
-            self.toast_text.burst(0.5)
+        self.toast_text.set_label(text.upper())
+        self.toast_text_color = Cyber.lerp(self.toast_color, Color.WHITE, 0.6)
+        self.toast_w = _j.dmax(300, (self.toast_text.get_width() + 48))
+        self.toast_frame.size(self.toast_w, HudPanel.TOAST_H)
     @staticmethod
     def compact_money(v):
         """Cash for the HUD chip: full digits up to $999,999, then compact ($1.25M, $12.5M) so it never overflows the chip."""
@@ -530,7 +488,9 @@ from lindefense.ui.ui import Ui  # noqa: E402
 from lindefense.ui.ui_button import UIButton  # noqa: E402
 
 HudPanel.serial_version_uid = 1
-HudPanel.CHIP_LABEL = Cyber.mono(Font.BOLD, 9)
+HudPanel.CHIP_LABEL = Cyber.body(Font.PLAIN, 12)
+HudPanel.BAR = Color(6, 10, 22)
+HudPanel.TOAST_H = 50.0
 HudPanel.CHIP_VALUE = Cyber.mono(Font.BOLD, 16)
 HudPanel.CHIP_Y = 5.0
 HudPanel.CHIP_H = 38.0

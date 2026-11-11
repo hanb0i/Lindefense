@@ -31,9 +31,9 @@ from a Copilot firewall), or null if it has neither."""
         if in_.is_blinded():
             return _j.cat('BLINDED ', s, "s: swept by Palantir's Panopticon")
         if t.get_stats().injection_immune:
-            return _j.cat(IntrusionText.IMMUNE, '  //  ', t.get_stats().injection_immune_reason)
+            return _j.cat(IntrusionText.IMMUNE, ': ', t.get_stats().injection_immune_reason)
         if in_.is_firewalled():
-            return _j.cat(IntrusionText.IMMUNE, '  //  protected by a Copilot firewall')
+            return _j.cat(IntrusionText.IMMUNE, ': protected by a Copilot firewall')
         return None
     @staticmethod
     def is_warning(t):
@@ -43,7 +43,7 @@ from a Copilot firewall), or null if it has neither."""
     def type_line(type_):
         """Immunity line for a tower type (shop preview, catalog), or null if the type can be hijacked."""
         why = catalog.injection_immunity_reason(type_)
-        return None if (why is None) else _j.cat(IntrusionText.IMMUNE, '  //  ', why)
+        return None if (why is None) else _j.cat(IntrusionText.IMMUNE, ': ', why)
     @staticmethod
     def firewall_line(type_):
         """Extra line for a type whose aura shields other towers (Copilot's firewall), or null."""

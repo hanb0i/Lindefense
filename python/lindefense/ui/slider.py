@@ -54,7 +54,7 @@ the model once per frame, so changes made elsewhere (another screen, a hotkey) s
         self.w = w
         self.h = h
         self.accent = accent
-        self.frame = Cyber.Chamfer(0, 0, w, h, _j.dmin(10, (h * 0.28))).scan(False)
+        self.frame = Cyber.Chamfer(0, 0, w, h, UIButton.CUT)
         self.add(self.frame)
         left = Slider.PAD
         if caption is not None:
@@ -71,10 +71,10 @@ the model once per frame, so changes made elsewhere (another screen, a hotkey) s
         readout_w = self.readout.get_width()
         self.track_x = (left + (Slider.KNOB_W / 2))
         self.track_w = _j.dmax(1, ((((self.readout_right - readout_w) - 12) - (Slider.KNOB_W / 2)) - self.track_x))
-        self.track = Cyber.Bar(self.track_x, ((h / 2) - 3), self.track_w, 6, 0).notches([0.25, 0.5, 0.75])
+        self.track = Cyber.Bar(self.track_x, ((h / 2) - 2), self.track_w, 4, 0)
         self.add(self.track)
         kh = _j.dmax(10, _j.dmin(24, (h - 14)))
-        self.knob = Cyber.Chamfer(0, ((h - kh) / 2), Slider.KNOB_W, kh, 3).scan(False).line_width(1.2)
+        self.knob = Cyber.Chamfer(0, ((h - kh) / 2), Slider.KNOB_W, kh, 2).border(None)
         self.add(self.knob)
         self.add(self.readout)
         self.set_location(x, y)
@@ -207,12 +207,12 @@ changes nothing. Returns true if the press was inside the box, so the owner shou
     def apply(self):
         acc = (Slider.INACTIVE if self.inactive else self.accent)
         act = _j.dmax((self.hover_t * 0.55), self.drag_t)
-        self.frame.fill(Cyber.lerp(Slider.FILL, Cyber.alpha(Cyber.lerp(Color(10, 18, 38), acc, 0.22), 235), _j.dmin(1, (act * 0.8)))).border(Cyber.lerp(Cyber.alpha(acc, 150), acc, _j.dmin(1, (0.45 + act)))).glow((0 if self.inactive else _j.dmin(1, ((self.hover_t * 0.75) + (self.drag_t * 0.4)))))
-        self.track.colors(Cyber.lerp(acc, Color.WHITE, (0.2 * act)), Slider.TRACK_BACK, Cyber.alpha(acc, (90 if self.inactive else 120)))
-        self.knob.fill(Cyber.lerp(acc, Color.WHITE, (0.35 + (0.45 * act)))).border(Cyber.lerp(acc, Color.WHITE, 0.75)).glow((0 if self.inactive else (0.35 + (0.65 * act))))
+        self.frame.fill(Cyber.lerp(UIButton.FILL, Cyber.alpha(Cyber.lerp(UIButton.FILL, acc, 0.16), 240), _j.dmin(1, (act * 0.8)))).border(Cyber.lerp(Cyber.lerp(Cyber.EDGE_HI, acc, 0.28), acc, _j.dmin(1, (act * 1.6))))
+        self.track.colors(Cyber.lerp(acc, Color.WHITE, (0.2 * act)), Slider.TRACK_BACK, None)
+        self.knob.fill(Cyber.lerp(Cyber.lerp(acc, Color.WHITE, 0.55), Color.WHITE, act))
         Cyber.set_color(self.readout, (Cyber.MUTED if self.inactive else Cyber.lerp(Cyber.TEXT, Color.WHITE, self.hover_t)))
         if self.caption is not None:
-            Cyber.set_color(self.caption, (Cyber.DIM if self.inactive else Cyber.alpha(acc, 220)))
+            Cyber.set_color(self.caption, (Cyber.DIM if self.inactive else Cyber.MUTED))
     @staticmethod
     def press_any(lx, ly, group):
         """Offers a press to each slider of group (may be null); true if one of them took it."""
@@ -254,12 +254,14 @@ changes nothing. Returns true if the press was inside the box, so the owner shou
                     s.animate(dt)
 
 
+# deferred imports (after the class definitions, so import cycles resolve)
+from lindefense.ui.ui_button import UIButton  # noqa: E402
+
 Slider.serial_version_uid = 1
-Slider.FILL = Color(10, 18, 38, 225)
-Slider.TRACK_BACK = Color(2, 4, 12, 235)
+Slider.TRACK_BACK = Color(255, 255, 255, 26)
 Slider.INACTIVE = Color(0x4a5c78)
 Slider.PAD = 14.0
-Slider.KNOB_W = 12.0
+Slider.KNOB_W = 10.0
 Slider.SLOP = 10.0
 Slider.READOUT_FONT = Cyber.mono(Font.BOLD, 13)
-Slider.CAPTION_FONT = Cyber.mono(Font.BOLD, 11)
+Slider.CAPTION_FONT = Cyber.body(Font.PLAIN, 13)

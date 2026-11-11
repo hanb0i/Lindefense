@@ -33,28 +33,27 @@ Animated#step fades and grows it, returning false when done."""
             a = ev.a
             b = ev.b
             w = (_j.dmax(2.5, ev.radius) * 1.6)
-            self.glow = Art.raw_poly(Art.bar(a.x, a.y, b.x, b.y, (w * 1.8)), Art.alpha(self.c, 110), Art.alpha(self.c, 0))
+            self.glow = Art.raw_poly(Art.bar(a.x, a.y, b.x, b.y, (w * 1.2)), Art.alpha(self.c, 80), Art.alpha(self.c, 0))
             self.add(self.glow)
             self.core = Art.raw_poly(Art.bar(a.x, a.y, b.x, b.y, (w * 0.7)), Art.alpha(Color.WHITE, 230), Art.alpha(self.c, 200))
             self.add(self.core)
-            self.flash = Art.raw_poly(Art.star(0, 0, (w * 3.5), (w * 1.4), 6, 0), Art.alpha(Color.WHITE, 220), Art.alpha(self.c, 220))
+            self.flash = Art.raw_poly(Art.star(0, 0, (w * 2.0), (w * 0.9), 6, 0), Art.alpha(Color.WHITE, 220), Art.alpha(self.c, 0))
             self.flash.set_location(a.x, a.y)
             self.add(self.flash)
-            self.burst = Art.raw_poly(Art.star(0, 0, (w * 3), (w * 1.5), 8, 15), Art.alpha(Art.shade(self.c, 1.3), 230), Art.INK)
+            self.burst = Art.raw_poly(Art.star(0, 0, (w * 2), (w * 1.0), 8, 15), Art.alpha(Art.shade(self.c, 1.3), 230), Art.INK)
             self.burst.set_location(b.x, b.y)
             self.add(self.burst)
         def step(self, dt):
             self.t += dt
             f = _j.dmin(1, (self.t / self.total))
             a = _j.to_int((255 * (1 - f)))
-            self.glow.set_fill_color(Art.alpha(self.c, _j.to_int((110 * (1 - f)))))
+            self.glow.set_fill_color(Art.alpha(self.c, _j.to_int((80 * (1 - f)))))
             self.core.set_fill_color(Art.alpha(Color.WHITE, a))
             self.core.set_color(Art.alpha(self.c, a))
             self.flash.set_fill_color(Art.alpha(Color.WHITE, a))
-            self.flash.set_color(Art.alpha(self.c, a))
             self.burst.set_fill_color(Art.alpha(Art.shade(self.c, 1.3), a))
             self.burst.set_color(Art.alpha(Art.INK, a))
-            want = (1 + (f * 0.8))
+            want = (1 + (f * 0.5))
             self.burst.scale((want / self.burst_scale))
             self.burst_scale = want
             return self.t < self.total
@@ -98,7 +97,7 @@ Animated#step fades and grows it, returning false when done."""
                 off = (0 if (i == n) else ((self.rnd() * 2) * amp))
                 qx = ((self.a.x + (dx * f)) + (nx * off))
                 qy = ((self.a.y + (dy * f)) + (ny * off))
-                outer = Art.raw_poly(Art.bar(px, py, qx, qy, 2.6), Art.alpha(self.c, _j.to_int((170 * alpha))), Art.alpha(self.c, 0))
+                outer = Art.raw_poly(Art.bar(px, py, qx, qy, 2.0), Art.alpha(self.c, _j.to_int((150 * alpha))), Art.alpha(self.c, 0))
                 inner = Art.raw_poly(Art.bar(px, py, qx, qy, 1.0), Art.alpha(Color.WHITE, _j.to_int((240 * alpha))), Art.alpha(Color.WHITE, 0))
                 self.add(outer)
                 self.add(inner)
@@ -137,23 +136,24 @@ Animated#step fades and grows it, returning false when done."""
             self.ring = Flat.Oval((self.a.x - self.r0), (self.a.y - self.r0), (2 * self.r0), (2 * self.r0))
             self.ring.set_color(Art.alpha(Color.WHITE, 230))
             self.add(self.ring)
-            self.sparks = Art.raw_poly(Art.star(0, 0, (self.r0 * 2.2), (self.r0 * 0.5), 4, 0), Art.alpha(Art.shade(self.c, 1.2), 230), Art.alpha(Art.INK, 200))
+            self.sparks = Art.raw_poly(Art.star(0, 0, (self.r0 * 1.5), (self.r0 * 0.4), 4, 0), Art.alpha(Art.shade(self.c, 1.2), 230), Art.alpha(Art.INK, 200))
             self.sparks.set_location(self.a.x, self.a.y)
             self.add(self.sparks)
         def step(self, dt):
             self.t += dt
             f = _j.dmin(1, (self.t / self.total))
-            rad = (self.r0 * (1 + (1.6 * f)))
+            rad = (self.r0 * (1 + (1.1 * f)))
             self.ring.set_bounds((self.a.x - rad), (self.a.y - rad), (2 * rad), (2 * rad))
             self.ring.set_color(Art.alpha(Color.WHITE, _j.to_int((230 * (1 - f)))))
-            want = (1 + (f * 0.9))
+            want = (1 + (f * 0.5))
             self.sparks.scale((want / self.spark_scale))
             self.spark_scale = want
             self.sparks.set_fill_color(Art.alpha(Art.shade(self.c, 1.2), _j.to_int((230 * (1 - f)))))
             self.sparks.set_color(Art.alpha(Art.INK, _j.to_int((200 * (1 - f)))))
             return self.t < self.total
     class Explosion(GCompound, Animated):
-        """A chunky comic explosion: dark rim, coloured fill, hot white core, spiky burst and flying debris."""
+        """A clean explosion: a thin dark rim and a translucent coloured disc that grows to the splash radius (the
+gameplay signal), a small hot core, a compact burst and two bits of debris."""
         def __init__(self, ev):
             self.total = 0.0
             self.radius = 0.0
@@ -166,14 +166,14 @@ Animated#step fades and grows it, returning false when done."""
             self.burst = None
             GCompound.__init__(self)
             self.burst_scale = 1.0
-            self.debris = ([None] * 4)
+            self.debris = ([None] * 2)
             self.total = AttackEffects.life(ev, 0.35)
             self.a = ev.a
             self.c = Art.rgb(ev.rgb)
             self.radius = _j.dmax(10, ev.radius)
             self.rim = Art.glow(self, self.a.x, self.a.y, 1, Art.INK, 200)
             self.fill = Art.glow(self, self.a.x, self.a.y, 1, self.c, 220)
-            self.burst = Art.raw_poly(Art.star(0, 0, (self.radius * 0.9), (self.radius * 0.45), 9, 10), Art.alpha(Art.shade(self.c, 1.25), 240), Art.alpha(Art.INK, 230))
+            self.burst = Art.raw_poly(Art.star(0, 0, (self.radius * 0.55), (self.radius * 0.32), 9, 10), Art.alpha(Art.shade(self.c, 1.25), 230), Art.alpha(Art.INK, 0))
             self.burst.set_location(self.a.x, self.a.y)
             self.add(self.burst)
             self.core = Art.glow(self, self.a.x, self.a.y, 1, Art.rgb(0xfff4c2), 250)
@@ -185,21 +185,20 @@ Animated#step fades and grows it, returning false when done."""
             grow = math.sin(((_j.dmin(1, (f * 1.4)) * math.pi) / 2))
             rr = (self.radius * (0.35 + (0.65 * grow)))
             a255 = _j.to_int((255 * (1 - (f * f))))
-            self.rim.set_bounds((self.a.x - (rr * 1.08)), (self.a.y - (rr * 1.08)), (rr * 2.16), (rr * 2.16))
-            self.rim.set_fill_color(Art.alpha(Art.INK, _j.to_int((200 * (1 - (f * f))))))
+            self.rim.set_bounds((self.a.x - (rr * 1.04)), (self.a.y - (rr * 1.04)), (rr * 2.08), (rr * 2.08))
+            self.rim.set_fill_color(Art.alpha(Art.INK, _j.to_int((150 * (1 - (f * f))))))
             self.fill.set_bounds((self.a.x - rr), (self.a.y - rr), (rr * 2), (rr * 2))
-            self.fill.set_fill_color(Art.alpha(self.c, _j.to_int((220 * (1 - (f * f))))))
-            cr = (rr * (0.55 - (0.3 * f)))
+            self.fill.set_fill_color(Art.alpha(self.c, _j.to_int((150 * (1 - (f * f))))))
+            cr = (rr * (0.35 - (0.2 * f)))
             self.core.set_bounds((self.a.x - cr), (self.a.y - cr), (cr * 2), (cr * 2))
             self.core.set_fill_color(Art.alpha(Art.rgb(0xfff4c2), _j.to_int((250 * (1 - f)))))
             want = (0.4 + (1.0 * grow))
             self.burst.scale((want / self.burst_scale))
             self.burst_scale = want
             self.burst.set_fill_color(Art.alpha(Art.shade(self.c, 1.25), a255))
-            self.burst.set_color(Art.alpha(Art.INK, _j.to_int((230 * (1 - f)))))
             for i in range(len(self.debris)):
-                ang = (((i * math.pi) / 2) + 0.6)
-                d = (self.radius * (0.3 + (1.2 * f)))
+                ang = ((i * math.pi) + 0.6)
+                d = (self.radius * (0.3 + (0.8 * f)))
                 dr = ((self.radius * 0.1) * (1 - (f * 0.5)))
                 self.debris[i].set_bounds(((self.a.x + (math.cos(ang) * d)) - dr), (((self.a.y + ((math.sin(ang) * d) * 0.8)) - dr) + (((self.radius * 0.6) * f) * f)), (dr * 2), (dr * 2))
                 self.debris[i].set_fill_color(Art.alpha((Art.INK if (_j.imod(i, 2) == 0) else Art.shade(self.c, 0.8)), _j.to_int((230 * (1 - f)))))

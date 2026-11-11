@@ -195,7 +195,7 @@ def test_freeplay_loss_is_a_victory(check):
     check(not s.is_epilogue_open(), "no epilogue after freeplay")
     check(any(x.startswith("VICTORY - reached wave 117 in freeplay") for x in t), "end screen: %s" % t)
     check(not any(b.get_text() == "CONTINUE - FREEPLAY" for b in s.overlay_buttons), "no CONTINUE after freeplay")
-    check(s.overlay_title is not None and s.overlay_title.main.get_label() == "VICTORY", "titled VICTORY")
+    check(s.overlay_title is not None and s.overlay_title.get_label() == "VICTORY", "titled VICTORY")
 
 
 def test_seeded_freeplay_replays_identically(check):

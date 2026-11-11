@@ -50,17 +50,14 @@ coordinates so hit-testing stays correct at any window size."""
         self.medal_marks = {}        # map name -> its card's four medal frames (Difficulty order)
         self.app = app
         self.add(Ui.rect(0, 0, Ui.W, Ui.H, MenuScreen.BG, MenuScreen.BG))
-        for y in range(0, Ui.H, 4):
-            l = GLine(0, y, Ui.W, y)
-            l.set_color(Ui.with_alpha(Color.BLACK, 40))
-            self.add(l)
-        title = Ui.label('SELECT A MAP', 0, 0, MenuScreen.menu_font(Font.BOLD, 34), MenuScreen.CYAN)
+        self.add(Cyber.Grid(0, 0, Ui.W, Ui.H, 40, Ui.with_alpha(MenuScreen.CYAN, 6)))
+        title = Ui.label('SELECT A MAP', 0, 0, MenuScreen.menu_font(Font.BOLD, 30), Cyber.TEXT)
         title.set_location((((Ui.W - title.get_width()) / 2) + 30), 64)
         self.add(title)
         self.mark = LogoEmblem(52)
         self.mark.set_location((((Ui.W - title.get_width()) / 2) - 18), 52)
         self.add(self.mark)
-        small = LogoWordmark(22, Color(0xeafcff), MenuScreen.CYAN, True)
+        small = LogoWordmark(22, Color(0xeafcff), None, True)
         small.set_location((Ui.W - 190), 46)
         self.add(small)
         self.maps = maps.create_all()
@@ -84,7 +81,7 @@ coordinates so hit-testing stays correct at any window size."""
         if _j.imod(n, MapSelectScreen.COLS) != 0:   # the DAILY RUN card takes the free grid slot after the last map
             daily = RunSetupView.build_daily_card(self, self.daily, (25 + (_j.imod(n, MapSelectScreen.COLS) * (card_w + gap))), (top + (_j.idiv(n, MapSelectScreen.COLS) * (card_h + gap))), card_w, card_h)
         else:
-            daily = NeonButton(420, 28, 170, 42, 'DAILY RUN', MenuScreen.menu_font(Font.BOLD, 18), MenuScreen.MAGENTA, _j.Fn(self.open_daily_briefing))
+            daily = NeonButton(420, 28, 170, 42, 'DAILY RUN', MenuScreen.menu_font(Font.BOLD, 18), MenuScreen.CYAN, _j.Fn(self.open_daily_briefing))
             self.add(daily)
         _j_add(self.buttons, daily)
         back = NeonButton(25, 28, 130, 42, 'BACK', MenuScreen.menu_font(Font.BOLD, 18), MenuScreen.CYAN, _j.Fn(lambda *, app=app: app.show_menu()))
@@ -158,14 +155,7 @@ not the grid position: it is resolved through #displayOrder first, since cards a
             return MenuScreen.MAGENTA
     def build_card(self, app, m, idx, x, y, w, h):
         dc = MapSelectScreen.difficulty_color(m.get_difficulty())
-        frame = MapSelectScreen.cut(x, y, w, h, 16)
-        frame.set_filled(True)
-        frame.set_fill_color(Color(0x0a0e1e))
-        frame.set_color(Ui.with_alpha(MenuScreen.CYAN, 150))
-        self.add(frame)
-        inner = MapSelectScreen.cut((x + 4), (y + 4), (w - 8), (h - 8), 13)
-        inner.set_color(Ui.with_alpha(dc, 70))
-        self.add(inner)
+        self.add(Cyber.Chamfer(x, y, w, h, 6).fill(Cyber.SURFACE_2))
         compact = (h < 520)
         ph = (h - (123 if compact else 139))
         s = _j.dmin(((w - 24) / GameMap.WIDTH), (ph / GameMap.HEIGHT))
@@ -174,7 +164,7 @@ not the grid position: it is resolved through #displayOrder first, since cards a
         px = (x + ((w - pw) / 2))
         py = (y + 14)
         self.add(MapArt(m, px, py, pw, ph))
-        self.add(Ui.rect(px, py, pw, ph, None, Ui.with_alpha(MenuScreen.CYAN, 90)))
+        self.add(Ui.rect(px, py, pw, ph, None, Cyber.EDGE))
         for r in m.get_routes():
             self.add(Ui.oval(((px + (r.get_start().x * s)) - 3), ((py + (r.get_start().y * s)) - 3), 6, 6, Ui.GREEN, Ui.GREEN))
             self.add(Ui.oval(((px + (r.get_end().x * s)) - 3), ((py + (r.get_end().y * s)) - 3), 6, 6, Ui.RED, Ui.RED))
@@ -183,16 +173,22 @@ not the grid position: it is resolved through #displayOrder first, since cards a
         name_f = MenuScreen.menu_font(Font.BOLD, (19 if compact else 24))
         self.add(Ui.label(m.get_name().upper(), tx, ty, name_f, Ui.TEXT))
         ty += (18 if compact else 24)
-        badge = _j.cat(m.get_difficulty().upper(), '  /  ', len(m.get_routes()), (' LANE' if (len(m.get_routes()) == 1) else ' LANES'))
-        bl = Ui.label(badge, (tx + 8), ty, Cyber.display(Font.BOLD, (14 if compact else 16)), dc)
-        self.add(Ui.rect(tx, (ty - (13 if compact else 15)), (bl.get_width() + 16), (19 if compact else 22), Ui.with_alpha(dc, 35), Ui.with_alpha(dc, 160)))
-        self.add(bl)
+        self.add(MapSelectScreen.badge(m, tx, ty, (14 if compact else 15), dc))
         self.build_record_marks(m, (x + w - 16), (ty - (18 if compact else 24)), ty, compact)
         button_y = ((y + h) - (54 if compact else 70))
         button_h = (40 if compact else 50)
         play = NeonButton((x + 16), button_y, (w - 32), button_h, 'DEPLOY', MenuScreen.menu_font(Font.BOLD, (17 if compact else 20)), dc, _j.Fn(lambda *, idx=idx: self.open_briefing(idx)))
         _j_add(self.buttons, play)
         self.add(play)
+    @staticmethod
+    def badge(m, x, y, size, dc):
+        """"Intermediate · 1 lane": the difficulty tier in its colour, the lane count muted (no box)."""
+        g = GCompound()
+        tier = Ui.label(m.get_difficulty(), x, y, Cyber.body(Font.BOLD, size), dc)
+        g.add(tier)
+        n = len(m.get_routes())
+        g.add(Ui.label(_j.cat('·  ', n, (' lane' if (n == 1) else ' lanes')), ((x + tier.get_width()) + 8), y, Cyber.body(Font.PLAIN, size), Ui.MUTED))
+        return g
     def build_record_marks(self, m, right, name_y, badge_y, compact):
         """A card's records: four difficulty medals (lit once the map is won on that mode) right-aligned on the badge
 row, and the best wave on the selected mode right-aligned on the name row."""
@@ -209,11 +205,12 @@ row, and the best wave on the selected mode right-aligned on the name row."""
         self.refresh_best(len(self.best_labels) - 1)
     @staticmethod
     def medal(into, d, won, x, y, w, h):
-        """One difficulty medal: a small chamfered tag with the mode's growth term (1, N, N², Nᴺ)."""
+        """One difficulty medal: a small tag with the mode's growth term (1, N, N², Nᴺ); a won medal is outlined and tinted in
+the mode's colour (its frame has a border only then)."""
         col = DifficultySelector.COLORS[d.ordinal]
-        frame = Cyber.Chamfer(x, y, w, h, 5).scan(False).fill((Cyber.alpha(col, 70) if won else Color(8, 12, 26, 230))).border((col if won else Cyber.alpha(col, 70))).glow((0.7 if won else 0)).line_width((1.6 if won else 1.0))
+        frame = Cyber.Chamfer(x, y, w, h, 2).fill((Cyber.alpha(col, 60) if won else Color(255, 255, 255, 10))).border((col if won else None))
         into.add(frame)
-        tc = (Cyber.lerp(col, Color.WHITE, 0.55) if won else Cyber.alpha(Ui.MUTED, 150))
+        tc = (Cyber.lerp(col, Color.WHITE, 0.55) if won else Cyber.alpha(Ui.MUTED, 120))
         term = {'O1': ['1', None], 'ON': ['N', None], 'ON2': ['N', '2'], 'ONN': ['N', 'N']}.get(d.id, [d.ascii_label, None])
         base = Ui.label(term[0], 0, 0, Cyber.display(Font.BOLD, (12 if h < 20 else 13)), tc)
         sup = (Ui.label(term[1], 0, 0, Cyber.display(Font.BOLD, 9), tc) if (term[1] is not None) else None)
@@ -232,7 +229,7 @@ row, and the best wave on the selected mode right-aligned on the name row."""
         w = self.records.best_wave(e[1], d)
         won = self.records.has_won(e[1], d)
         e[0].set_label((_j.cat('BEST W', w) if (w > 0) else 'BEST  --'))
-        e[0].set_color((Cyber.YELLOW if won else (Ui.TEXT if (w > 0) else Cyber.alpha(Ui.MUTED, 170))))
+        e[0].set_color((Cyber.YELLOW if won else (Ui.TEXT if (w > 0) else Cyber.DIM)))
         e[0].set_location((e[2] - e[0].get_width()), e[3])
     def refresh_records(self):
         """Re-reads the cards' BEST readouts for the selected Difficulty Growth mode."""
@@ -244,18 +241,18 @@ row, and the best wave on the selected mode right-aligned on the name row."""
         r = self.records.map_record(m.get_name(), d)
         y = _j.dmax(ty, (MapSelectScreen.band_y() - 84))   # just above the RUN SETUP band
         col = DifficultySelector.COLORS[d.ordinal]
-        self.briefing.add(Ui.label(Cyber.spaced(_j.cat('your records  //  ', DifficultySelector.display(d, Cyber.mono(Font.BOLD, 12)))), rx, y, Cyber.mono(Font.BOLD, 12), Ui.with_alpha(col, 235)))
-        runs = Ui.label(_j.cat(r['runs'], (' RUN' if (r['runs'] == 1) else ' RUNS'), '  //  ', r['victories'], (' WIN' if (r['victories'] == 1) else ' WINS')), 0, y, Cyber.mono(Font.BOLD, 11), Ui.MUTED)
+        self.briefing.add(Ui.label(_j.cat('Your records on ', DifficultySelector.display(d, Cyber.body(Font.BOLD, 14))), rx, y, Cyber.body(Font.BOLD, 14), Cyber.lerp(col, Ui.TEXT, 0.35)))
+        runs = Ui.label(_j.cat(r['runs'], (' run' if (r['runs'] == 1) else ' runs'), '  ·  ', r['victories'], (' win' if (r['victories'] == 1) else ' wins')), 0, y, Cyber.body(Font.PLAIN, 13), Ui.MUTED)
         runs.set_location(((rx + rw) - runs.get_width()), y)
         self.briefing.add(runs)
-        cells = [['best wave', (_j.cat('W', _j.to_int(r['best_wave'])) if (r['best_wave'] > 0) else '-')], ['victories', _j.s(_j.to_int(r['victories']))], ['fastest win', (RunReportView.fmt_time(r['fastest']) if ('fastest' in r) else '-')], ['most lives', (_j.s(_j.to_int(r['best_lives'])) if ('best_lives' in r) else '-')]]
+        cells = [['Best wave', (_j.cat('W', _j.to_int(r['best_wave'])) if (r['best_wave'] > 0) else '-')], ['Victories', _j.s(_j.to_int(r['victories']))], ['Fastest win', (RunReportView.fmt_time(r['fastest']) if ('fastest' in r) else '-')], ['Most lives', (_j.s(_j.to_int(r['best_lives'])) if ('best_lives' in r) else '-')]]
         gap = 8.0
         cw = ((rw - (gap * 3)) / 4)
         cy = (y + 12)
         for i in range(4):
             cx = (rx + (i * (cw + gap)))
-            self.briefing.add(Cyber.Chamfer(cx, cy, cw, 46, 7).scan(False).fill(Color(8, 14, 32, 235)).border(Ui.with_alpha(col, (200 if (r['victories'] > 0) else 110))))
-            self.briefing.add(Ui.label(Cyber.spaced(cells[i][0]), (cx + 10), (cy + 16), Cyber.mono(Font.BOLD, 9), Ui.with_alpha(col, 210)))
+            self.briefing.add(Cyber.Chamfer(cx, cy, cw, 46, 4).fill(Cyber.SURFACE_2).border((Ui.with_alpha(col, 150) if (r['victories'] > 0) else Cyber.EDGE)))
+            self.briefing.add(Ui.label(cells[i][0], (cx + 10), (cy + 17), Cyber.body(Font.PLAIN, 12), Ui.MUTED))
             self.briefing.add(Ui.label(cells[i][1], (cx + 10), (cy + 37), Cyber.mono(Font.BOLD, 16), Ui.TEXT))
     @staticmethod
     def briefing_deploy_center():
@@ -282,32 +279,31 @@ row, and the best wave on the selected mode right-aligned on the name row."""
         dc = MapSelectScreen.difficulty_color(m.get_difficulty())
         self.briefing_map = idx
         self.briefing = GCompound()
-        self.briefing.add(Ui.rect(0, 0, Ui.W, Ui.H, Ui.c(0x02040a, 205), Ui.c(0x000000, 0)))
+        self.briefing.add(Ui.rect(0, 0, Ui.W, Ui.H, Cyber.SCRIM, Ui.c(0x000000, 0)))
         px = MapSelectScreen.BRIEF_X
         py = MapSelectScreen.BRIEF_Y
         pw = MapSelectScreen.BRIEF_W
         ph = MapSelectScreen.BRIEF_H
-        self.briefing.add(Cyber.Chamfer(px, py, pw, ph, 26).fill(Color(6, 10, 24, 244)).border(dc).glow(1.1).line_width(2).ticks(True))
-        self.briefing.add(Ui.rect((px + 24), (py + 12), 140, 3, MenuScreen.MAGENTA, MenuScreen.MAGENTA))
-        self.briefing.add(Ui.label(Cyber.spaced(_j.cat('// mission briefing  -  sector ', (idx + 1), ' of ', len(self.maps))), (px + MapSelectScreen.BRIEF_PAD), (py + 40), Cyber.mono(Font.BOLD, 12), Ui.with_alpha(MenuScreen.MAGENTA, 230)))
+        self.briefing.add(Cyber.Chamfer(px, py, pw, ph, 6))
+        self.briefing.add(Ui.label(_j.cat('Map ', (idx + 1), ' of ', len(self.maps)), (px + MapSelectScreen.BRIEF_PAD), (py + 40), Cyber.body(Font.PLAIN, 14), Ui.MUTED))
         ax = (px + MapSelectScreen.BRIEF_PAD)
         ay = (py + 60)
         aw = MapSelectScreen.BRIEF_ART_W
         ah = ((aw * GameMap.HEIGHT) / GameMap.WIDTH)
         s = (aw / GameMap.WIDTH)
         self.briefing.add(MapArt(m, ax, ay, aw, ah))
-        self.briefing.add(Ui.rect(ax, ay, aw, ah, None, Ui.with_alpha(dc, 170)))
+        self.briefing.add(Ui.rect(ax, ay, aw, ah, None, Cyber.EDGE_HI))
         for r in m.get_routes():
             self.briefing.add(Ui.oval(((ax + (r.get_start().x * s)) - 5), ((ay + (r.get_start().y * s)) - 5), 10, 10, Ui.GREEN, Ui.GREEN))
             self.briefing.add(Ui.oval(((ax + (r.get_end().x * s)) - 5), ((ay + (r.get_end().y * s)) - 5), 10, 10, Ui.RED, Ui.RED))
         ly = ((ay + ah) + 30)
-        legend_f = Cyber.mono(Font.BOLD, 12)
+        legend_f = Cyber.body(Font.PLAIN, 14)
         self.briefing.add(Ui.oval(ax, (ly - 9), 10, 10, Ui.GREEN, Ui.GREEN))
-        entry = Ui.label('ENTRY', (ax + 16), ly, legend_f, Ui.TEXT)
+        entry = Ui.label('Entry', (ax + 16), ly, legend_f, Ui.MUTED)
         self.briefing.add(entry)
         ex = (((ax + 16) + entry.get_width()) + 22)
         self.briefing.add(Ui.oval(ex, (ly - 9), 10, 10, Ui.RED, Ui.RED))
-        self.briefing.add(Ui.label('EXIT', (ex + 16), ly, legend_f, Ui.TEXT))
+        self.briefing.add(Ui.label('Exit', (ex + 16), ly, legend_f, Ui.MUTED))
         rx = ((ax + aw) + 36)
         rw = (((px + pw) - MapSelectScreen.BRIEF_PAD) - rx)
         ty = (py + 92)
@@ -316,19 +312,17 @@ row, and the best wave on the selected mode right-aligned on the name row."""
             self.briefing.add(Ui.label(line, rx, ty, name_f, Ui.TEXT))
             ty += 34
         ty += 2
-        badge = _j.cat(m.get_difficulty().upper(), '  /  ', len(m.get_routes()), (' LANE' if (len(m.get_routes()) == 1) else ' LANES'))
-        bl = Ui.label(badge, (rx + 8), ty, Cyber.display(Font.BOLD, 16), dc)
-        self.briefing.add(Ui.rect(rx, (ty - 15), (bl.get_width() + 16), 22, Ui.with_alpha(dc, 35), Ui.with_alpha(dc, 160)))
-        self.briefing.add(bl)
+        self.briefing.add(MapSelectScreen.badge(m, rx, ty, 16, dc))
         ty += 40
-        ty = self.briefing_section('BRIEFING', m.get_description(), MenuScreen.CYAN, rx, ty, rw)
-        ty = self.briefing_section('MAP MECHANICS', m.get_mechanic_summary(), MenuScreen.YELLOW, rx, ty, rw)
+        ty = self.briefing_section('Briefing', m.get_description(), MenuScreen.CYAN, rx, ty, rw)
+        ty = self.briefing_section('Map mechanics', m.get_mechanic_summary(), MenuScreen.YELLOW, rx, ty, rw)
         d = Difficulty.get_selected()
-        ty = self.briefing_section('DIFFICULTY GROWTH', _j.cat(DifficultySelector.display(d, Cyber.body(Font.PLAIN, 16)), '  -  ', d.subtitle), MenuScreen.MAGENTA, rx, ty, rw)
+        ty = self.briefing_section('Difficulty growth', _j.cat(DifficultySelector.display(d, Cyber.body(Font.PLAIN, 16)), '  -  ', d.subtitle), MenuScreen.MAGENTA, rx, ty, rw)
         self.briefing_records(m, rx, rw, ty)
         dep = MapSelectScreen.briefing_deploy_rect()
         back = NeonButton(rx, dep[1], 150, dep[3], 'BACK', MenuScreen.menu_font(Font.BOLD, 18), MenuScreen.CYAN, _j.Fn(self.close_briefing))
         go = NeonButton(dep[0], dep[1], dep[2], dep[3], 'DEPLOY', MenuScreen.menu_font(Font.BOLD, 22), dc, _j.Fn(lambda *, idx=idx: self.deploy(idx)))
+        go.set_primary(True)
         _j_add(self.briefing_buttons, back)
         _j_add(self.briefing_buttons, go)
         self.briefing.add(back)
@@ -349,7 +343,7 @@ row, and the best wave on the selected mode right-aligned on the name row."""
     def add_mode_switch(self, idx, ax, aw, reverse):
         """The switch between the normal and the reverse briefing, across the left column under the map legend."""
         dep = MapSelectScreen.briefing_deploy_rect()
-        mode = (NeonButton(ax, dep[1], aw, dep[3], 'DEFEND INSTEAD  //  NORMAL MODE', MenuScreen.menu_font(Font.BOLD, 18), MenuScreen.CYAN, _j.Fn(lambda *, idx=idx: self.open_briefing(idx))) if reverse else NeonButton(ax, dep[1], aw, dep[3], 'ATTACK INSTEAD  //  ADVERSARIAL TRAINING', MenuScreen.menu_font(Font.BOLD, 18), MenuScreen.MAGENTA, _j.Fn(lambda *, idx=idx: self.open_reverse_briefing(idx))))
+        mode = (NeonButton(ax, dep[1], aw, dep[3], 'DEFEND INSTEAD  ·  NORMAL MODE', MenuScreen.menu_font(Font.BOLD, 18), MenuScreen.CYAN, _j.Fn(lambda *, idx=idx: self.open_briefing(idx))) if reverse else NeonButton(ax, dep[1], aw, dep[3], 'ATTACK INSTEAD  ·  ADVERSARIAL TRAINING', MenuScreen.menu_font(Font.BOLD, 18), MenuScreen.MAGENTA, _j.Fn(lambda *, idx=idx: self.open_reverse_briefing(idx))))
         _j_add(self.briefing_buttons, mode)
         self.briefing.add(mode)
     def open_reverse_briefing(self, idx):
@@ -362,32 +356,31 @@ ATTACK (or Enter) starts the reverse match; DEFEND INSTEAD goes back to the norm
         self.briefing_map = idx
         self.briefing_reverse = True
         self.briefing = GCompound()
-        self.briefing.add(Ui.rect(0, 0, Ui.W, Ui.H, Ui.c(0x02040a, 205), Ui.c(0x000000, 0)))
+        self.briefing.add(Ui.rect(0, 0, Ui.W, Ui.H, Cyber.SCRIM, Ui.c(0x000000, 0)))
         px = MapSelectScreen.BRIEF_X
         py = MapSelectScreen.BRIEF_Y
         pw = MapSelectScreen.BRIEF_W
         ph = MapSelectScreen.BRIEF_H
-        self.briefing.add(Cyber.Chamfer(px, py, pw, ph, 26).fill(Color(14, 6, 24, 244)).border(dc).glow(1.1).line_width(2).ticks(True))
-        self.briefing.add(Ui.rect((px + 24), (py + 12), 140, 3, MenuScreen.CYAN, MenuScreen.CYAN))
-        self.briefing.add(Ui.label(Cyber.spaced(_j.cat('// adversarial training  -  sector ', (idx + 1), ' of ', len(self.maps))), (px + MapSelectScreen.BRIEF_PAD), (py + 40), Cyber.mono(Font.BOLD, 12), Ui.with_alpha(MenuScreen.CYAN, 230)))
+        self.briefing.add(Cyber.Chamfer(px, py, pw, ph, 6).fill(Color(14, 10, 28, 246)))
+        self.briefing.add(Ui.label(_j.cat('Adversarial training  ·  map ', (idx + 1), ' of ', len(self.maps)), (px + MapSelectScreen.BRIEF_PAD), (py + 40), Cyber.body(Font.PLAIN, 14), Ui.MUTED))
         ax = (px + MapSelectScreen.BRIEF_PAD)
         ay = (py + 60)
         aw = MapSelectScreen.BRIEF_ART_W
         ah = ((aw * GameMap.HEIGHT) / GameMap.WIDTH)
         s = (aw / GameMap.WIDTH)
         self.briefing.add(MapArt(m, ax, ay, aw, ah))
-        self.briefing.add(Ui.rect(ax, ay, aw, ah, None, Ui.with_alpha(dc, 170)))
+        self.briefing.add(Ui.rect(ax, ay, aw, ah, None, Cyber.EDGE_HI))
         for r in m.get_routes():
             self.briefing.add(Ui.oval(((ax + (r.get_start().x * s)) - 5), ((ay + (r.get_start().y * s)) - 5), 10, 10, MenuScreen.MAGENTA, MenuScreen.MAGENTA))
             self.briefing.add(Ui.oval(((ax + (r.get_end().x * s)) - 5), ((ay + (r.get_end().y * s)) - 5), 10, 10, Ui.RED, Ui.RED))
         ly = ((ay + ah) + 30)
-        legend_f = Cyber.mono(Font.BOLD, 12)
+        legend_f = Cyber.body(Font.PLAIN, 14)
         self.briefing.add(Ui.oval(ax, (ly - 9), 10, 10, MenuScreen.MAGENTA, MenuScreen.MAGENTA))
-        entry = Ui.label('YOUR UPLINK', (ax + 16), ly, legend_f, Ui.TEXT)
+        entry = Ui.label('Your uplink', (ax + 16), ly, legend_f, Ui.MUTED)
         self.briefing.add(entry)
         ex = (((ax + 16) + entry.get_width()) + 22)
         self.briefing.add(Ui.oval(ex, (ly - 9), 10, 10, Ui.RED, Ui.RED))
-        self.briefing.add(Ui.label('BREACH POINT', (ex + 16), ly, legend_f, Ui.TEXT))
+        self.briefing.add(Ui.label('Breach point', (ex + 16), ly, legend_f, Ui.MUTED))
         rx = ((ax + aw) + 36)
         rw = (((px + pw) - MapSelectScreen.BRIEF_PAD) - rx)
         ty = (py + 92)
@@ -396,24 +389,23 @@ ATTACK (or Enter) starts the reverse match; DEFEND INSTEAD goes back to the norm
             self.briefing.add(Ui.label(line, rx, ty, name_f, Ui.TEXT))
             ty += 34
         ty += 2
-        bl = Ui.label('REVERSE MODE  /  YOU ATTACK', (rx + 8), ty, Cyber.display(Font.BOLD, 16), dc)
-        self.briefing.add(Ui.rect(rx, (ty - 15), (bl.get_width() + 16), 22, Ui.with_alpha(dc, 35), Ui.with_alpha(dc, 160)))
-        self.briefing.add(bl)
+        self.briefing.add(Ui.label('Reverse mode  ·  you attack', rx, ty, Cyber.body(Font.BOLD, 16), dc))
         ty += 40
         mins = _j.to_int((ReverseMatch.DURATION / 60))
-        ty = self.briefing_section('ADVERSARIAL TRAINING', _j.cat('Roles reversed: you send the enemies, a defender AI builds and upgrades the towers. Spend compute credits on ', 'units, modifiers and exploits, and drop its integrity to 0 before the ', mins, ':00 training run ends.'), MenuScreen.MAGENTA, rx, ty, rw)
+        ty = self.briefing_section('Adversarial training', _j.cat('Roles reversed: you send the enemies, a defender AI builds and upgrades the towers. Spend compute credits on ', 'units, modifiers and exploits, and drop its integrity to 0 before the ', mins, ':00 training run ends.'), MenuScreen.MAGENTA, rx, ty, rw)
         d = Difficulty.get_selected()
         prof = DefenderProfile.of(d)
-        ty = self.briefing_section(_j.cat('DEFENDER AI: ', prof.display_name), _j.cat(DifficultySelector.display(d, Cyber.body(Font.PLAIN, 16)), '  -  ', prof.description), MenuScreen.YELLOW, rx, ty, rw)
-        ty = self.briefing_section('DIFFICULTY RULES', prof.rules_line(), Ui.RED, rx, ty, rw)
+        ty = self.briefing_section(_j.cat('Defender AI: ', prof.display_name), _j.cat(DifficultySelector.display(d, Cyber.body(Font.PLAIN, 16)), '  -  ', prof.description), MenuScreen.YELLOW, rx, ty, rw)
+        ty = self.briefing_section('Difficulty rules', prof.rules_line(), Ui.RED, rx, ty, rw)
         tb = _m_reverse_match.track_bonus(m)
         sp = _m_reverse_match.track_speed(m)
         lanes = len(m.get_routes())
         up = _j.cat(lanes, (' lane.' if (lanes == 1) else ' lanes: pick one per send or spread them.'), (_j.cat(' Long track: your units move x', Ui.fmt((_j.jround((sp * 100)) / 100.0)), ' faster and compute flows x', Ui.fmt((_j.jround((tb * 100)) / 100.0)), '.') if ((tb > 1) or (sp > 1)) else ' Standard track.'))
-        self.briefing_section('UPLINK', up, MenuScreen.CYAN, rx, ty, rw)
+        self.briefing_section('Uplink', up, MenuScreen.CYAN, rx, ty, rw)
         dep = MapSelectScreen.briefing_deploy_rect()
         back = NeonButton(rx, dep[1], 150, dep[3], 'BACK', MenuScreen.menu_font(Font.BOLD, 18), MenuScreen.CYAN, _j.Fn(self.close_briefing))
         go = NeonButton(dep[0], dep[1], dep[2], dep[3], 'ATTACK', MenuScreen.menu_font(Font.BOLD, 22), dc, _j.Fn(lambda *, idx=idx: self.app.start_reverse(idx)))
+        go.set_primary(True)
         _j_add(self.briefing_buttons, back)
         _j_add(self.briefing_buttons, go)
         self.briefing.add(back)
@@ -454,11 +446,11 @@ or the daily run). A seed that does not parse is refused and its error stays on 
         self.add(self.briefing)
     def briefing_section(self, heading, text, col, x, y, w):
         """One heading + wrapped paragraph in the briefing's right column; returns the y for the next section."""
-        self.briefing.add(Ui.label(Cyber.spaced(heading), x, y, Cyber.mono(Font.BOLD, 12), Ui.with_alpha(col, 235)))
+        self.briefing.add(Ui.label(heading, x, y, Cyber.body(Font.BOLD, 14), Cyber.lerp(col, Ui.MUTED, 0.6)))
         y += 24
         f = Cyber.body(Font.PLAIN, 16)
         for line in Ui.wrap(text, f, w):
-            self.briefing.add(Ui.label(line, x, y, f, Ui.TEXT))
+            self.briefing.add(Ui.label(line, x, y, f, Cyber.lerp(Ui.TEXT, Ui.MUTED, 0.2)))
             y += 22
         return y + 18
     def close_briefing(self):
@@ -494,16 +486,6 @@ or the daily run). A seed that does not parse is refused and its error stays on 
                 return
             AudioManager.sfx(Sfx.UI_SELECT)
             self.deploy(idx)
-    @staticmethod
-    def cut(x, y, w, h, c):
-        p = GPolygon()
-        p.add_vertex((x + c), y)
-        p.add_vertex((x + w), y)
-        p.add_vertex((x + w), ((y + h) - c))
-        p.add_vertex(((x + w) - c), (y + h))
-        p.add_vertex(x, (y + h))
-        p.add_vertex(x, (y + c))
-        return p
     def mouse_pressed(self, lx, ly):
         if self.briefing is not None:
             if self.run_setup is not None:
@@ -542,7 +524,6 @@ or the daily run). A seed that does not parse is refused and its error stays on 
             c.set_hover(c.hit(lx, ly))
     def frame(self, dt):
         self.t += dt
-        self.mark.animate(self.t)
         for b in self.buttons:
             b.animate(dt)
         for b in self.briefing_buttons:

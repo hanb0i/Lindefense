@@ -36,13 +36,13 @@ rings and hint are mutated."""
         self.buttons = _j.ArrayList()
         self.slots = _j.ArrayList()
         self.tip = GCompound()
-        self.tip_frame = Cyber.Chamfer(0, 0, 300, 90, 8).scan(False).fill(Color(5, 9, 22, 245)).glow(0.7)
+        self.tip_frame = Cyber.Chamfer(0, 0, 300, 90, 4).fill(Color(9, 14, 28, 250)).border(Cyber.EDGE_HI)
         self.tip_title = Ui.label('', 12, 22, Cyber.display(Font.BOLD, 18), Cyber.TEXT)
-        self.tip_meta = Ui.label('', 12, 40, Cyber.mono(Font.BOLD, 10), Cyber.MAGENTA)
+        self.tip_meta = Ui.label('', 12, 40, Cyber.body(Font.PLAIN, 12), Cyber.MAGENTA)
         self.tip_lines = _j.ArrayList()
         self.hint_box = GCompound()
-        self.hint_frame = Cyber.Chamfer(0, 0, 300, 26, 6).scan(False).fill(Color(5, 9, 22, 235))
-        self.hint_label = Ui.label('', 12, 18, Cyber.mono(Font.BOLD, 12), Cyber.CYAN)
+        self.hint_frame = Cyber.Chamfer(0, 0, 300, 26, 4).fill(Color(9, 14, 28, 240)).border(Cyber.EDGE_HI)
+        self.hint_label = Ui.label('', 12, 18, Cyber.body(Font.BOLD, 13), Cyber.CYAN)
         self.key = ''
         self.capacity = 20
         self.hint = ''
@@ -97,23 +97,23 @@ rings and hint are mutated."""
         from_ = (self.page * self.capacity)
         to = min(n, (from_ + self.capacity))
         w = (((AbilityBar.LABEL_W + ((to - from_) * AbilityBar.PITCH)) + (((2 * AbilityBar.ARROW_W) + 8) if paged else 0)) + 6)
-        self.body.add(Cyber.Chamfer(AbilityBar.LEFT, AbilityBar.Y, w, AbilityBar.HEIGHT, 10).fill(Color(5, 9, 22, 214)).border(Cyber.alpha(Cyber.MAGENTA, 150)).scan(False))
-        self.body.add(Ui.label('ABILITIES', (AbilityBar.LEFT + 10), (AbilityBar.Y + 22), Cyber.mono(Font.BOLD, 10), Cyber.alpha(Cyber.MAGENTA, 230)))
-        self.body.add(Ui.label((_j.cat((self.page + 1), ' / ', pages) if paged else _j.cat(n, (' TOWER' if (n == 1) else ' TOWERS'))), (AbilityBar.LEFT + 10), (AbilityBar.Y + 38), Cyber.mono(Font.PLAIN, 10), Cyber.MUTED))
+        self.body.add(Cyber.Chamfer(AbilityBar.LEFT, AbilityBar.Y, w, AbilityBar.HEIGHT, 4).fill(Color(6, 10, 22, 220)).border(Cyber.EDGE))
+        self.body.add(Ui.label('Abilities', (AbilityBar.LEFT + 10), (AbilityBar.Y + 23), Cyber.body(Font.BOLD, 13), Cyber.TEXT))
+        self.body.add(Ui.label((_j.cat((self.page + 1), ' / ', pages) if paged else _j.cat(n, (' tower' if (n == 1) else ' towers'))), (AbilityBar.LEFT + 10), (AbilityBar.Y + 39), Cyber.body(Font.PLAIN, 12), Cyber.MUTED))
         x = (AbilityBar.LEFT + AbilityBar.LABEL_W)
         if paged:
             def _lam1():
                 self.page = max(0, (self.page - 1))
                 self.key = ''
             prev = UIButton(x, (AbilityBar.Y + 11), AbilityBar.ARROW_W, 32, '<', Cyber.display(Font.BOLD, 16), _j.Fn(_lam1))
-            prev.set_accent(Cyber.MAGENTA)
+            prev.set_accent(Cyber.CYAN)
             self.body.add(prev)
             _j_add(self.buttons, prev)
             x += (AbilityBar.ARROW_W + 4)
         for i in range(from_, to):
             t = all_[i]
             b = UIButton(x, (AbilityBar.Y + ((AbilityBar.HEIGHT - AbilityBar.SLOT) / 2)), AbilityBar.SLOT, AbilityBar.SLOT, '', _j.Fn(lambda t=t: self.screen.fire_ability(t)))   # bind per iteration
-            b.set_accent(Ui.c(t.get_type().primary_rgb))
+            b.set_accent(Cyber.MAGENTA)
             self.body.add(b)
             _j_add(self.buttons, b)
             cx = (x + (AbilityBar.SLOT / 2))
@@ -133,7 +133,7 @@ rings and hint are mutated."""
                 self.page = min((pages - 1), (self.page + 1))
                 self.key = ''
             next_ = UIButton((x + 2), (AbilityBar.Y + 11), AbilityBar.ARROW_W, 32, '>', Cyber.display(Font.BOLD, 16), _j.Fn(_lam2))
-            next_.set_accent(Cyber.MAGENTA)
+            next_.set_accent(Cyber.CYAN)
             self.body.add(next_)
             _j_add(self.buttons, next_)
         self.screen.refresh_hover()
@@ -169,7 +169,7 @@ rings and hint are mutated."""
         Cyber.set_text(self.hint_label, h)
         Cyber.set_color(self.hint_label, hc)
         w = (self.hint_label.get_width() + 24)
-        self.hint_frame.size(w, 26).border(hc)
+        self.hint_frame.size(w, 26)
         self.hint_box.set_location(((Ui.WORLD_W / 2.0) - (w / 2)), (AbilityBar.Y - 34))
         self.hint_box.set_visible(True)
     def update_tip(self):
@@ -184,7 +184,7 @@ rings and hint are mutated."""
             return
         t = hover.tower
         a = t.get_ability()
-        meta = _j.cat(('OFFLINE (SURVEILLED)' if t.is_surveilled() else ('READY' if t.is_ability_ready() else _j.format('%.0fs LEFT', float(math.ceil(t.get_ability_cooldown_remaining()))))), '  //  CD ', _j.to_int(a.cooldown), 's', ('  //  TARGETED' if a.needs_target else ''))
+        meta = _j.cat(('OFFLINE (SURVEILLED)' if t.is_surveilled() else ('READY' if t.is_ability_ready() else _j.format('%.0fs LEFT', float(math.ceil(t.get_ability_cooldown_remaining()))))), '  ·  cooldown ', _j.to_int(a.cooldown), 's', ('  ·  targeted' if a.needs_target else ''))
         id_ = _j.cat(t.get_id(), meta)
         if not (id_ == self.tip_shown):
             self.tip_shown = id_
@@ -194,7 +194,7 @@ rings and hint are mutated."""
             for i in range(len(self.tip_lines)):
                 Cyber.set_text(self.tip_lines[i], (lines[i] if (i < len(lines)) else ''))
             w = (_j.dmax(self.tip_title.get_width(), 340) + 24)
-            self.tip_frame.size(w, ((62 + (min(3, len(lines)) * 15)) + 6)).border(Ui.c(t.get_type().primary_rgb))
+            self.tip_frame.size(w, ((62 + (min(3, len(lines)) * 15)) + 6))
         w = self.tip_frame.get_w()
         h = self.tip_frame.get_h()
         self.tip.set_location(_j.dmax(6, _j.dmin(((Ui.WORLD_W - w) - 6), ((hover.button.get_x() + (AbilityBar.SLOT / 2)) - (w / 2)))), ((AbilityBar.Y - h) - 8))

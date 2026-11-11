@@ -6,6 +6,8 @@ records with a single write and returns a RunReport (new bests, achievements unl
 
 Excluded runs: the tutorial and admin-mode runs change nothing; reverse-mode matches only count toward the reverse
 achievements (never map records, career totals or the history). A run abandoned before its first wave is not a run.
+Campaign levels (sim/campaign.py) count toward the career totals and the boss / hero / career / campaign achievements,
+never toward the classic map records, the run history or the classic-run achievements.
 
 Storage: one JSON document (node "lindefense/records" in the prefs folder). Each save rotates the previous file to
 .bak; a file that does not parse is moved aside (.corrupt-<time>) and the backup is used instead, so a damaged save
@@ -58,7 +60,8 @@ class RunSummary:
     FIELDS = dict(map_name="", map_index=-1, difficulty="O1", seed=0, result=ABANDONED, wave=0, waves_cleared=0,
                   kills=0, leaks=0, bosses=(), lives=0, max_lives=0, time=0.0, play_time=0.0, cash_earned=0.0,
                   notes=(), notes_on=False, heroes_deployed=(), max_tier=0, towers=(), heroes_bought=(),
-                  tutorial=False, reverse=False, admin=False, reverse_level=None, tags=(), date="")
+                  tutorial=False, reverse=False, admin=False, reverse_level=None, tags=(), date="",
+                  campaign_level="", campaign_stars=0, campaign_best=None)
 
     def __init__(self, **kw):
         for k, v in RunSummary.FIELDS.items():
@@ -103,6 +106,7 @@ class RunSummary:
         lines = [TowerLine.of(t) for t in tm.get_player_towers()]
         lines += [TowerLine.of(t, True) for t, _ in tm.get_sold()]
         rev = game.get_reverse()
+        camp = game.get_campaign()
         return RunSummary(
             map_name=game.get_map().get_name(), map_index=maps.index_of(game.get_map()),
             difficulty=game.get_difficulty().id, seed=game.get_seed(), result=result,
@@ -116,7 +120,14 @@ class RunSummary:
             max_tier=max([ln.tier for ln in lines] or [0]), towers=lines,
             heroes_bought=[] if game.has_admin_money() else [h.name for h in game.get_heroes_bought()],
             tutorial=tutorial, reverse=rev is not None, admin=game.is_admin(),
-            reverse_level=rev.get_level().id if rev is not None else None, tags=list(game.get_tags()))
+            reverse_level=rev.get_level().id if rev is not None else None, tags=list(game.get_tags()),
+            campaign_level=camp.level_id if camp is not None else "",
+            campaign_stars=_campaign_stars(game, result) if camp is not None else 0)
+
+    @property
+    def campaign(self):
+        """True for a campaign level."""
+        return bool(self.campaign_level)
 
     def mvp(self, n=MVP_ROWS):
         """The top n towers by damage (ties: more kills first), sold towers included."""
@@ -136,7 +147,17 @@ class RunSummary:
         return self.excluded_reason() is None and (self.wave > 0 or self.result != ABANDONED)
 
 
+def _campaign_stars(game, result):
+    from lindefense.sim.campaign import stars_for
+    return stars_for(game.get_lives(), game.get_max_lives()) if result == VICTORY else 0
+
+
 # ====================================================================== achievements
+# groups of achievements about a classic (100-wave) run: a campaign level never earns them
+CLASSIC_GROUPS = ("campaign", "maps", "difficulty", "challenge")
+STARTER_ONLY_FROM = 4    # Base Model: a level from this one on, won with only the starter towers
+
+
 class Achievement:
     """One achievement: test(summary, records) is checked when a run ends, after the run has been folded into the
     records (so career totals include it). live ones are also checked during a run for an early toast."""
@@ -187,16 +208,17 @@ def _build_achievements():
     def beat_ai(d):
         return lambda s, r: s.reverse and s.won and s.reverse_level == d.id
 
-    a = [Achievement("first_win", "Hello, World", "Win a campaign on any map.", "campaign", lambda s, r: s.won)]
+    a = [Achievement("first_win", "Hello, World", "Win a CLASSIC run on any map.", "campaign", lambda s, r: s.won)]
     for n in map_names:
         short = n[4:] if n.startswith("The ") else n
-        a.append(Achievement("win_" + _slug(n), "Secured: " + short, "Win a campaign on " + n + ".", "maps", won_map(n)))
-    a.append(Achievement("all_maps", "Full Coverage", "Win a campaign on every map.", "maps",
+        a.append(Achievement("win_" + _slug(n), "Secured: " + short, "Win a CLASSIC run on " + n + ".", "maps",
+                             won_map(n)))
+    a.append(Achievement("all_maps", "Full Coverage", "Win a CLASSIC run on every map.", "maps",
                          lambda s, r: all(r.has_won_map(n) for n in map_names)))
     titles = {"ON": "Linear Time", "ON2": "Quadratic Time", "ONN": "Intractable"}
     for d in Difficulty:
         if d.id in titles:
-            a.append(Achievement("win_" + d.id, titles[d.id], "Win a campaign on " + _diff_text(d) + " or harder.",
+            a.append(Achievement("win_" + d.id, titles[d.id], "Win a CLASSIC run on " + _diff_text(d) + " or harder.",
                                  "difficulty", at_least(d)))
     boss_titles = {"BELLARMINE_COLLEGE_PREP": ("Graduated", "Defeat Bellarmine College Prep."),
                    "SW_RESOURCE_CONSULTANT": ("Contract Terminated", "Defeat the SW Resource Consultant."),
@@ -208,11 +230,11 @@ def _build_achievements():
             t, desc = boss_titles.get(e.name, (e.display_name + " Down", "Defeat " + e.display_name + "."))
             a.append(Achievement("boss_" + e.name.lower(), t, desc, "bosses", killed(e.name), live=True))
     a += [
-        Achievement("flawless", "Zero Leaks", "Win a campaign without a single enemy leaking.", "challenge",
+        Achievement("flawless", "Zero Leaks", "Win a CLASSIC run without a single enemy leaking.", "challenge",
                     lambda s, r: s.won and s.leaks == 0),
-        Achievement("no_heroes", "Solo Build", "Win a campaign without deploying a hero.", "challenge",
+        Achievement("no_heroes", "Solo Build", "Win a CLASSIC run without deploying a hero.", "challenge",
                     lambda s, r: s.won and not s.heroes_deployed),
-        Achievement("tier_cap", "Minimum Viable Product", "Win a campaign with no tower above tier 2.", "challenge",
+        Achievement("tier_cap", "Minimum Viable Product", "Win a CLASSIC run with no tower above tier 2.", "challenge",
                     lambda s, r: s.won and s.max_tier <= 2),
         Achievement("roster", "Full Roster", "Unlock every Hero Store hero.", "heroes",
                     lambda s, r: set(heroes) <= r.heroes_bought(), live=True),
@@ -222,8 +244,31 @@ def _build_achievements():
                     lambda s, r: r.career()["enemies_killed"] >= 100_000, live=True),
         Achievement("waves_1000", "Long-Running Process", "Clear 1,000 waves across all runs.", "career",
                     lambda s, r: r.career()["waves_cleared"] >= 1000, live=True),
-        Achievement("wins_10", "Production Ready", "Win 10 campaigns.", "career",
-                    lambda s, r: r.career()["victories"] >= 10),
+        Achievement("wins_10", "Production Ready", "Win 10 runs (CLASSIC runs and campaign levels both count).",
+                    "career", lambda s, r: r.career()["victories"] >= 10),
+    ]
+    from lindefense.sim import campaign as cm
+    starter = {t.name for t in cm.STARTER}
+
+    def campaign_finished(s, r):
+        return s.won and s.campaign_level == cm.finale().id
+
+    def all_three_stars(s, r):
+        best = s.campaign_best or {}
+        return bool(s.campaign_level) and all(best.get(lv.id, 0) >= 3 for lv in cm.LEVELS)
+
+    def starter_only(s, r):
+        lv = cm.level(s.campaign_level) if s.campaign_level else None
+        return (s.won and lv is not None and lv.index >= STARTER_ONLY_FROM and bool(s.towers)
+                and all(t.type in starter and not t.hero for t in s.towers))
+
+    a += [
+        Achievement("campaign_done", "Fully Trained", "Finish the campaign: win its final level.", "levels",
+                    campaign_finished),
+        Achievement("campaign_stars", "State of the Art", "Earn 3 stars on every campaign level.", "levels",
+                    all_three_stars),
+        Achievement("campaign_starter", "Base Model", "Win campaign level %d or later using only Gemini, Claude and "
+                    "GPT (no other tower, no hero)." % STARTER_ONLY_FROM, "levels", starter_only),
     ]
     for d in Difficulty:
         name = DefenderProfile.of(d).display_name
@@ -525,7 +570,8 @@ class Records:
             probe._extend_career(baseline, summary)
         out = []
         for a in achievements():
-            if a.live and a.mode == "campaign" and a.id not in announced and not self.is_unlocked(a.id):
+            if a.live and a.mode == "campaign" and a.id not in announced and not self.is_unlocked(a.id) \
+                    and not (summary.campaign and a.group in CLASSIC_GROUPS):
                 try:
                     if a.test(summary, probe):
                         out.append(a)
@@ -608,6 +654,8 @@ class Records:
         c["cash_earned"] += int(s.cash_earned)
         c["play_time"] += float(s.play_time)
         c["leaks"] += s.leaks
+        if s.campaign:
+            return []      # campaign levels: career totals only (their waves are not the classic 100)
         c["best_wave"] = max(c["best_wave"], s.wave)
         per = self._d["maps"].setdefault(s.map_name, {})
         old = dict(per.get(s.difficulty, {}))
@@ -644,6 +692,8 @@ class Records:
         for a in achievements():
             if a.mode != mode or self.is_unlocked(a.id):
                 continue
+            if s.campaign and a.group in CLASSIC_GROUPS:
+                continue
             try:
                 ok = a.test(s, self)
             except Exception:
@@ -660,10 +710,14 @@ class RunSession:
     record() when it ends (finish() is idempotent; cancel() drops the run without recording it)."""
     LIVE_INTERVAL = 1.0
 
-    def __init__(self, records, game, tutorial=False):
+    def __init__(self, records, game, tutorial=False, progress=None):
         self.records = records
         self.game = game
         self.tutorial = tutorial
+        # campaign levels: the CampaignProgress the level's result goes into (finish() records it first, so the
+        # summary's campaign_best and the end screen's reward reflect it); None keeps a throwaway in-memory progress
+        self.progress = progress
+        self.campaign_outcome = None
         # play time rides along on the Game too, so a saved run continued later keeps the time played before the save
         self.play_time = float(getattr(game, "_records_play_time", 0.0)) if game is not None else 0.0
         self.report = None
@@ -678,7 +732,10 @@ class RunSession:
         return self.done
 
     def summary(self, result=None):
-        return RunSummary.of(self.game, result, self.tutorial, self.play_time)
+        s = RunSummary.of(self.game, result, self.tutorial, self.play_time)
+        if s.campaign and self.progress is not None:
+            s.campaign_best = self.progress.stars()
+        return s
 
     def tick(self, real_dt, playing=True):
         """Call once per frame; returns the live achievements newly earned this frame (for a toast)."""
@@ -704,6 +761,10 @@ class RunSession:
         if not self.done:
             self.done = True
             try:
+                self._finish_campaign()
+            except Exception:
+                self.campaign_outcome = None
+            try:
                 s = self.summary(result)
                 if self._recorded is not None:     # a Freeplay continuation of a run already recorded
                     self.report = self.records.extend(self._recorded, s)
@@ -715,6 +776,16 @@ class RunSession:
             except Exception:
                 self.report = None
         return self.report
+
+    def _finish_campaign(self):
+        """A campaign level's result goes into the campaign progress (stars, unlocks) before it is recorded."""
+        g = self.game
+        if g is None or g.get_campaign() is None or self.tutorial or g.is_admin():
+            return
+        if self.progress is None:
+            from lindefense.sim.campaign import CampaignProgress
+            self.progress = CampaignProgress.in_memory()
+        self.campaign_outcome = self.progress.record_game(g)
 
     def reopen(self):
         """CONTINUE - FREEPLAY: the recorded run goes on; finish() later extends that record instead of adding one."""

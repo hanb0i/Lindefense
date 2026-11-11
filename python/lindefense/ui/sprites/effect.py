@@ -65,9 +65,11 @@ bursts with delays."""
         seed = (seed ^ _j.ushr64(seed, 29))
         return (_j.ushr64(seed, 11) & 0xFFFFFFFF) / 4294967296.0
     def shards(self, n, cx, cy, size, speed, gravity, c, shape, delay, life, seed):
-        """Adds n shards flying out from (cx,cy).
+        """Adds shards flying out from (cx,cy): n is the full-detail count, the minimal style keeps
+#PARTICLE_SHARE of it (at least one).
 
 @param shape 0 = triangles, 1 = quads, 2 = circles, 3 = thin slivers"""
+        n = max(1, _j.to_int(math.ceil((n * Effect.PARTICLE_SHARE))))
         for i in range(n):
             a = (((2 * math.pi) * (i + Effect.rnd((seed + (i * 7))))) / n)
             sp = (speed * (0.55 + (0.9 * Effect.rnd(((seed + (i * 13)) + 1)))))
@@ -126,10 +128,12 @@ bursts with delays."""
         _j_add(self.particles, p)
         return g
     def ring(self, cx, cy, r0, r1, c, delay, life, filled):
-        """Adds an expanding ring from radius r0 to r1 (filled = a flash disc, drawn at a fraction of its strength with
-REDUCED MOTION on so death and boss explosions never flash the screen)."""
-        if filled and display_settings.reduced_motion():
-            c = Art.alpha(c, _j.to_int((c.get_alpha() * Effect.CALM_FLASH)))
+        """Adds an expanding ring from radius r0 to r1 (filled = a flash disc: kept small (#FLASH_SCALE), and drawn at a
+fraction of its strength with REDUCED MOTION on so death and boss explosions never flash the screen)."""
+        if filled:
+            r1 = (r0 + ((r1 - r0) * Effect.FLASH_SCALE))
+            if display_settings.reduced_motion():
+                c = Art.alpha(c, _j.to_int((c.get_alpha() * Effect.CALM_FLASH)))
         rg = Effect.Ring()
         rg.g = Art.oval_at(cx, cy, (r0 * 2), (r0 * 2))
         rg.g.set_filled(filled)
@@ -225,3 +229,5 @@ from lindefense.ui import display_settings  # noqa: E402
 from lindefense.ui.sprites.art import Art  # noqa: E402
 
 Effect.CALM_FLASH = 0.25
+Effect.FLASH_SCALE = 0.65
+Effect.PARTICLE_SHARE = 0.5

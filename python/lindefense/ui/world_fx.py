@@ -32,8 +32,9 @@ them) paint the live lists of game.getEffects() straight into the graphics conte
 reusable shapes, so there is no scene-graph churn at all and nothing to remove when an entity expires. The only
 state kept is the first-seen time of each entity (for pop-in animations), pruned a few times a second.
 
-Level of detail (#setLod): 0 = full, 1 = no small decorations, 2 = flat silhouettes only. At most
-#MAX_DRAWN entities of each kind are drawn."""
+Level of detail (#setLod): 0 = full, 1 = no small decorations, 2 = flat silhouettes only. The minimal style always
+draws at level #MIN_LOD or above (no gloss, no hatching, solid instead of marching dashes); the number of entities
+drawn follows the world view's real level: at most #MAX_DRAWN of each kind at full detail."""
     class Sing:
         """A live Gemini singularity: centre, radius, start time (fx clock) and hold time."""
         def __init__(self):
@@ -68,6 +69,7 @@ Level of detail (#setLod): 0 = full, 1 = no small decorations, 2 = flat silhouet
         self.time = 0.0
         self.prune_timer = 0.0
         self.lod = 0
+        self.load_lod = 0
         self.code_font = None
         self.f_ground = WorldFx.Layer(self, True)
         self.f_top = WorldFx.Layer(self, False)
@@ -80,7 +82,7 @@ Level of detail (#setLod): 0 = full, 1 = no small decorations, 2 = flat silhouet
         self.game = game
     def cap(self):
         """Entities of each kind drawn at the current level of detail."""
-        return WorldFx.MAX_DRAWN if (self.lod == 0) else (24 if (self.lod == 1) else 12)
+        return WorldFx.MAX_DRAWN if (self.load_lod == 0) else (24 if (self.load_lod == 1) else 12)
     def ground(self):
         """Drawn below the enemy layer (zones, grids, singularities)."""
         return self.f_ground
@@ -88,7 +90,8 @@ Level of detail (#setLod): 0 = full, 1 = no small decorations, 2 = flat silhouet
         """Drawn above enemies (walkers, drones, nodes, moons, beams)."""
         return self.f_top
     def set_lod(self, lod):
-        self.lod = lod
+        self.load_lod = lod
+        self.lod = max(lod, WorldFx.MIN_LOD)
     def update(self, dt):
         self.time += dt
         zs = self.game.get_effects().get_zones()
@@ -1075,6 +1078,7 @@ spiralling in. Text is skipped at the lowest detail level."""
 from lindefense.ui.cyber import Cyber  # noqa: E402
 
 WorldFx.MAX_DRAWN = 40
+WorldFx.MIN_LOD = 1
 WorldFx.INK = Color(24, 22, 40)
 WorldFx.CREAM = Color(252, 244, 222)
 WorldFx.WHITE_GLOSS = Color(255, 255, 255, 150)

@@ -11,10 +11,10 @@ from lindefense.ui.acm import *  # noqa: F401,F403
 
 
 class UIButton(GCompound):
-    """Cyberpunk button: chamfered dark-glass frame with a neon accent border, an optional vector icon, and
-eased hover / selected / press transitions (call #animate(double) once per frame). Hit testing is done in
+    """The shared flat button: a dark fill with one thin border tinted by its accent colour, an optional vector icon,
+and eased hover / selected / press transitions (call #animate(double) once per frame). Hit testing is done in
 logical coordinates by the owning screen (#hit(double, double)), so the button works at any window scale.
-Styles: normal, primary (solid accent fill), flat (segmented controls, no frame until active)."""
+Styles: normal, primary (solid accent fill, dark text), flat (segmented controls, no frame until active)."""
     def _init_0(self, x, y, w, h, label, font, action):
         self.frame = None
         self.text = None
@@ -30,8 +30,6 @@ Styles: normal, primary (solid accent fill), flat (segmented controls, no frame 
         self.hover_t = 0.0
         self.sel_t = 0.0
         self.press_t = 0.0
-        self.pulse = 0.0
-        self.pulse_amount = 0.0
         self.has_icon = False
         GCompound.__init__(self)
         self.enabled = True
@@ -40,7 +38,7 @@ Styles: normal, primary (solid accent fill), flat (segmented controls, no frame 
         self.w = w
         self.h = h
         self.action = action
-        self.frame = Cyber.Chamfer(0, 0, w, h, _j.dmin(10, (h * 0.28))).scan(False)
+        self.frame = Cyber.Chamfer(0, 0, w, h, UIButton.CUT)
         self.add(self.frame)
         self.icon = Cyber.Icon(Cyber.Kind.PLAY, 14, Cyber.TEXT)
         self.icon.set_visible(False)
@@ -66,8 +64,6 @@ Styles: normal, primary (solid accent fill), flat (segmented controls, no frame 
         self.hover_t = 0.0
         self.sel_t = 0.0
         self.press_t = 0.0
-        self.pulse = 0.0
-        self.pulse_amount = 0.0
         self.has_icon = False
         self._init_0(x, y, w, h, label, Cyber.display(Font.BOLD, 16), action)
     def __init__(self, *a):
@@ -110,9 +106,6 @@ Styles: normal, primary (solid accent fill), flat (segmented controls, no frame 
         self.frame.size(self.w, self.h)
     def set_text_color(self, c):
         self.text_override = c
-    def set_pulse(self, amount):
-        """Breathing glow amount (0 = none); used by the primary Start Wave button while idle."""
-        self.pulse_amount = amount
     def set_icon(self, k):
         self.has_icon = (k is not None)
         self.icon.set_visible(self.has_icon)
@@ -139,33 +132,29 @@ Styles: normal, primary (solid accent fill), flat (segmented controls, no frame 
         self.hover_t += (((1 if (self.hover and self.enabled) else 0) - self.hover_t) * k)
         self.sel_t += (((1 if self.selected else 0) - self.sel_t) * k)
         self.press_t = _j.dmax(0, (self.press_t - (dt * 5)))
-        self.pulse += dt
         self.apply()
     def apply(self):
-        acc = (self.accent if self.enabled else UIButton.DISABLED_LINE)
-        act = _j.dmax((self.hover_t * 0.55), self.sel_t)
+        acc = self.accent
+        act = _j.dmax((self.hover_t * 0.5), self.sel_t)
         if not self.enabled:
-            fill = (Cyber.alpha(UIButton.FILL, 0) if self.flat else Color(8, 14, 28, 200))
-            border = (Cyber.alpha(UIButton.DISABLED_LINE, 0) if self.flat else UIButton.DISABLED_LINE)
+            fill = (Cyber.alpha(UIButton.FILL, 0) if self.flat else UIButton.DISABLED_FILL)
+            border = (None if self.flat else UIButton.DISABLED_LINE)
             tc = UIButton.DISABLED_TEXT
         elif self.primary:
-            base = Cyber.lerp(Cyber.alpha(self.accent, 205), Cyber.alpha(Cyber.lerp(self.accent, Color.WHITE, 0.35), 240), self.hover_t)
-            fill = Cyber.lerp(base, Color.WHITE, (self.press_t * 0.4))
-            border = Cyber.lerp(self.accent, Color.WHITE, (0.4 + (0.3 * self.hover_t)))
-            tc = (self.text_override if (self.text_override is not None) else Color(0x031219))
+            fill = Cyber.lerp(Cyber.lerp(Cyber.lerp(acc, UIButton.FILL, 0.1), Color.WHITE, (0.16 * self.hover_t)), Color.WHITE, (self.press_t * 0.35))
+            border = None
+            tc = (self.text_override if (self.text_override is not None) else UIButton.ON_ACCENT)
+        elif self.flat:
+            fill = Cyber.alpha(acc, _j.to_int(((52 * self.sel_t) + (22 * self.hover_t) + (40 * self.press_t))))
+            border = None
+            tc = (self.text_override if (self.text_override is not None) else Cyber.lerp(Cyber.MUTED, Color.WHITE, _j.dmax(self.sel_t, self.hover_t)))
         else:
-            fill = (Cyber.alpha(acc, _j.to_int(((70 * self.sel_t) + (40 * self.hover_t)))) if self.flat else Cyber.lerp(UIButton.FILL, Cyber.alpha(Cyber.lerp(Color(10, 18, 38), acc, 0.28), 235), _j.dmin(1, (act + (self.press_t * 0.6)))))
-            border = (Cyber.alpha(acc, _j.to_int((255 * self.sel_t))) if self.flat else Cyber.lerp(Cyber.alpha(acc, 150), acc, _j.dmin(1, (0.45 + act))))
-            tc = (self.text_override if (self.text_override is not None) else Cyber.lerp(Cyber.TEXT, Color.WHITE, self.hover_t))
-            if (self.flat and (self.sel_t < 0.5)) and (self.text_override is None):
-                tc = Cyber.lerp(Cyber.MUTED, Color.WHITE, self.hover_t)
-        glow = (_j.dmin(1, (((self.hover_t * 0.75) + (self.sel_t * 0.55)) + (0.45 if self.primary else 0))) if self.enabled else 0)
-        if (self.pulse_amount > 0) and self.enabled:
-            glow = _j.dmin(1.3, (glow + (self.pulse_amount * (0.5 + (0.5 * math.sin((self.pulse * 3.2)))))))
-        self.frame.fill(fill).border(border).glow(glow).ticks(((self.selected and (not self.flat)) and (not self.primary)))
-        tcol = tc
-        Cyber.set_color(self.text, tcol)
-        self.icon.set_icon_color(tcol)
+            fill = Cyber.lerp(UIButton.FILL, Cyber.alpha(Cyber.lerp(UIButton.FILL, acc, 0.24), 240), _j.dmin(1, (act + (self.press_t * 0.6))))
+            border = Cyber.lerp(Cyber.lerp(Cyber.EDGE_HI, acc, 0.28), acc, _j.dmin(1, act * 1.6))
+            tc = (self.text_override if (self.text_override is not None) else Cyber.lerp(Cyber.TEXT, Color.WHITE, act))
+        self.frame.fill(fill).border(border)
+        Cyber.set_color(self.text, tc)
+        self.icon.set_icon_color(tc)
     def hit(self, lx, ly):
         """True if logical point (lx, ly) lies inside the button (absolute coordinates)."""
         return (((self.is_visible() and (lx >= self.get_x())) and (lx <= (self.get_x() + self.w))) and (ly >= self.get_y())) and (ly <= (self.get_y() + self.h))
@@ -186,6 +175,9 @@ from lindefense.audio.sfx import Sfx  # noqa: E402
 from lindefense.ui.cyber import Cyber  # noqa: E402
 
 UIButton.serial_version_uid = 1
-UIButton.FILL = Color(10, 18, 38, 225)
-UIButton.DISABLED_TEXT = Color(0x62768f)
-UIButton.DISABLED_LINE = Color(0x2c4260)
+UIButton.FILL = Color(13, 20, 38, 238)
+UIButton.DISABLED_FILL = Color(10, 15, 28, 200)
+UIButton.DISABLED_TEXT = Color(0x5d7089)
+UIButton.DISABLED_LINE = Color(0x1f2d42)
+UIButton.ON_ACCENT = Color(0x06111a)   # text on a primary (accent-filled) button
+UIButton.CUT = 4.0

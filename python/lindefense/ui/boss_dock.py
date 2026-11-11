@@ -45,7 +45,7 @@ countdown, Network Hub links, Afterburner; Palantir's Swarm Uplink). Built when 
             bw = (badge_l.get_width() + 14)
             bh = (17 if primary else 15)
             bx = ((name.get_x() + name.get_width()) + 10)
-            badge = Cyber.Chamfer(bx, (base - (14 if primary else 12)), bw, bh, 4).scan(False).fill(Cyber.alpha(accent, 40)).border(accent)
+            badge = Cyber.Chamfer(bx, (base - (14 if primary else 12)), bw, bh, 3).fill(Cyber.alpha(accent, 36)).border(None)
             host.add(badge)
             badge_l.set_location((bx + 7), (((base - (14 if primary else 12)) + bh) - (4.5 if primary else 3.5)))
             host.add(badge_l)
@@ -61,13 +61,13 @@ countdown, Network Hub links, Afterburner; Palantir's Swarm Uplink). Built when 
             host.add(self.pct)
             host.add(self.numbers)
             if primary:
-                self.bar = Cyber.Bar((BossDock.LEFT + 10), (y + 28), ((BossDock.RIGHT - BossDock.LEFT) - 20), 18, 6)
+                self.bar = Cyber.Bar((BossDock.LEFT + 10), (y + 30), ((BossDock.RIGHT - BossDock.LEFT) - 20), 14, 0)
                 if b.is_palantir():
                     self.bar.notches([0.70, 0.35])
             else:
                 bxs = 330.0
-                self.bar = Cyber.Bar(bxs, (y + 5), ((self.right_edge - 170) - bxs), 11, 4)
-            self.bar.colors((BossDock.PALANTIR_FILL if b.is_palantir() else Cyber.RED), Color(0, 0, 0, 205), Cyber.alpha(accent, 190)).trail(True, Color(255, 232, 196, 215))
+                self.bar = Cyber.Bar(bxs, (y + 6), ((self.right_edge - 170) - bxs), 9, 0)
+            self.bar.colors((BossDock.PALANTIR_FILL if b.is_palantir() else Cyber.RED), Color(255, 255, 255, 20), None).trail(True, Color(255, 232, 196, 200))
             host.add(self.bar)
             self.update(0, True)
         def update(self, dt, force):
@@ -86,7 +86,7 @@ countdown, Network Hub links, Afterburner; Palantir's Swarm Uplink). Built when 
                 self.numbers.set_location(((self.pct.get_x() - 14) - self.numbers.get_width()), self.numbers.get_y())
             ph = ''
             if self.boss.is_palantir():
-                ph = _j.cat('PHASE ', (self.boss.get_phase() + 1), '/3 // ', self.boss.get_phase_name().upper())
+                ph = _j.cat('PHASE ', (self.boss.get_phase() + 1), '/3  ·  ', self.boss.get_phase_name().upper())
             else:
                 if self.boss.is_fortified():
                     ph = _j.cat(ph, 'FORTIFIED ')
@@ -94,7 +94,7 @@ countdown, Network Hub links, Afterburner; Palantir's Swarm Uplink). Built when 
                     ph = _j.cat(ph, 'CAMO')
             st = (self.boss.get_ability_status() if self.primary else '')
             if len(st) > 0:
-                ph = (_j.cat(ph.strip(), ' // ', st) if (len(ph.strip()) > 0) else st)
+                ph = (_j.cat(ph.strip(), '  ·  ', st) if (len(ph.strip()) > 0) else st)
             if force or (not (ph == self.last_phase)):
                 self.last_phase = ph
                 self.phase.set_label(ph)
@@ -147,7 +147,7 @@ countdown, Network Hub links, Afterburner; Palantir's Swarm Uplink). Built when 
         h = ((((BossDock.PAD_TOP + BossDock.PRIMARY_H) + (len(lay.compact) * BossDock.ROW_H)) + (BossDock.MORE_H if (lay.hidden > 0) else 0)) + BossDock.PAD_BOTTOM)
         pal = lay.primary.is_palantir()
         accent = (Cyber.MAGENTA if pal else Cyber.RED)
-        back = Cyber.Chamfer((BossDock.LEFT - 2), BossDock.PAD_TOP, ((BossDock.RIGHT - BossDock.LEFT) + 4), ((h - BossDock.PAD_TOP) - 3), 12).fill(Color(8, 6, 16, 230)).border(Cyber.alpha(accent, 200)).glow(0.9).ticks(True)
+        back = Cyber.Chamfer((BossDock.LEFT - 2), BossDock.PAD_TOP, ((BossDock.RIGHT - BossDock.LEFT) + 4), ((h - BossDock.PAD_TOP) - 3), 4).fill(Color(10, 8, 20, 236)).border(Cyber.alpha(accent, 90))
         self.content.add(back)
         y = (BossDock.PAD_TOP + 4)
         _j_add(self.rows, BossDock.Row(self, self.content, lay.primary, True, y))
@@ -156,7 +156,7 @@ countdown, Network Hub links, Afterburner; Palantir's Swarm Uplink). Built when 
             _j_add(self.rows, BossDock.Row(self, self.content, b, False, y))
             y += BossDock.ROW_H
         if lay.hidden > 0:
-            more = Ui.label(_j.cat('+', lay.hidden, ' MORE'), 0, (y + 11), Cyber.mono(Font.BOLD, 11), Cyber.MUTED)
+            more = Ui.label(_j.cat('+', lay.hidden, ' more'), 0, (y + 11), Cyber.body(Font.PLAIN, 12), Cyber.MUTED)
             more.set_location(((BossDock.RIGHT - 10) - more.get_width()), (y + 11))
             self.content.add(more)
         self.height = h

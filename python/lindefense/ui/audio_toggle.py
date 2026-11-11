@@ -36,7 +36,7 @@ switching the channel on or off (it is greyed out, keeping its value, while the 
         f = (Cyber.mono(Font.BOLD, 11) if (label is None) else Cyber.mono(Font.BOLD, 12))
         self.button = UIButton(x, y, w, h, ('' if (label is None) else label), f, action)
         self.button.set_icon((Cyber.Kind.NOTE if music else Cyber.Kind.SPEAKER))
-        self.button.set_accent((Cyber.MAGENTA if music else Cyber.CYAN))
+        self.button.set_accent(Cyber.CYAN)
         self.sync()
     @staticmethod
     def sound(x, y, w, h, label):
@@ -66,7 +66,7 @@ once), releasing saves it, and the slider greys out while Music is off. Null-saf
         return AudioToggle.volume_slider(True, x, y, w, h, caption)
     @staticmethod
     def volume_slider(music, x, y, w, h, caption):
-        s = Slider(x, y, w, h, caption, (Cyber.MAGENTA if music else Cyber.CYAN))
+        s = Slider(x, y, w, h, caption, Cyber.CYAN)
         def _lam2(v, *, music=music):
             m = AudioManager.get()
             if m is None:
@@ -104,7 +104,7 @@ once), releasing saves it, and the slider greys out while Music is off. Null-saf
         self.button.set_text_color((None if on else Cyber.MUTED))
         if self.label is not None:
             self.button.set_text(_j.cat(self.label, (' ON' if on else ' OFF')))
-        self.button.set_accent(((Cyber.MAGENTA if self.f_music else Cyber.CYAN) if on else Color(0x4a5c78)))
+        self.button.set_accent((Cyber.CYAN if on else Color(0x4a5c78)))
     @staticmethod
     def sync_all(t):
         """Syncs several toggles."""

@@ -128,6 +128,11 @@ def _shared_tables():
         put(w, ("wave", w.number))
         for i, gr in enumerate(w.groups):
             put(gr, ("wave.group", w.number, i))
+    from lindefense.sim import campaign
+    for lv in campaign.LEVELS:     # campaign waves (their spawn groups are the base waves' own, registered above)
+        put(lv.waves(), ("campaign.waves", lv.id))
+        for w in lv.waves():
+            put(w, ("campaign.wave", lv.id, w.number))
     put(Mods.NONE, ("mods.none",))
     return _SHARED, _BY_KEY
 
@@ -413,6 +418,8 @@ class SaveInfo:
         self.difficulty = str(header["difficulty"])
         self.wave = int(header["wave"])
         self.mid_wave = bool(header.get("mid_wave", False))
+        c = header.get("campaign")     # campaign levels: {"level", "index", "title", "waves"}
+        self.campaign = c if isinstance(c, dict) else None
 
     def get_difficulty(self):
         """The run's Difficulty member, or None if this build has no such mode."""
@@ -421,6 +428,10 @@ class SaveInfo:
 
     def label(self, difficulty_text=None):
         """'The Silicon Circuit, O(N), wave 37' (difficulty_text: the mode as the caller's font can show it)."""
+        c = self.campaign
+        if c is not None:
+            return "Level %s: %s, wave %d / %s" % (c.get("index", "?"), c.get("title", "?"), max(1, self.wave),
+                                                    c.get("waves", "?"))
         d = self.get_difficulty()
         if difficulty_text is None:
             difficulty_text = d.ascii_label if d is not None else self.difficulty
@@ -430,7 +441,10 @@ class SaveInfo:
 def header_for(game, payload, classes):
     from lindefense.map import maps
     wm = game.get_wave_manager()
-    return {
+    c = game.get_campaign()
+    extra = {} if c is None else {"campaign": {"level": c.level_id, "index": c.index, "title": c.level().title,
+                                               "waves": c.wave_count()}}
+    return dict(extra, **{
         "format": FORMAT,
         "classes": classes,
         "game_version": game_version(),
@@ -448,7 +462,7 @@ def header_for(game, payload, classes):
         "saved_at": int(time.time()),
         "size": len(payload),
         "sha256": hashlib.sha256(payload).hexdigest(),
-    }
+    })
 
 
 def encode(game):

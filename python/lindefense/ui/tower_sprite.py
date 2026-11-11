@@ -64,7 +64,7 @@ hover / selection nameplate). Between rebuilds only object state is mutated."""
             star.set_fill_color(Art.GOLD)
             star.set_color(Art.GOLD_DARK)
             self.add(star)
-        self.cd_ring = RadialCooldown((r * 1.32), 3)
+        self.cd_ring = RadialCooldown((r * 1.32), 2)
         self.cd_ring.set_visible(False)
         self.add(self.cd_ring)
         self.surveil_ring = Ui.oval(((-r) * 1.7), ((-r) * 1.7), (r * 3.4), (r * 3.4), Ui.c(0xff2020, 50), Ui.c(0xff4040))

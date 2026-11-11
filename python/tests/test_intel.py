@@ -412,12 +412,12 @@ def test_hud_strip_and_card(check):
     check(nw.threats == [], "building Grok clears the camo warning at once")
     g.get_wave_manager().start_next_wave()
     s.frame(0.02)
-    check(nw.preview.number == 25 and "next // wave 25" in nw.label, "while wave 24 runs the strip shows wave 25")
+    check(nw.preview.number == 25 and "Next: wave 25" in nw.label, "while wave 24 runs the strip shows wave 25")
     g.get_wave_manager().end_wave()
     _at(g, waves.WAVE_COUNT)
     check(g.get_wave_manager().start_next_wave(), "the final wave starts")
     s.frame(0.02)
-    check(nw.preview is not None and nw.preview.number == waves.WAVE_COUNT and nw.label.startswith("live"),
+    check(nw.preview is not None and nw.preview.number == waves.WAVE_COUNT and nw.label.startswith("Live"),
           "the final wave shows itself while it runs")
 
 
@@ -452,7 +452,7 @@ def test_tower_panel_damage_and_deltas(check):
     s.frame(0.02)
     side = s.get_side_panel()
     texts = [o.get_label() for o in side.info if hasattr(o, "get_label")]
-    check("DMG DEALT" in texts and "12.3k" in texts, "damage dealt readout (%s)" % [x for x in texts if "k" in x][:5])
+    check("Dmg dealt" in texts and "12.3k" in texts, "damage dealt readout (%s)" % [x for x in texts if "k" in x][:5])
     check("DMG" in texts and "7" in texts, "Zethos 4th upgrade shows DMG 6 -> 7")
     check(side.upgrade_btn is not None and side.upgrade_hover_tower() is None, "upgrade button built, not hovered")
     ub = side.upgrade_btn
