@@ -8,11 +8,13 @@ from lindefense.combat.projectile import AttackContext, HitContext
 from lindefense.combat.visual_event import VisualEvent
 from lindefense.enemy.types import StatusKind
 from lindefense.map.path import Path
-from lindefense.sim.vec import Vec
+from lindefense.sim.vec import Vec, vec_xy
 from lindefense.tower.stats import TowerStats
 from lindefense.tower.tower_type import AttackKind, Targeting
 
 _MAX = sys.float_info.max
+_SLOW = StatusKind.SLOW
+_ARMOR_CRACK = StatusKind.ARMOR_CRACK
 
 
 # ====================================================================== Mine
@@ -70,7 +72,7 @@ class Mine:
                 continue
             if not self.detection and e.is_camo() and not e.is_revealed():
                 continue
-            if e.get_position().dist(p) <= self.trigger_radius + e.get_radius() * 0.5:
+            if e.get_position().within_dist(p, self.trigger_radius + e.get_radius() * 0.5):
                 trigger = e
                 break
         if trigger is None:
@@ -160,21 +162,53 @@ class TrackZone:
                 tick = True
         eff_slow = max(self.slow, 1 - self.speed_cap if self.speed_cap > 0 else 0.0)
         combat = game.get_combat()
-        scan = game.get_enemy_manager().get_grid().scan(self.center.x, self.center.y, self.radius)
-        e = scan.next()
-        while e is not None:
-            if e.is_alive() and not e.is_stored() and self.contains(e) \
-                    and not (e.is_boss() and not self.affects_bosses) and not (self.bosses_only and not e.is_boss()):
+        # the zone's settings are fixed once it is placed; hoisted out of the per-enemy loop
+        center, radius, refresh = self.center, self.radius, self.REFRESH
+        cx, cy = center.x, center.y
+        affects_bosses, bosses_only = self.affects_bosses, self.bosses_only
+        crack, crack_bosses = self.armor_crack, self.crack_bosses
+        # contains(e) is Vec.within_dist(center, radius): squared lengths decide outside its rounding band
+        fast = 1e-6 < radius < 1e100
+        r2 = radius * radius
+        r2_in, r2_out = r2 * (1 - 1e-9), r2 * (1 + 1e-9)
+        # grid.scan(cx, cy, radius) inlined (see EnemyGrid.candidates): only a tick hit can move enemies; the
+        # test is on centres alone
+        grid = game.get_enemy_manager().get_grid()
+        x0, y0, x1, y1 = cx - radius, cy - radius, cx + radius, cy + radius
+        buf = grid.candidates(x0, y0, x1, y1, 0, True)
+        stamp = grid.stamp()
+        k = 0
+        while k < len(buf):
+            e = buf[k]
+            k += 1
+            if not e._alive or e._stored:
+                continue
+            p = e._cached_pos
+            if fast:
+                dx = p.x - cx
+                dy = p.y - cy
+                d2 = dx * dx + dy * dy
+                inside = True if d2 < r2_in else (False if d2 > r2_out else p.dist(center) <= radius)
+            else:
+                inside = p.within_dist(center, radius)
+            if not inside:
+                continue
+            boss = e._is_boss
+            if (affects_bosses or not boss) and (boss or not bosses_only):
                 if eff_slow > 0:
-                    e.apply_status(StatusKind.SLOW, eff_slow, self.REFRESH)
-                if self.armor_crack and (not e.is_boss() or self.crack_bosses):
-                    e.apply_status(StatusKind.ARMOR_CRACK, 1, self.REFRESH)
+                    e.apply_status(_SLOW, eff_slow, refresh)
+                if crack and (not boss or crack_bosses):
+                    e.apply_status(_ARMOR_CRACK, 1, refresh)
                 if tick:
                     h = HitContext(e, self.tick_hit, self.owner)
                     h.detection = self.detection
                     h.mult = game.get_global_damage_multiplier()
+                    nxt = e.grid_index + 1
                     combat.apply_hit(h)
-            e = scan.next()
+                    if grid.stamp() != stamp:
+                        buf = grid.candidates(x0, y0, x1, y1, nxt, True)
+                        stamp = grid.stamp()
+                        k = 0
 
 
 # ====================================================================== TrackWalker
@@ -472,6 +506,39 @@ class NodeHazard:
             best = min(best, Path.point_segment_distance(p, self.nodes[a], self.nodes[b]))
         return best
 
+    def links_within(self, p, limit, segments=None):
+        """Exactly distance_to_links(p) <= limit, i.e. some link's Path.point_segment_distance is <= limit.
+
+        Same float operations as point_segment_distance, but a link whose bounding box is more than limit + 1 px
+        away on either axis is skipped: the nearest point lies inside that box (to within an ulp) and the distance is
+        at least its offset on each axis, so such a link can never pass. The final test is Vec.within_dist's exact
+        dist <= limit (squared lengths away from the boundary, Java's hypot inside the rounding band).
+        segments: _link_segments(), when testing many points against unchanged nodes."""
+        if segments is None:
+            segments = self._link_segments()
+        px, py = p.x, p.y
+        reach = limit + 1.0
+        for ax, ay, abx, aby, len2, x_lo, x_hi, y_lo, y_hi in segments:
+            if px < x_lo - reach or px > x_hi + reach or py < y_lo - reach or py > y_hi + reach:
+                continue
+            t = 0 if len2 <= 0 else max(0.0, min(1.0, ((px - ax) * abx + (py - ay) * aby) / len2))
+            # Vec.lerp(a, b, t).within_dist(p, limit)
+            if vec_xy(ax + abx * t, ay + aby * t).within_dist(p, limit):
+                return True
+        return False
+
+    def _link_segments(self):
+        """(ax, ay, bx - ax, by - ay, squared length, bounding box) of every link, in link order."""
+        out = []
+        nodes = self.nodes
+        for ia, ib in self.links:
+            a = nodes[ia]
+            b = nodes[ib]
+            abx, aby = b.x - a.x, b.y - a.y
+            out.append((a.x, a.y, abx, aby, abx * abx + aby * aby,
+                        min(a.x, b.x), max(a.x, b.x), min(a.y, b.y), max(a.y, b.y)))
+        return out
+
     @staticmethod
     def polygon_contains(poly, p):
         inside = False
@@ -481,6 +548,21 @@ class NodeHazard:
             if (a.y > p.y) != (b.y > p.y) and p.x < (b.x - a.x) * (p.y - a.y) / (b.y - a.y) + a.x:
                 inside = not inside
             j = i
+        return inside
+
+    @staticmethod
+    def _polygon_edges(poly):
+        """(a.x, a.y, b.x, b.y) for polygon_contains' edges (a = poly[i], b = poly[i - 1]), in its order."""
+        return [(poly[i].x, poly[i].y, poly[i - 1].x, poly[i - 1].y) for i in range(len(poly))]
+
+    @staticmethod
+    def _edges_contain(edges, p):
+        """polygon_contains(poly, p) over _polygon_edges(poly): the same comparisons and arithmetic."""
+        px, py = p.x, p.y
+        inside = False
+        for ax, ay, bx, by in edges:
+            if (ay > py) != (by > py) and px < (bx - ax) * (py - ay) / (by - ay) + ax:
+                inside = not inside
         return inside
 
     def update(self, game, dt):
@@ -505,22 +587,36 @@ class NodeHazard:
         if x0 > x1:
             return
         lw = self.link_width
-        scan = game.get_enemy_manager().get_grid().scan_box(x0 - lw, y0 - lw, x1 + lw, y1 + lw)
-        e = scan.next()
-        while e is not None:
-            if e.is_alive() and not e.is_stored():
-                if self.region is not None and self.region_slow > 0 and self.polygon_contains(self.region, e.get_position()):
-                    e.apply_status(StatusKind.SLOW, self.region_slow, TrackZone.REFRESH)
-                if self.line_hit is not None and self.links and \
-                        self.distance_to_links(e.get_position()) <= lw + e.get_radius() * 0.5:
-                    last = self._last_hit.get(e.get_id())
-                    if last is None or now - last >= self.cross_cooldown:
-                        self._last_hit[e.get_id()] = now
-                        h = HitContext(e, self.line_hit, self.owner)
-                        h.detection = self.detection
-                        h.mult = game.get_global_damage_multiplier()
-                        game.get_combat().apply_hit(h)
-            e = scan.next()
+        # nodes, links and settings are fixed while the loop runs (hits only touch enemies)
+        region = self._polygon_edges(self.region) if self.region is not None and self.region_slow > 0 else None
+        segments = self._link_segments() if self.line_hit is not None and self.links else None
+        # grid.scan_box(...) inlined (see EnemyGrid.candidates): only a line hit can move enemies
+        grid = game.get_enemy_manager().get_grid()
+        bx0, by0, bx1, by1 = x0 - lw, y0 - lw, x1 + lw, y1 + lw
+        buf = grid.candidates(bx0, by0, bx1, by1, 0)
+        stamp = grid.stamp()
+        k = 0
+        while k < len(buf):
+            e = buf[k]
+            k += 1
+            if not e._alive or e._stored:
+                continue
+            p = e._cached_pos
+            if region is not None and self._edges_contain(region, p):
+                e.apply_status(_SLOW, self.region_slow, TrackZone.REFRESH)
+            if segments is not None and self.links_within(p, lw + e._radius * 0.5, segments):
+                last = self._last_hit.get(e._id)
+                if last is None or now - last >= self.cross_cooldown:
+                    self._last_hit[e._id] = now
+                    h = HitContext(e, self.line_hit, self.owner)
+                    h.detection = self.detection
+                    h.mult = game.get_global_damage_multiplier()
+                    nxt = e.grid_index + 1
+                    game.get_combat().apply_hit(h)
+                    if grid.stamp() != stamp:
+                        buf = grid.candidates(bx0, by0, bx1, by1, nxt)
+                        stamp = grid.stamp()
+                        k = 0
         if len(self._last_hit) > 400:
             self._last_hit.clear()
 

@@ -10,7 +10,7 @@ def density(e, population) -> int:
     n = 0
     p = e.get_position()
     if isinstance(population, EnemyList) and population.grid is not None:
-        scan = population.grid.scan(p.x, p.y, RADIUS)
+        scan = population.grid.scan_centers(p.x, p.y, RADIUS)
         o = scan.next()
         while o is not None:
             if o is not e and o.is_alive() and not o.is_stored() and o.get_position().dist_sq(p) <= _R2:

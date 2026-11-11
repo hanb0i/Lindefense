@@ -49,7 +49,7 @@ class TowerBehavior:
         s = src.get_stats()
         if s.aura_range <= 0 or dst is src:
             return
-        if dst.get_position().dist(src.get_position()) > s.aura_range:
+        if dst.get_position().exceeds_dist(src.get_position(), s.aura_range):
             return
         grant_aura(src, dst)
 
@@ -86,8 +86,9 @@ def grant_aura(src, dst):
 def enemies_within(game, p, radius):
     """Alive, on-track enemies whose centre is within radius of p (any camo status), in list order."""
     out = []
-    for e in game.get_enemy_manager().get_grid().near(p.x, p.y, radius, []):
-        if e.is_alive() and not e.is_stored() and e.get_position().dist(p) <= radius:
+    # centre-only test, applied to every candidate before anything can move
+    for e in game.get_enemy_manager().get_grid().near_centers(p.x, p.y, radius, []):
+        if e.is_alive() and not e.is_stored() and e.get_position().within_dist(p, radius):
             out.append(e)
     return out
 

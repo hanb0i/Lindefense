@@ -1,9 +1,10 @@
 """Travelling projectiles (homing, pierce, splash, bounce, clones) and the contexts passed through a hit/attack."""
 import math
 
-from lindefense.sim.vec import Vec
+from lindefense.sim.vec import Vec, vec_xy
 
 _MAX = 1.7976931348623157e308
+_sqrt = math.sqrt
 
 
 class Shot:
@@ -171,11 +172,12 @@ class Projectile:
             return False
         tgt = self._target
         speed = self._speed
-        if tgt is not None and tgt.is_alive() and not tgt.is_stored():
-            tp = tgt.get_position()
+        # targets are enemies: their is_alive() / is_stored() / get_position() fields are read directly (hot path)
+        if tgt is not None and tgt._alive and not tgt._stored:
+            tp = tgt._cached_pos
             pos = self._pos
             wx, wy = tp.x - pos.x, tp.y - pos.y
-            d = math.sqrt(wx * wx + wy * wy)
+            d = _sqrt(wx * wx + wy * wy)
             if d > 1:
                 s = speed / d
                 dx, dy = wx * s, wy * s
@@ -183,13 +185,15 @@ class Projectile:
                 vel = self._vel
                 nx = vel.x + (dx - vel.x) * k
                 ny = vel.y + (dy - vel.y) * k
-                ln = math.sqrt(nx * nx + ny * ny)
+                ln = _sqrt(nx * nx + ny * ny)
                 self._vel = Vec(0 * speed, 0 * speed) if ln < 1e-9 else Vec(nx / ln * speed, ny / ln * speed)
-        elif tgt is not None and not tgt.is_alive():
+        elif tgt is not None and not tgt._alive:
             self._target = None
-        sx, sy = self._vel.x * dt, self._vel.y * dt
-        self._pos = Vec(self._pos.x + sx, self._pos.y + sy)
-        step_len = math.sqrt(sx * sx + sy * sy)
+        vel = self._vel
+        sx, sy = vel.x * dt, vel.y * dt
+        pos = self._pos
+        self._pos = vec_xy(pos.x + sx, pos.y + sy)
+        step_len = _sqrt(sx * sx + sy * sy)
         self._travelled += step_len
         if self._travelled > self._max_travel:
             self._alive = False

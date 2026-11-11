@@ -6,7 +6,7 @@ import os
 import pytest
 import skia
 
-from kit import buildable_near, new_game, run_seconds, spawn_at
+from kit import buildable_near, force_place, new_game, run_seconds, spawn_at
 from lindefense import assets, prefs
 from lindefense.ai.reverse_match import ReverseMatch
 from lindefense.ai.units import AttackUnit
@@ -280,7 +280,10 @@ def test_reverse_ui_routing(check):
     check(t.is_alive() and t.get_tier() == tier and g.get_cash() == cash and t.get_targeting() is tg, "AI towers are read-only")
     s.frame(0.02)
     s.escape_pressed()
-    check(s.is_menu_open() and g.is_paused(), "Esc opens the pause menu")
+    check(s.get_selected_tower() is None and not s.is_menu_open() and not g.is_paused(),
+          "Esc first deselects the inspected tower (the menu stays closed)")
+    s.escape_pressed()
+    check(s.is_menu_open() and g.is_paused(), "Esc with nothing selected opens the pause menu")
     s.key_pressed(_key(KeyEvent.VK_SPACE))
     check(r.get_queued() <= 20, "attacker keys are inactive while paused")
     s.escape_pressed()
@@ -295,3 +298,58 @@ def test_reverse_ui_routing(check):
         s.frame(Game.DT)
     s.frame(0.02)
     check(g.get_state() is State.DEFEAT and r.attacker_won(), "breached")
+
+
+# ---------------------------------------------------------------- in-match buttons built in loops (Python late binding)
+def _click(s, b, right=False):
+    s.mouse_pressed(b.get_x() + b.get_w() / 2, b.get_y() + b.get_h() / 2, right)
+
+
+def test_match_loop_buttons_bind_their_own_item(check):
+    """Buttons created in a loop must act on their own item. j2py turned Java lambdas (which capture each iteration's
+    variable) into Python closures that all saw the loop's last value: every faction tab opened TITANS, every shop card
+    placed the last card's tower, every ability-bar slot fired the last tower's ability, and every patch-notes card
+    shipped the last card."""
+    g = new_game(0)
+    g.add_cash(1_000_000, None)   # every card affordable (unaffordable cards are disabled)
+    s = GameScreen(None, g)
+    s.frame(0.02)
+    side = s.get_side_panel()
+    for f, tab in zip(ShopLayout.shop_factions(), side.tab_buttons):
+        _click(s, tab)
+        s.frame(0.02)
+        check(side.get_tab() is f, "tab %s opens %s (got %s)" % (tab.get_text(), f, side.get_tab()))
+        for c in list(side.cards):
+            _click(s, c.button)
+            check(s.get_placing() is c.cell.type, "%s card places %s (got %s)" % (f, c.cell.type, s.get_placing()))
+            s.mouse_pressed(600, 400, True)
+    side.toggle_all()
+    s.frame(0.02)
+    for c in list(side.cards):
+        _click(s, c.button)
+        check(s.get_placing() is c.cell.type, "ALL card places %s (got %s)" % (c.cell.type, s.get_placing()))
+        s.mouse_pressed(600, 400, True)
+    # ability bar: one slot per tower, each fires its own tower's ability
+    towers = [force_place(g, T.GPT, buildable_near(g, Vec(380, 300), 150), 3),
+              force_place(g, T.CLAUDE, buildable_near(g, Vec(800, 600), 150), 3)]
+    for t in towers:
+        check(g.unlock_ability(t), "%s ability unlocked" % t.get_type())
+    s.frame(0.02)
+    slots = list(s.abilities.slots)
+    check(len(slots) == 2, "two ability slots (%d)" % len(slots))
+    for sl in slots:
+        _click(s, sl.button)
+        name = sl.tower.get_ability().name
+        check(s.abilities.hint.startswith(name), "%s slot fires %s (hint %r)" % (sl.tower.get_type(), name, s.abilities.hint))
+    # patch-notes draft: clicking the first card ships the first card
+    v = new_game(0, 7)
+    v.get_variance().enable()
+    d = GameScreen(None, v)
+    d.frame(0.02)
+    check(d.is_draft_open(), "launch draft open")
+    offer = list(v.get_variance().get_offer())
+    ship = [b for b in d.overlay_buttons if b.get_text().startswith("SHIP IT")]
+    check(len(ship) == len(offer) == 3, "three SHIP IT buttons")
+    _click(d, ship[0])
+    act = v.get_variance().get_active()
+    check(len(act) == 1 and act[0] is offer[0], "card 1 ships card 1 (got %s)" % [p.title for p in act])

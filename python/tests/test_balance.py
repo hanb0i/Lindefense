@@ -87,11 +87,14 @@ def _pct(f):
 def test_hp_never_decreases(check):
     for w in range(1, waves.WAVE_COUNT):
         check(waves.hp_scale(w + 1) >= waves.hp_scale(w), "HP scale never decreases (wave %d)" % w)
-    check(waves.hp_scale(100) > waves.hp_scale(80) > waves.hp_scale(60), "HP grows after wave 60 and again after wave 80")
-    pal = EnemyType.PALANTIR.base_hp
+    check(waves.hp_scale(20) == 1.0, "the first 20 waves keep their HP")
+    check(waves.hp_scale(100) > waves.hp_scale(80) > waves.hp_scale(60) > waves.hp_scale(40) > waves.hp_scale(20),
+          "HP grows through every stretch of the late game")
+    pal = EnemyType.PALANTIR.base_hp * waves.hp_scale(100)
     for t in EnemyType:
         if t.is_boss() and t is not EnemyType.PALANTIR:
-            check(pal > 2 * t.base_hp * waves.hp_scale(100) * 2, "Palantir clearly outweighs a Fortified %s" % t)
+            fortified = 2 * t.base_hp * waves.hp_scale(100)
+            check(pal > 2 * fortified, "wave-100 Palantir outweighs two Fortified %s (%d vs %d)" % (t, pal, fortified))
 
 
 @pytest.mark.slow

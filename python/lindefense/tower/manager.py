@@ -6,12 +6,14 @@ from lindefense.combat.visual_event import VisualEvent
 from lindefense.enemy.types import StatusKind
 from lindefense.jenum import EnumSet
 from lindefense.tower import catalog, shop
+from lindefense.tower.behavior.base import TowerBehavior
 from lindefense.tower.tower import Tower
 from lindefense.tower.tower_type import TowerType
 
 AURA_REFRESH_TICKS = 6
 FIELD_REFRESH_TICKS = 3
 FIELD_STATUS_TIME = 0.3
+_DEFAULT_AURA = TowerBehavior.aura_contribution
 MAX_HEROES_PER_GAME = 3
 
 
@@ -24,12 +26,20 @@ class TowerManager:
         self._pending = []
         self._near = []
         self._tick_counter = 0
+        self._sold = []          # records: (tower, refund) of every sold tower, read at run end (pure bookkeeping)
 
     def get_towers(self):
         return self._towers
 
     def get_player_towers(self):
         return [t for t in self._towers if not t.is_temporary()]
+
+    def get_sold(self):
+        """(tower, refund) for every tower sold this run, in order; the tower objects keep their final stats."""
+        return self._sold
+
+    def get_total_refunds(self):
+        return sum(r for _, r in self._sold)
 
     def clear(self):
         self._towers.clear()
@@ -46,7 +56,7 @@ class TowerManager:
         for t in self._towers:
             if t.is_temporary():
                 continue
-            if t.get_position().dist(p) < t.get_radius() + d.radius:
+            if t.get_position().closer_than(p, t.get_radius() + d.radius):
                 return "Overlaps another tower"
         if self._game.get_cash() < shop.price_of(type_, self._game):
             return "Not enough cash"
@@ -63,6 +73,8 @@ class TowerManager:
             return "Unlock " + type_.display_name + " in the Hero Store"
         if g.is_hero_deployed(type_) or self.hero_placed(type_):
             return type_.display_name + " already deployed this match"
+        if g.get_hero_limit() <= 0:
+            return "No Heroes challenge: heroes are disabled"
         if self.heroes_deployed_this_match() >= g.get_hero_limit():
             return "Hero limit reached (" + str(g.get_hero_limit()) + " per game)"
         return None
@@ -146,10 +158,19 @@ class TowerManager:
         g.get_events().append(VisualEvent.text(t.get_position(), t.get_ability().name + " UNLOCKED", t.get_type().primary_rgb))
         return True
 
+    def sell_problem(self, t):
+        """Why t cannot be sold (or dismissed) right now, or None."""
+        if self._game.is_selling_locked():
+            return "No Selling challenge: " + ("heroes stay deployed" if t is not None and t.get_type().is_hero()
+                                               else "towers cannot be sold")
+        return None
+
     def sell(self, t):
         if t is None or not t.is_alive() or t.is_temporary():
             return 0
         g = self._game
+        if g.is_selling_locked():
+            return 0
         refund = shop.sell_value(t, g)
         g.get_variance().on_tower_sold(t)
         t.mark_removed()
@@ -157,6 +178,7 @@ class TowerManager:
         t.get_behavior().on_removed(g, t)
         g.get_effects().remove_owned_by(t)
         g.add_cash(refund, t.get_position())
+        self._sold.append((t, refund))
         txt = t.get_type().display_name + " dismissed" if t.get_type().is_hero() else "+$" + str(refund)
         g.get_events().append(VisualEvent.text(t.get_position(), txt, 0xffd166))
         self.recompute_auras()
@@ -185,6 +207,9 @@ class TowerManager:
         g = self._game
         for src in towers:
             beh = src.get_behavior()
+            # the default contribution of a tower without an aura returns at once for every dst: skip the pairs
+            if type(beh).aura_contribution is _DEFAULT_AURA and src.get_stats().aura_range <= 0:
+                continue
             for dst in towers:
                 if dst is not src:
                     beh.aura_contribution(g, src, dst)
@@ -235,11 +260,11 @@ class TowerManager:
         tp = t.get_position()
         pool = self._game.get_enemy_manager().get_grid().near(tp.x, tp.y, r, self._near)
         for e in pool:
-            if not e.is_alive() or e.is_stored():
+            if not e._alive or e._stored:
                 continue
-            if e.is_boss() and not s.field_affects_bosses:
+            if e._is_boss and not s.field_affects_bosses:
                 continue
-            if e.get_position().exceeds_dist(tp, r + e.get_radius()):
+            if e._cached_pos.exceeds_dist(tp, r + e._radius):
                 continue
             if s.aura_enemy_slow > 0:
                 e.apply_status(StatusKind.SLOW, s.aura_enemy_slow, FIELD_STATUS_TIME)

@@ -6,7 +6,7 @@ from collections import deque
 from lindefense.ai.defender_ai import Action, DefenderAI, Options, Plan
 from lindefense.ai.units import AttackAbility, AttackUnit, DefenderProfile, OVERCLOCK_SPEED, ZERO_DAY_TARGETS
 from lindefense.enemy.types import Modifier
-from lindefense.javacompat import jint, jround
+from lindefense.javacompat import jint, jpow, jround
 from lindefense.jenum import EnumSet, JEnum
 from lindefense.sim.difficulty import Difficulty
 
@@ -52,11 +52,11 @@ def _mean_route(gmap):
 
 
 def track_bonus(gmap):
-    return max(1.0, min(TRACK_BONUS_MAX, math.pow(_mean_route(gmap) / TRACK_REFERENCE, TRACK_EXP)))
+    return max(1.0, min(TRACK_BONUS_MAX, jpow(_mean_route(gmap) / TRACK_REFERENCE, TRACK_EXP)))
 
 
 def track_speed(gmap):
-    return max(1.0, min(TRACK_BONUS_MAX, math.pow(_mean_route(gmap) / TRACK_REFERENCE, SPEED_EXP)))
+    return max(1.0, min(TRACK_BONUS_MAX, jpow(_mean_route(gmap) / TRACK_REFERENCE, SPEED_EXP)))
 
 
 def clock(seconds):
@@ -167,7 +167,10 @@ class ReverseMatch:
         return self._leak_bonus
 
     def unit_hp_scale(self, type_):
-        return self._game.get_wave_hp_scale(type_) * self._profile.unit_hp
+        """The match's health factor (the BAD included: the campaign's per-mode Palantir multiplier is a final-boss
+        rule, not a reverse-mode one) times the unit's own factor from the unit table."""
+        u = AttackUnit.of(type_)
+        return self._game.get_wave_hp_scale() * self._profile.unit_hp * (1.0 if u is None else u.hp_factor())
 
     def get_defender_funding(self):
         return self._defender_funding
@@ -310,7 +313,7 @@ class ReverseMatch:
         return n
 
     def compute_price(self):
-        return jint(jround(COMPUTE_BASE_PRICE * math.pow(COMPUTE_PRICE_GROWTH, self._compute_level)))
+        return jint(jround(COMPUTE_BASE_PRICE * jpow(COMPUTE_PRICE_GROWTH, self._compute_level)))
 
     def compute_problem(self):
         from lindefense.sim.game import State
@@ -553,9 +556,10 @@ class Outcome:
         self.units_sent = 0
 
     def __repr__(self):
-        return "%s at %s  lives %3d  towers %2d (maxed %2d, heroes %d, abilities %d)  spent %7.0f  AI earned %7.0f  units %5d" % (
-            "ATTACKER WINS" if self.attacker_won else "DEFENDER HOLDS", clock(self.time), self.defender_lives, self.towers,
-            self.maxed, self.heroes, self.ability_unlocks, self.credits_spent, self.defender_earned, self.units_sent)
+        from lindefense.ui import jrt as _j   # String.format: %.0f rounds half up, like Java
+        return _j.format("%s at %s  lives %3d  towers %2d (maxed %2d, heroes %d, abilities %d)  spent %7.0f  AI earned %7.0f  units %5d",
+                         "ATTACKER WINS" if self.attacker_won else "DEFENDER HOLDS", clock(self.time), self.defender_lives, self.towers,
+                         self.maxed, self.heroes, self.ability_unlocks, self.credits_spent, self.defender_earned, self.units_sent)
 
 
 class AttackerBot:

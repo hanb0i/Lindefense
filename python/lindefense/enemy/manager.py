@@ -1,4 +1,6 @@
 """Owns every live enemy: spawning, movement, status upkeep, neighbour mechanics, leaks, deaths, rewards, splits."""
+from operator import attrgetter
+
 from lindefense.javacompat import jround
 from lindefense.jenum import EnumSet
 from lindefense.combat.visual_event import VisualEvent
@@ -7,12 +9,25 @@ from lindefense.enemy.enemy import Enemy
 from lindefense.enemy.grid import EnemyGrid, EnemyList
 from lindefense.enemy.types import EnemyType, Mechanic, Modifier
 
-_BY_DISTANCE = Enemy.get_distance
+_BY_DISTANCE = attrgetter("_distance")   # Enemy.get_distance
+_PASSIVE = (Mechanic.NONE, Mechanic.PALANTIR, Mechanic.ACCELERATE_ON_DAMAGE, Mechanic.RADIX_PHASES)
+
+
+def _overrides(obj, name) -> bool:
+    """Whether obj's method name is something other than GameMap's default."""
+    from lindefense.map.game_map import GameMap
+    return getattr(getattr(obj, name), "__func__", None) is not getattr(GameMap, name)
 
 
 def _is_tower(o) -> bool:
-    from lindefense.tower.tower import Tower
-    return isinstance(o, Tower)
+    global _Tower
+    if _Tower is None:
+        from lindefense.tower.tower import Tower   # imported late (tower imports enemy modules)
+        _Tower = Tower
+    return isinstance(o, _Tower)
+
+
+_Tower = None
 
 
 class EnemyManager:
@@ -23,11 +38,18 @@ class EnemyManager:
         self._pending = []
         self._route_keys = []
         self._route_lists = []
+        self._route_by_id = {}   # id(route) -> its list in _route_lists (routes are kept alive by _route_keys)
         self._routes_sorted = False
         self._scratch = []
         self._total_killed = 0
         self._total_leaked = 0
         self._total_spawned = 0
+
+    def __setstate__(self, state):
+        """Loading a saved run (savegame): _route_by_id is keyed by id(route), so re-key it for the new objects."""
+        self.__dict__.update(state)
+        slot = {id(l): i for i, l in enumerate(self._route_lists)}   # each value is one of _route_lists
+        self._route_by_id = {id(self._route_keys[slot[id(l)]]): l for l in self._route_by_id.values()}
 
     def get_enemies(self):
         return self._enemies
@@ -84,10 +106,10 @@ class EnemyManager:
         g = self._game
         now = g.get_time()
         enemies = self._enemies
+        # the passes below iterate with `for e in enemies`: a list iterator re-reads the length every step, exactly
+        # like `while i < len(enemies)` (the list never changes during them anyway: spawns wait in _pending)
         # 1. statuses, DOT, regrow, boss logic
-        i = 0
-        while i < len(enemies):
-            e = enemies[i]
+        for e in enemies:
             dot = e.tick_statuses(dt)
             if dot > 0:
                 dealt = e.take_damage(dot, now)
@@ -97,50 +119,41 @@ class EnemyManager:
                     ds.add_damage_dealt(dealt)
             if isinstance(e, Boss):
                 e.update_boss(g, dt)
-            i += 1
         # 2. movement + leaks
         gmap = g.get_map()
         gmul = g.get_global_enemy_speed_multiplier()
-        i = 0
-        while i < len(enemies):
-            e = enemies[i]
-            i += 1
-            if not e.is_alive():
+        # maps without a speed / moved hook use GameMap's (1.0 and a no-op): skip the per-enemy calls
+        speed_hook = _overrides(gmap, "enemy_speed_multiplier")
+        ext = 1.0 * gmul
+        moved_hook = _overrides(gmap, "on_enemy_moved")
+        for e in enemies:
+            if not e._alive:
                 continue
-            ext = gmap.enemy_speed_multiplier(e) * gmul
+            if speed_hook:
+                ext = gmap.enemy_speed_multiplier(e) * gmul
             if e.advance(dt, ext):
                 self._leak(e)
-            else:
+            elif moved_hook:
                 gmap.on_enemy_moved(g, e)
         # 2b. reversed enemies (Cohere Command Override) damage whatever they touch
-        i = 0
-        while i < len(enemies):
-            e = enemies[i]
-            i += 1
-            if e.is_alive() and e.is_reversed() and not e.is_stored():
+        for e in enemies:
+            if e._alive and e._reverse_remaining > 0 and not e._stored:
                 self._reverse_contact(e, dt)
-        # 3. neighbour-based mechanics
+        # 3. neighbour-based mechanics (Accelerate and Radix are passive: _run_mechanic returns at once for them)
         self._rebuild_route_index()
-        i = 0
-        while i < len(enemies):
-            e = enemies[i]
-            i += 1
-            if not e.is_alive() or e.is_stored():
+        for e in enemies:
+            if not e._alive or e._stored:
                 continue
-            m = e.get_type().mechanic
-            if m is not Mechanic.NONE and m is not Mechanic.PALANTIR:
+            if e._type.mechanic not in _PASSIVE:
                 self._run_mechanic(e, dt)
         # 4. deaths
-        i = 0
-        while i < len(enemies):
-            e = enemies[i]
-            i += 1
-            if e.is_alive() and e.get_hp() <= 0:
+        for e in enemies:
+            if e._alive and e._hp <= 0:
                 self.kill(e)
         # 5. sweep (swap-remove from the back, as the Java build does, so list order matches)
         for i in range(len(enemies) - 1, -1, -1):
             e = enemies[i]
-            if not e.is_alive() or e.is_stored():
+            if not e._alive or e._stored:
                 last = len(enemies) - 1
                 list.__setitem__(enemies, i, enemies[last])
                 enemies.pop()
@@ -152,15 +165,21 @@ class EnemyManager:
             return
         src = r.get_reverse_source()
         rp = r.get_position()
-        near = self._grid.near(rp.x, rp.y, r.get_radius(), self._scratch)
+        rad = r.get_radius()
+        near = self._grid.near(rp.x, rp.y, rad, self._scratch)
+        now = self._game.get_time()
+        credit = src is not None and _is_tower(src)
         for o in near:
-            if o is r or not o.is_alive() or o.is_stored():
+            if o is r or not o._alive or o._stored:
                 continue
-            rr = r.get_radius() + o.get_radius()
-            if o.get_position().dist_sq(rp) > rr * rr:
+            rr = rad + o._radius
+            q = o._cached_pos   # o.get_position().dist_sq(rp), inlined
+            dx = q.x - rp.x
+            dy = q.y - rp.y
+            if dx * dx + dy * dy > rr * rr:
                 continue
-            dealt = o.take_damage(dmg, self._game.get_time())
-            if src is not None and _is_tower(src):
+            dealt = o.take_damage(dmg, now)
+            if credit:
                 o.set_last_hit_by(src)
                 src.add_damage_dealt(dealt)
 
@@ -172,10 +191,15 @@ class EnemyManager:
     def _rebuild_route_index(self):
         for l in self._route_lists:
             l.clear()
+        by_route = self._route_by_id
         for e in self._enemies:
-            if not e.is_alive() or e.is_stored():
+            if not e._alive or e._stored:
                 continue
-            self._route_list(e.get_route(), True).append(e)
+            l = by_route.get(id(e._route))
+            if l is None:
+                l = self._route_list(e._route, True)
+                by_route[id(e._route)] = l
+            l.append(e)
         for l in self._route_lists:
             l.sort(key=_BY_DISTANCE)
         self._routes_sorted = True
@@ -192,7 +216,7 @@ class EnemyManager:
         return l
 
     def _route_mates(self, e):
-        l = self._route_list(e.get_route(), False)
+        l = self._route_by_id.get(id(e.get_route()))   # _route_list(route, False)
         return () if l is None else l
 
     def _window_start(self, mates, from_distance):
@@ -202,7 +226,7 @@ class EnemyManager:
         key = from_distance - 1
         while lo < hi:
             mid = (lo + hi) >> 1
-            if mates[mid].get_distance() < key:
+            if mates[mid]._distance < key:   # get_distance()
                 lo = mid + 1
             else:
                 hi = mid
@@ -218,17 +242,23 @@ class EnemyManager:
             if e.is_disrupted():
                 return
             mates = self._route_mates(e)
-            i = self._window_start(mates, e.get_distance() - 90)
-            while i < len(mates):
+            ed = e._distance
+            i = self._window_start(mates, ed - 90)
+            past = ed + 1   # _past_window(o, ed); shielding moves nobody, so ed and the limit stay fixed
+            sorted_ = self._routes_sorted
+            tick = g.get_tick()
+            n = len(mates)
+            while i < n:
                 o = mates[i]
                 i += 1
-                if self._past_window(o, e.get_distance()):
+                od = o._distance
+                if sorted_ and od > past:
                     break
                 if o is e:
                     continue
-                gap = e.get_distance() - o.get_distance()
+                gap = ed - od
                 if 0 < gap <= 90:
-                    o.set_shielded_tick(g.get_tick())
+                    o.set_shielded_tick(tick)
             return
         if m is Mechanic.ACCELERATE_ON_DAMAGE or m is Mechanic.RADIX_PHASES:
             return
@@ -329,6 +359,14 @@ class EnemyManager:
     # ------------------------------------------------------------------
     def _leak(self, e):
         if not e.is_alive():
+            return
+        if self._game.is_campaign_won() or e._type.is_hologram():
+            # the final boss is down: whatever still reaches the exit during the victory sequence (a child of a late
+            # kill, an outsourced contractor) leaves without costing lives or the run's leak-free record; so does a
+            # Palantir hologram, a decoy that costs no lives
+            for s in e.get_stored_enemies():
+                s.mark_dead()
+            e.mark_dead()
             return
         lives = e.get_type().lives
         for s in e.get_stored_enemies():

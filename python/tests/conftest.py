@@ -6,10 +6,13 @@ failed message. The total number of checks is printed in the terminal summary.
 """
 import os
 import sys
+import tempfile
 
 import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+# tests never touch the player's real save folder (settings, Hero Store, records): everything goes to a temp folder
+os.environ["LINDEFENSE_PREFS_DIR"] = tempfile.mkdtemp(prefix="lindefense-test-prefs-")
 os.environ.setdefault("LINDEFENSE_NOSOUND", "1")
 os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
 os.environ.setdefault("SDL_VIDEODRIVER", "dummy")

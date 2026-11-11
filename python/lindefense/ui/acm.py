@@ -3,10 +3,168 @@
 Painting follows acm.jar 1.99: GObject.paintObject sets the object's colour on the Graphics, calls paint(g) and
 restores the colour; GCompound.paint translates a copy of the Graphics by its location and paints its children in
 order. Coordinates are kept as doubles (no integer snapping), so everything stays crisp at Retina scale.
+
+Unchanged-part caching (Python only, same pixels): a compound class with _run_cache = True (tower sprites)
+records each run of consecutive children that has not changed for a few frames into a Skia picture once and replays
+it while it stays unchanged, instead of walking hundreds of shapes in Python every frame. Every mutator calls
+_touch(), which stamps the object and its ancestors; a recorded run is replayed only while none of its objects was
+touched since the recording and the Graphics state it starts from (colour, stroke, font, composite, hints, level of
+detail) is the same. Only objects whose paint depends on nothing but their own mutator-set state are recorded:
+GCompounds, the ACM shapes below and the classes registered with pure_paint(). LINDEFENSE_PAINT_CACHE=0 turns it off.
 """
 import math
+import os
 
-from lindefense.ui.jawt import (Arc2D, Arc2DDouble, Color, Font, Graphics2D, Rectangle, font_metrics)
+import skia
+
+from lindefense.ui.jawt import (Arc2D, Arc2DDouble, Color, Font, Graphics2D, Rectangle, font_metrics,
+                                reset_canvas_state)
+
+
+# ====================================================================== unchanged-part caching
+class PaintCache:
+    """Clocks of the unchanged-part cache. frame advances once per painted frame (a child counts as unchanged after
+    STABLE_FRAMES frames without a mutation); epoch advances at the first mutation after a run was recorded, so a
+    mutation is always stamped later than every recording made before it."""
+    enabled = os.environ.get("LINDEFENSE_PAINT_CACHE", "1") != "0"
+    STABLE_FRAMES = 3
+    frame = 1
+    epoch = 1
+    recorded = False
+
+    @staticmethod
+    def next_frame():
+        """Called once per painted frame by whatever paints the scene (the app, GCanvas)."""
+        PaintCache.frame += 1
+
+    @staticmethod
+    def globals_():
+        """Global state that pure paints read besides their own (see add_global)."""
+        return None
+
+    @staticmethod
+    def add_global(fn):
+        """Registers a callable returning global state that pure paints depend on (the sprites' level of detail)."""
+        prev = PaintCache.globals_
+        PaintCache.globals_ = staticmethod(lambda: (prev(), fn()))
+
+
+def _touch(o):
+    """o (or something inside it) changed: stamp it and its ancestors with the current frame and epoch. The walk stops
+    at the first ancestor already stamped with both, whose own ancestors are therefore stamped too."""
+    if PaintCache.recorded:
+        PaintCache.epoch += 1
+        PaintCache.recorded = False
+    e = PaintCache.epoch
+    f = PaintCache.frame
+    while o is not None and (o._me != e or o._mf != f):
+        o._me = e
+        o._mf = f
+        o = o._parent
+
+
+def touching(fn):
+    """Wraps a mutator of a pure_paint class so it stamps its object (see _touch)."""
+    def mutator(self, *a, **k):
+        r = fn(self, *a, **k)
+        _touch(self)
+        return r
+    mutator.__name__ = fn.__name__
+    mutator.__doc__ = fn.__doc__
+    return mutator
+
+
+_PURE_PAINT = set()   # paint functions that depend only on their object's mutator-set state
+_HEAVY = set()        # pure classes worth recording on their own (many draw calls each)
+_KIND = {}            # class -> 0 (not recordable), 1 (pure shape), 2 (GCompound)
+
+
+def pure_paint(cls, heavy=False):
+    """Registers a GObject class whose paint(g) depends only on its own state (every change of which goes through a
+    mutator that calls _touch), the Graphics state it is given and the PaintCache.globals_."""
+    _PURE_PAINT.add(cls.__dict__.get("paint", cls.paint))
+    if heavy:
+        _HEAVY.add(cls)
+    _KIND.clear()
+
+
+def _kind(t):
+    k = 0
+    if t.paint_object is GObject.paint_object:
+        if issubclass(t, GCompound):
+            k = 2 if (t.paint is GCompound.paint or t.paint in _PURE_PAINT) else 0
+        elif t.paint in _PURE_PAINT:
+            k = 1
+    _KIND[t] = k
+    return k
+
+
+def _recordable(o):
+    """Whether o's whole subtree can be recorded. Only asked for unchanged objects, so a memo stamped with the
+    object's (epoch, frame) stamps stays valid until something in the subtree changes."""
+    t = type(o)
+    k = _KIND.get(t)
+    if k is None:
+        k = _kind(t)
+    if k != 2:
+        return k == 1
+    m = o._rec
+    if m is not None and m[0] == o._me and m[1] == o._mf:
+        return m[2]
+    r = True
+    for c in o._contents:
+        if not _recordable(c):
+            r = False
+            break
+    o._rec = (o._me, o._mf, r)
+    return r
+
+
+_CULL = skia.Rect.MakeLTRB(-1e5, -1e5, 1e5, 1e5)
+
+
+def _gstate(g):
+    return (g.color, g.paint, g.stroke, g.font, g.comp, g.bg, PaintCache.globals_())
+
+
+class _Run:
+    """A recorded run of unchanged children: their picture, the Graphics state it was recorded from and the state
+    painting them leaves behind."""
+    __slots__ = ("kids", "epoch", "pic", "start", "hints", "end", "end_hints")
+
+    def __init__(self, kids, g):
+        self.kids = kids
+        self.start = _gstate(g)
+        self.hints = dict(g.hints)
+        rec = skia.PictureRecorder()
+        cv = rec.beginRecording(_CULL)
+        r = Graphics2D(cv)
+        r.color, r.paint, r.stroke, r.font, r.comp, r.bg = g.color, g.paint, g.stroke, g.font, g.comp, g.bg
+        r.hints = dict(g.hints)
+        for k in kids:
+            k.paint_object(r)
+        reset_canvas_state(cv)
+        self.pic = rec.finishRecordingAsPicture()
+        self.end = (r.color, r.paint, r.stroke, r.font, r.comp, r.bg)
+        self.end_hints = r.hints
+        self.epoch = PaintCache.epoch
+        PaintCache.recorded = True
+
+    def valid(self, kids, g):
+        mine = self.kids
+        if len(mine) != len(kids):
+            return False
+        e = self.epoch
+        for a, b in zip(mine, kids):
+            if a is not b or a._me > e:
+                return False
+        return g.hints == self.hints and _gstate(g) == self.start
+
+    def replay(self, g):
+        g._begin().drawPicture(self.pic)
+        g.color, g.paint, g.stroke, g.font, g.comp, g.bg = self.end
+        if g.hints != self.end_hints:
+            g.hints = dict(self.end_hints)
 
 
 class GPoint:
@@ -139,12 +297,16 @@ class GRectangle:
 
 # ====================================================================== GObject
 class GObject:
+    _me = 0       # epoch / frame of the last change to this object or its subtree (see _touch)
+    _mf = 0
+
     def __init__(self):
         self._parent = None
         self._color = None
         self._x = 0.0
         self._y = 0.0
         self._visible = True
+        self._mf = PaintCache.frame   # new objects count as changing until they have been left alone a while
 
     # -- painting
     def paint(self, g):
@@ -156,9 +318,12 @@ class GObject:
         c = self._color
         if c is not None:
             old = g.color
-            g.set_color(c)
+            g.color = c          # g.set_color(c), inlined: this runs for every object every frame
+            g.paint = None
             self.paint(g)
-            g.set_color(old)
+            if old is not None:  # g.set_color(old)
+                g.color = old
+                g.paint = None
         else:
             self.paint(g)
 
@@ -166,8 +331,12 @@ class GObject:
     def set_location(self, x, y=None):
         if y is None:
             x, y = x.x, x.y
-        self._x = float(x)
-        self._y = float(y)
+        x = float(x)
+        y = float(y)
+        if x != self._x or y != self._y:   # sprites re-set unchanged values every frame: only real changes count
+            _touch(self)
+        self._x = x
+        self._y = y
 
     def get_location(self):
         return GPoint(self._x, self._y)
@@ -235,7 +404,10 @@ class GObject:
 
     # -- colour / visibility
     def set_color(self, c):
+        old = self._color
         self._color = c
+        if c is not old and (c is None or old is None or c._argb != old._argb):
+            _touch(self)
 
     def get_color(self):
         return self._color if self._color is not None else Color.BLACK
@@ -244,7 +416,10 @@ class GObject:
         return self._color
 
     def set_visible(self, v):
-        self._visible = bool(v)
+        v = bool(v)
+        if v != self._visible:
+            self._visible = v
+            _touch(self)
 
     def is_visible(self):
         return self._visible
@@ -280,12 +455,16 @@ class _Fillable(GObject):
 
     def set_filled(self, f):
         self._filled = bool(f)
+        _touch(self)
 
     def is_filled(self):
         return self._filled
 
     def set_fill_color(self, c):
+        old = self._fill_color
         self._fill_color = c
+        if c is not old and (c is None or old is None or c._argb != old._argb):
+            _touch(self)
 
     def get_fill_color(self):
         return self._fill_color if self._fill_color is not None else self.get_color()
@@ -303,6 +482,7 @@ class GRect(_Fillable):
         if h is None:
             w, h = w.width, w.height
         self._w, self._h = float(w), float(h)
+        _touch(self)
 
     def set_bounds(self, x, y=None, w=None, h=None):
         if y is None:
@@ -324,12 +504,14 @@ class GRect(_Fillable):
             sy = sx
         self._w *= sx
         self._h *= sy
+        _touch(self)
 
     def paint(self, g):
         if self._filled:
-            g.set_color(self.get_fill_color())
-            g.fill_rect(self._x, self._y, self._w, self._h)
-            g.set_color(self.get_color())
+            lc = self._color if self._color is not None else Color.BLACK
+            g._fill_draw_rect(self._x, self._y, self._w, self._h,
+                              self._fill_color if self._fill_color is not None else lc, lc)
+            return
         g.draw_rect(self._x, self._y, self._w, self._h)
 
 
@@ -356,6 +538,7 @@ class G3DRect(GRect):
 
     def set_raised(self, r):
         self._raised = r
+        _touch(self)
 
     def is_raised(self):
         return self._raised
@@ -373,6 +556,7 @@ class GOval(_Fillable):
         if h is None:
             w, h = w.width, w.height
         self._w, self._h = float(w), float(h)
+        _touch(self)
 
     def set_bounds(self, x, y=None, w=None, h=None):
         if y is None:
@@ -394,6 +578,7 @@ class GOval(_Fillable):
             sy = sx
         self._w *= sx
         self._h *= sy
+        _touch(self)
 
     def contains(self, x, y=None):
         if y is None:
@@ -406,9 +591,10 @@ class GOval(_Fillable):
 
     def paint(self, g):
         if self._filled:
-            g.set_color(self.get_fill_color())
-            g.fill_oval(self._x, self._y, self._w, self._h)
-            g.set_color(self.get_color())
+            lc = self._color if self._color is not None else Color.BLACK
+            g._fill_draw_oval(self._x, self._y, self._w, self._h,
+                              self._fill_color if self._fill_color is not None else lc, lc)
+            return
         g.draw_oval(self._x, self._y, self._w, self._h)
 
 
@@ -427,12 +613,14 @@ class GArc(_Fillable):
 
     def set_start_angle(self, a):
         self._start = float(a)
+        _touch(self)
 
     def get_start_angle(self):
         return self._start
 
     def set_sweep_angle(self, a):
         self._sweep = float(a)
+        _touch(self)
 
     def get_sweep_angle(self):
         return self._sweep
@@ -441,6 +629,7 @@ class GArc(_Fillable):
         if y is None:
             x, y, w, h = x.x, x.y, x.width, x.height
         self._x, self._y, self._fw, self._fh = float(x), float(y), float(w), float(h)
+        _touch(self)
 
     def get_frame_rectangle(self):
         return GRectangle(self._x, self._y, self._fw, self._fh)
@@ -464,6 +653,7 @@ class GArc(_Fillable):
             sy = sx
         self._fw *= sx
         self._fh *= sy
+        _touch(self)
 
     def paint(self, g):
         if self._filled:
@@ -487,12 +677,14 @@ class GLine(GObject):
         ex, ey = self._x + self._dx, self._y + self._dy
         self._x, self._y = float(x), float(y)
         self._dx, self._dy = ex - self._x, ey - self._y
+        _touch(self)
 
     def get_start_point(self):
         return GPoint(self._x, self._y)
 
     def set_end_point(self, x, y):
         self._dx, self._dy = float(x) - self._x, float(y) - self._y
+        _touch(self)
 
     def get_end_point(self):
         return GPoint(self._x + self._dx, self._y + self._dy)
@@ -505,6 +697,7 @@ class GLine(GObject):
             sy = sx
         self._dx *= sx
         self._dy *= sy
+        _touch(self)
 
     def contains(self, x, y=None):
         if y is None:
@@ -526,10 +719,15 @@ class GLine(GObject):
 
 
 class GPolygon(_Fillable):
+    """Vertices are kept relative to the location. The painted path and the Polygon handed to get_polygon()'s callers
+    are cached and rebuilt only when a vertex or the location changes (every mutator resets _pc): sprites are made of
+    thousands of polygons that rarely change, and rebuilding each one every frame was a large part of frame time."""
+
     def __init__(self, x=None, y=None):
         _Fillable.__init__(self)
         self._vx, self._vy = [], []
         self._cx = self._cy = 0.0
+        self._pc = None   # (x, y, jawt Polygon with its cached path, PathShape) for the current vertices
         if isinstance(x, (list, tuple)):
             for p in x:
                 self.add_vertex(p.x, p.y)
@@ -540,6 +738,8 @@ class GPolygon(_Fillable):
         self._cx, self._cy = float(x), float(y)
         self._vx.append(self._cx)
         self._vy.append(self._cy)
+        self._pc = None
+        _touch(self)
 
     def add_edge(self, dx, dy):
         self.add_vertex(self._cx + dx, self._cy + dy)
@@ -567,15 +767,17 @@ class GPolygon(_Fillable):
         self._vy = [v * sy for v in self._vy]
         self._cx *= sx
         self._cy *= sy
+        self._pc = None
+        _touch(self)
 
     def rotate(self, theta):
         a = math.radians(theta)
         c, s = math.cos(a), math.sin(a)
-        nx, ny = [], []
-        for x, y in zip(self._vx, self._vy):
-            nx.append(x * c + y * s)
-            ny.append(y * c - x * s)
-        self._vx, self._vy = nx, ny
+        vx, vy = self._vx, self._vy
+        self._vx = [x * c + y * s for x, y in zip(vx, vy)]
+        self._vy = [y * c - x * s for x, y in zip(vx, vy)]
+        self._pc = None
+        _touch(self)
 
     def recenter(self):
         if not self._vx:
@@ -584,18 +786,28 @@ class GPolygon(_Fillable):
         cy = sum(self._vy) / len(self._vy)
         self._vx = [v - cx for v in self._vx]
         self._vy = [v - cy for v in self._vy]
+        self._pc = None
+        _touch(self)
 
     def get_vertex_count(self):
         return len(self._vx)
 
-    def get_polygon(self):
-        """acm's protected getPolygon: the vertices offset by the location (kept fractional)."""
-        from lindefense.ui.jawt import Polygon
+    def _cached(self):
+        pc = self._pc
+        if pc is not None and pc[0] == self._x and pc[1] == self._y:
+            return pc
+        from lindefense.ui.jawt import PathShape, Polygon
         poly = Polygon()
         poly.xpoints = [self._x + v for v in self._vx]
         poly.ypoints = [self._y + v for v in self._vy]
         poly.npoints = len(self._vx)
-        return poly
+        pc = self._pc = (self._x, self._y, poly, PathShape(poly.path()) if poly.npoints else None)
+        return pc
+
+    def get_polygon(self):
+        """acm's protected getPolygon: the vertices offset by the location (kept fractional). The result is shared
+        until the polygon changes, so callers must only read it (the sprite classes only paint it)."""
+        return self._cached()[2]
 
     def get_bounds(self):
         if not self._vx:
@@ -618,26 +830,14 @@ class GPolygon(_Fillable):
             j = i
         return inside
 
-    def _path(self):
-        import skia
-        p = skia.Path()
-        ox, oy = self._x, self._y
-        vx, vy = self._vx, self._vy
-        p.moveTo(ox + vx[0], oy + vy[0])
-        for i in range(1, len(vx)):
-            p.lineTo(ox + vx[i], oy + vy[i])
-        p.close()
-        return p
-
     def paint(self, g):
         if not self._vx:
             return
-        from lindefense.ui.jawt import PathShape
-        s = PathShape(self._path())
+        s = self._cached()[3]
         if self._filled:
-            g.set_color(self.get_fill_color())
-            g.fill(s)
-            g.set_color(self.get_color())
+            lc = self._color if self._color is not None else Color.BLACK
+            g._fill_draw_path(s._p, self._fill_color if self._fill_color is not None else lc, lc)
+            return
         g.draw(s)
 
     def mark_as_complete(self):
@@ -657,12 +857,14 @@ class GLabel(GObject):
         if isinstance(f, str):
             f = _decode_font(f)
         self._font = f
+        _touch(self)
 
     def get_font(self):
         return self._font
 
     def set_label(self, s):
         self._label = "" if s is None else str(s)
+        _touch(self)
 
     def get_label(self):
         return self._label
@@ -722,6 +924,7 @@ class GImage(GObject):
         self._img = img
         if img is not None:
             self._w, self._h = float(img.get_width()), float(img.get_height())
+        _touch(self)
 
     def get_image(self):
         return self._img
@@ -730,6 +933,7 @@ class GImage(GObject):
         if h is None:
             w, h = w.width, w.height
         self._w, self._h = float(w), float(h)
+        _touch(self)
 
     def set_bounds(self, x, y=None, w=None, h=None):
         if y is None:
@@ -751,6 +955,7 @@ class GImage(GObject):
             sy = sx
         self._w *= sx
         self._h *= sy
+        _touch(self)
 
     def paint(self, g):
         if self._img is not None:
@@ -759,6 +964,10 @@ class GImage(GObject):
 
 # ====================================================================== containers
 class GCompound(GObject):
+    _run_cache = False   # True on sprite classes: record unchanged runs of children (see PaintCache)
+    _runs = None         # id(first child) -> _Run, the runs replayed by the last paint
+    _rec = None          # (epoch, frame, recordable) memo of _recordable
+
     def __init__(self):
         GObject.__init__(self)
         self._contents = []
@@ -779,6 +988,7 @@ class GCompound(GObject):
                 pass
         obj._parent = self
         self._contents.append(obj)
+        _touch(self)
 
     def remove(self, obj):
         try:
@@ -786,11 +996,13 @@ class GCompound(GObject):
         except ValueError:
             return
         obj._parent = None
+        _touch(self)
 
     def remove_all(self):
         for o in self._contents:
             o._parent = None
         self._contents = []
+        _touch(self)
 
     def get_element_count(self):
         return len(self._contents)
@@ -825,13 +1037,56 @@ class GCompound(GObject):
             return
         del self._contents[i]
         self._contents.insert(idx, obj)
+        _touch(self)
 
     def paint(self, g):
         g2 = g.create()
         g2.translate(self._x, self._y)
+        if self._run_cache and PaintCache.enabled:
+            self._paint_runs(g2)
+            return
         for o in self._contents:
             if o._visible:
                 o.paint_object(g2)
+
+    def _paint_runs(self, g2):
+        """paint(), replaying recorded pictures for runs of children unchanged for PaintCache.STABLE_FRAMES frames."""
+        f = PaintCache.frame - PaintCache.STABLE_FRAMES
+        kind = _KIND.get
+        kids = self._contents
+        n = len(kids)
+        old = self._runs
+        new = None
+        i = 0
+        while i < n:
+            c = kids[i]
+            i += 1
+            if not c._visible:
+                continue
+            k = kind(type(c))
+            if c._mf > f or not (k == 1 or (k != 0 and _recordable(c))):
+                c.paint_object(g2)
+                continue
+            run = [c]
+            while i < n:
+                d = kids[i]
+                if d._visible:
+                    k = kind(type(d))
+                    if d._mf > f or not (k == 1 or (k != 0 and _recordable(d))):
+                        break
+                    run.append(d)
+                i += 1
+            if len(run) == 1 and type(c) not in _HEAVY and not isinstance(c, GCompound):
+                c.paint_object(g2)   # a single shape: recording would not save anything
+                continue
+            r = old.get(id(c)) if old is not None else None
+            if r is None or not r.valid(run, g2):
+                r = _Run(run, g2)
+            r.replay(g2)
+            if new is None:
+                new = {}
+            new[id(c)] = r
+        self._runs = new
 
     def scale(self, sx, sy=None):
         if sy is None:
@@ -894,6 +1149,8 @@ class GCanvas(GCompound):
         self._native_arcs = True
         self._auto_repaint = False
         self._bg = Color.WHITE
+        self._w = 0
+        self._h = 0
 
     def set_auto_repaint_flag(self, f):
         self._auto_repaint = f
@@ -916,11 +1173,29 @@ class GCanvas(GCompound):
     def repaint(self):
         pass
 
+    def set_size(self, w, h=None):
+        if h is None:   # set_size(Dimension)
+            w, h = w.width, w.height
+        self._w, self._h = int(w), int(h)
+
     def get_width(self):
-        return 0
+        return self._w
 
     def get_height(self):
-        return 0
+        return self._h
+
+    def paint(self, g):
+        """JComponent.paint of an opaque GCanvas: its background, then the scene graph."""
+        if self._w > 0 and self._h > 0:
+            g.set_color(self._bg)
+            g.fill_rect(0, 0, self._w, self._h)
+        GCompound.paint(self, g)
+        PaintCache.next_frame()
+
+
+# the ACM shapes paint from their own mutator-set fields only (GImage is left out: its image can be drawn into)
+for _c in (GRect, GRoundRect, GOval, GArc, GLine, GPolygon, GLabel):
+    pure_paint(_c)
 
 
 class GMath:

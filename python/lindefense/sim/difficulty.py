@@ -20,16 +20,16 @@ class Difficulty(JEnum):
     O1 = ("O1", "O(1)", "O(1)", "Constant (current)", "The original game, unchanged.",
           Curve.FLAT, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1.00)
     ON = ("ON", "O(N)", "O(N)", "Linear (Normal)", "Tougher enemies, more of them, weaker towers, leaner income.",
-          Curve.LINEAR, 1.10, 1.50, 0.92, 0.80, 1.10, 1.40, 0, 0, 0, 0, 1, 1, 1.03)
+          Curve.LINEAR, 1.10, 1.50, 0.92, 0.80, 1.10, 1.40, 0, 0, 0, 0, 1, 1, 1.15)
     ON2 = ("ON2", "O(N²)", "O(N^2)", "Quadratic (Hard)",
            "Enemy health climbs to 1.85x with 1.6x the enemies, towers deal 90% damage, 72% income, and late waves bring some elites.",
-           Curve.QUADRATIC, 1.10, 1.85, 0.90, 0.72, 1.10, 1.60, 0.02, 0.22, 1, 0.20, 1, 1, 1.00)
+           Curve.QUADRATIC, 1.10, 1.85, 0.90, 0.72, 1.10, 1.60, 0.02, 0.22, 1, 0.20, 1, 1, 1.30)
     ONN = ("ONN", "O(Nᴺ)", "O(N^N)", "Super-exponential (Impossible)",
            "Enemy health climbs to 3.1x with 2.4x the enemies, towers deal 84% damage, 56% income, and most late enemies are elites. Still beatable.",
-           Curve.QUADRATIC, 1.25, 3.10, 0.84, 0.56, 1.25, 2.40, 0.03, 0.80, 2, 0.50, 1, 1, 1.06)
+           Curve.QUADRATIC, 1.25, 3.10, 0.84, 0.56, 1.25, 2.40, 0.03, 0.80, 2, 0.50, 1, 1, 2.00)
 
     def _init(self, id_, label, ascii_, subtitle, description, curve, hp_base, hp_final, tower_damage, income,
-              count_base, count_final, elite_base, elite_final, elite_mods, promote_chance, cash, lives, palantir_extra):
+              count_base, count_final, elite_base, elite_final, elite_mods, promote_chance, cash, lives, palantir_hp):
         self.id = id_
         self.label = label
         self.ascii_label = ascii_
@@ -44,7 +44,7 @@ class Difficulty(JEnum):
         self.elite_mods = elite_mods
         self.promote_chance = float(promote_chance)
         self.start_cash_mult, self.start_lives_mult = float(cash), float(lives)
-        self.palantir_extra = float(palantir_extra)
+        self.palantir_hp_mult = float(palantir_hp)
 
     def is_base(self):
         return self is Difficulty.O1
@@ -83,7 +83,9 @@ class Difficulty(JEnum):
         return 0.0
 
     def palantir_hp(self):
-        return self.tower_damage * self.palantir_extra
+        """Palantir's own HP multiplier for this mode. It replaces the ramped multiplier (which would put it at 1.5x-3.1x)
+        but, unlike before, no longer cancels the weaker towers, so the final fight is harder in every mode."""
+        return self.palantir_hp_mult
 
     def hp_multiplier(self, wave, type_=None):
         if type_ is EnemyType.PALANTIR:

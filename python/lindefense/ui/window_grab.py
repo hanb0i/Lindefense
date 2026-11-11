@@ -6,6 +6,11 @@ Safety: only ever sets the window's bounds (never full screen / maximised), neve
 inside the visible screen, animated over ANIM_SECONDS, stops at once if the player resizes, and is inert in headless
 runs, tests and the scripted demo. The geometry is pure static helpers so it is tested headlessly.
 
+Full screen (F11 / SETTINGS > FULLSCREEN, or the system's own) is treated like a maximised window: the grab is blocked
+with a banner and never moves or resizes the window. Going full screen while Palantir holds the window stops any
+animation on the spot; the window is then as big as it gets, so the seal is broken while it stays full screen (exactly
+as when maximising). The adapter's set_bounds also refuses to touch a full-screen window.
+
 The window is reached through an adapter with: get_bounds() -> Rect, set_bounds(Rect), is_showing(),
 is_maximized_or_full_screen(), min_size() -> (w, h), usable_screen() -> Rect.
 """
@@ -173,7 +178,9 @@ class WindowGrab:
         if not w.is_showing():
             return
         if w.is_maximized_or_full_screen():
-            g.set_banner("PALANTIR REACHED FOR YOUR WINDOW  -  blocked: it is maximized", 0x7fd8a8, 3)
+            full = getattr(w, "is_full_screen", None)
+            how = "it is full screen" if full is not None and full() else "it is maximized"
+            g.set_banner("PALANTIR REACHED FOR YOUR WINDOW  -  blocked: " + how, 0x7fd8a8, 3)
             return
         cur = w.get_bounds()
         if not self._holding or self._releasing:
@@ -212,6 +219,12 @@ class WindowGrab:
 
     def _step(self, dt):
         if self._anim < 0:
+            return
+        if self._window.is_maximized_or_full_screen():   # the player went full screen / maximised mid-animation
+            self._anim = -1.0
+            self._last_set = None
+            if self._releasing:
+                self._finish()
             return
         now = self._window.get_bounds()
         ls = self._last_set

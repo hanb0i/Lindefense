@@ -100,16 +100,16 @@ class EnemyType(JEnum):
     TIMSORT = ("TimSort", 10, 1.6, 16, 8, 19, Mechanic.NONE,
                "Fast hybrid. Splits into a Merge Sort and an Insertion Sort.")
     # ---------------- Corporate bosses ----------------
-    BELLARMINE_COLLEGE_PREP = ("Bellarmine College Prep", 1500, 0.7, 300, 30, 34, Mechanic.NONE,
-                               "MOAB-class. Heavy armour (25%), slow. Releases 4 Quick Sorts.")
-    SW_RESOURCE_CONSULTANT = ("SW Resource Consultant", 7500, 0.5, 800, 60, 42, Mechanic.NONE,
-                              "BFB-class. Armour 40%; hits below 3 damage are halved. Releases 3 Bellarmine College Preps.")
-    THREE_COM = ("3Com", 8000, 0.4, 2000, 100, 52, Mechanic.NONE,
-                 "ZOMG-class. Massive HP, armour 30%. Releases 3 SW Resource Consultants.")
-    LOCKHEED_MARTIN = ("Lockheed Martin", 1000, 2.6, 700, 50, 30, Mechanic.NONE,
-                       "DDT-class. Camo, very fast, Lead-type, armour 40%. Releases 4 camo Quick Sorts.")
-    PALANTIR = ("Palantir", 50000, 0.28, 10000, 100, 64, Mechanic.PALANTIR,
-                "BAD-class final boss. Three defensive phases, each with a signature ability (Panopticon, Prompt Broadcast, System Takeover), and Predictive Surveillance.")
+    BELLARMINE_COLLEGE_PREP = ("Bellarmine College Prep", 1700, 0.7, 300, 30, 34, Mechanic.NONE,
+                               "MOAB-class. Heavy armour (25%), slow. CREST SHIELD: at half health it raises a shield worth 35% of its max HP. Releases 4 Quick Sorts.")
+    SW_RESOURCE_CONSULTANT = ("SW Resource Consultant", 8500, 0.5, 800, 60, 42, Mechanic.NONE,
+                              "BFB-class. Armour 40%; hits below 3 damage are halved. OUTSOURCING: every 9 s it drops 3 Quick Sort contractors. Releases 3 Bellarmine College Preps.")
+    THREE_COM = ("3Com", 12000, 0.4, 2000, 100, 52, Mechanic.NONE,
+                 "ZOMG-class. Massive HP, armour 30%. NETWORK HUB: enemies within 200 px take half damage and 3Com repairs itself. Releases 3 SW Resource Consultants.")
+    LOCKHEED_MARTIN = ("Lockheed Martin", 1400, 2.6, 700, 50, 30, Mechanic.NONE,
+                       "DDT-class. Camo, very fast, Lead-type, armour 40%. AFTERBURNER: 1.5x speed for 1 s every 7 s. Releases 4 camo Quick Sorts.")
+    PALANTIR = ("Palantir", 80000, 0.14, 10000, 100, 64, Mechanic.PALANTIR,
+                "BAD-class final boss. Three defensive phases, each with a signature ability (Panopticon, Prompt Broadcast, System Takeover), escort squadrons that shield it through a Swarm Uplink, and Predictive Surveillance.")
     # ---------------- Summons (never in a wave) ----------------
     PALANTIR_HOLOGRAM = ("Palantir Hologram", 1000, 0.36, 0, 0, 64, Mechanic.NONE,
                          "A holographic decoy that Palantir projects in phase 2. Low HP, pays nothing and costs no lives, but towers target it first while it exists (the ones immune to prompt injection see through it).")
@@ -217,6 +217,12 @@ def _setup():
     E.LOCKHEED_MARTIN._lead_body = True
     E.LOCKHEED_MARTIN._innate_camo = True
     E.PALANTIR._boss(BossClass.BAD, 0.60, 0)
+    # class flags the damage formula reads on every hit, derived once from the (constant) data above
+    for t in E:
+        t.complex = t.is_complex()
+        t.fast = t.is_fast()
+        t.splits = t.has_children()
+        t.sorting_or_list = t.is_sorting_algorithm() or t.is_linked_list()
 
 
 _setup()

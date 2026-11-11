@@ -115,7 +115,7 @@ class GameMap:
             return False
         clearance = self.min_track_clearance(tower_radius)
         for r in self.routes:
-            if r.distance_to_point(p) < clearance:
+            if r.is_closer_than(p, clearance):
                 return False
         for o in self.obstacles:
             if o.contains(p, tower_radius * 0.7):
@@ -130,6 +130,11 @@ class GameMap:
             if o.blocks_line_of_sight and o.intersects_segment(frm, to):
                 return False
         return True
+
+    def can_block_line_of_sight(self) -> bool:
+        """False when has_line_of_sight is true for every segment (no sight-blocking obstacle), so callers may skip it."""
+        return (type(self).has_line_of_sight is not GameMap.has_line_of_sight
+                or any(o.blocks_line_of_sight for o in self.obstacles))
 
     # ---- mechanic hooks (default: none)
     def update(self, game, dt: float) -> None:

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Converts audio (MP3, M4A, MP4, AAC, AIFF, WAV, ...) into a WAV that Lindefense can stream with plain Java Sound.
+# Converts audio (MP3, M4A, MP4, AAC, AIFF, WAV, ...) into a WAV that Lindefense can play (pygame / SDL WAV).
 #
 # usage: scripts/convert-music.sh <input> [output.wav] [--pcm]
 #   default output : assets/music/<input name>.wav   (name it menu / battle / battle_late / battle_onn / boss /

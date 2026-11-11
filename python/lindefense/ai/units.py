@@ -22,17 +22,27 @@ class AttackUnit(JEnum):
     RADIX = (EnemyType.RADIX_SORT, 75, 200, "Armoured digit phases; takes 6 integrity.")
     BUCKET = (EnemyType.BUCKET_SORT, 68, 200, "Carries weaker units past the towers.")
     TIMSORT = (EnemyType.TIMSORT, 140, 250, "Fast hybrid; splits into Merge + Insertion.")
-    MOAB = (EnemyType.BELLARMINE_COLLEGE_PREP, 1200, 260, "MOAB-class boss: 1,500 HP, 30 integrity.")
-    BFB = (EnemyType.SW_RESOURCE_CONSULTANT, 4800, 340, "BFB-class boss: releases 3 MOABs, 60 integrity.")
-    DDT = (EnemyType.LOCKHEED_MARTIN, 2700, 440, "DDT-class: camo, lead, very fast, 50 integrity.")
-    ZOMG = (EnemyType.THREE_COM, 15000, 560, "ZOMG-class: releases 3 BFBs, 100 integrity.")
-    BAD = (EnemyType.PALANTIR, 30000, 680, "The BAD: 50,000 HP, phases, jams towers, 100 integrity.")
+    # the bosses keep their beta 3.0 health here (the last column: base HP in this mode, instead of the campaign's buffed
+    # base HP) and carry their signature abilities, which the price includes
+    MOAB = (EnemyType.BELLARMINE_COLLEGE_PREP, 1400, 260, "MOAB-class boss: {hp} HP, a Crest Shield at half health, 30 integrity.", 1300)
+    BFB = (EnemyType.SW_RESOURCE_CONSULTANT, 5200, 340, "BFB-class boss: {hp} HP, outsources Quick Sorts, releases 3 MOABs, 60 integrity.", 7500)
+    DDT = (EnemyType.LOCKHEED_MARTIN, 3000, 440, "DDT-class: {hp} HP, camo, lead, afterburner bursts, 50 integrity.", 850)
+    ZOMG = (EnemyType.THREE_COM, 16000, 560, "ZOMG-class: {hp} HP, a network hub that shields nearby units, 100 integrity.", 8000)
+    BAD = (EnemyType.PALANTIR, 30000, 680, "The BAD: {hp} HP, phases, jams towers, 100 integrity.", 50000)
 
-    def _init(self, type_, price, unlock_at, blurb):
+    def _init(self, type_, price, unlock_at, blurb, base_hp=None):
         self.type = type_
         self.price = price
         self.unlock_at = float(unlock_at)
-        self.blurb = blurb
+        self._base_hp = base_hp
+        self.blurb = blurb.format(hp="{:,}".format(self.base_hp()))   # {hp}: the unit's base HP, so the card never goes stale
+
+    def base_hp(self):
+        """The unit's health before the match scaling (its own reverse-mode base HP, else the campaign's)."""
+        return self.type.base_hp if self._base_hp is None else self._base_hp
+
+    def hp_factor(self):
+        return self.base_hp() / float(self.type.base_hp)
 
     def is_boss(self):
         return self.type.is_boss()

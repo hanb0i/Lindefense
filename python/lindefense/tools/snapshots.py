@@ -41,6 +41,40 @@ def buildable_near(g, target, radius):
     return best if best is not None else target
 
 
+class TestKit:
+    """The two lindefense.test.TestKit helpers the ported snapshot tools (InjectionSnapshots, VarianceSnapshots,
+    UiSnapshots) call; same algorithms as the Java kit (and tests/kit.py)."""
+
+    @staticmethod
+    def buildable_near(g, target, radius):
+        import math
+        from lindefense.sim.vec import Vec
+        from lindefense.tower.tower_type import TowerType
+        r = 0.0
+        while r <= radius:
+            for a in range(24):
+                ang = a * math.pi / 12
+                p = Vec(target.x + math.cos(ang) * r, target.y + math.sin(ang) * r)
+                if g.get_map().is_buildable(p, 20):
+                    prob = g.get_tower_manager().placement_problem(TowerType.GPT, p)
+                    if prob is None or prob == "Not enough cash":
+                        return p
+            r += 10
+        raise RuntimeError("No buildable point near %r" % (target,))
+
+    @staticmethod
+    def force_place(g, type_, p, tier):
+        g.add_cash(1_000_000, None)
+        if type_.is_hero():
+            g.get_hero_collection().unlock(type_)
+        t = g.get_tower_manager().place(type_, p)
+        if t is None:
+            raise RuntimeError("Could not place %s at %r: %s" % (type_, p, g.get_tower_manager().placement_problem(type_, p)))
+        for _ in range(tier):
+            g.get_tower_manager().upgrade(t)
+        return t
+
+
 def main(argv=None):
     args = sys.argv[1:] if argv is None else argv
     out = args[0] if args else "snapshots"

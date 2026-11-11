@@ -1,5 +1,5 @@
 """The 100-wave campaign (spawn groups, scaling, end-of-wave bonus), the Prompt Injection schedule and the
-WaveManager that runs it."""
+WaveManager that runs it. Waves past WAVE_COUNT exist only in Freeplay and come from wave/freeplay.py."""
 import math
 
 from lindefense.javacompat import jround
@@ -53,19 +53,41 @@ class WaveDef:
 
 
 # ---------------------------------------------------------------- scaling
+# Piecewise-linear (wave, scale) curves: flat before the first point, straight lines between points and the last
+# segment's slope continued past the last point. Waves 1-20 (the tutorial stretch) are untouched.
+HP_CURVE = ((20, 1.0), (40, 1.2), (60, 1.45), (80, 1.75), (100, 2.1))
+SPEED_CURVE = ((60, 1.0), (80, 1.12), (100, 1.35))
+
+
+def _curve(points, wave):
+    w0, v0 = points[0]
+    if wave <= w0:
+        return v0
+    for w1, v1 in points[1:]:
+        if wave <= w1:
+            return v0 + (v1 - v0) * (wave - w0) / (w1 - w0)
+        w0, v0, prev = w1, v1, (w0, v0)
+    pw, pv = prev
+    return v0 + (v0 - pv) * (wave - w0) / (w0 - pw)
+
+
 def hp_scale(wave):
-    if wave <= 60:
-        return 1.0
-    if wave <= 80:
-        return 1.0 + (wave - 60) * 0.005
-    return 1.1 + (wave - 80) * 0.01
+    """HP multiplier for every enemy spawned on this wave (bosses included; children inherit their parent's). Freeplay
+    waves (past WAVE_COUNT) continue from the curve's wave-100 value with FreeplayWaves' own growth."""
+    if wave > WAVE_COUNT:
+        return _freeplay.FreeplayWaves.hp_scale(wave)
+    return _curve(HP_CURVE, wave)
 
 
 def speed_scale(wave):
-    return 1.0 if wave <= 80 else 1.0 + (wave - 80) * 0.015
+    if wave > WAVE_COUNT:
+        return _freeplay.FreeplayWaves.speed_scale(wave)
+    return _curve(SPEED_CURVE, wave)
 
 
 def reward_scale(wave):
+    if wave > WAVE_COUNT:
+        return _freeplay.FreeplayWaves.reward_scale(wave)
     if wave <= 60:
         return 3.0
     if wave <= 80:
@@ -74,6 +96,8 @@ def reward_scale(wave):
 
 
 def wave_bonus(wave):
+    if wave > WAVE_COUNT:
+        return _freeplay.FreeplayWaves.wave_bonus(wave)
     return jround(300 + 900 * max(0.0, 1 - wave / 40.0))
 
 
@@ -278,8 +302,8 @@ def _define_waves():
     w(99, "Final rehearsal: BFB, MOAB and DDT classes together before the BAD.", g(SW_RESOURCE_CONSULTANT, 1, "F", 12.0, 2), g(BELLARMINE_COLLEGE_PREP, 3, "F", 6.0, 25), g(LOCKHEED_MARTIN, 1, 4.0, 40), g(TIMSORT, 50, "F", 0.3, 10))
 
     # ---------------- Wave 100: PALANTIR ----------------
-    w(100, "FINAL BOSS: Palantir (BAD). Three phases, Predictive Surveillance. Victory when its body is destroyed.",
-        g(PALANTIR, 1, 1, 8), g(LOCKHEED_MARTIN, 4, 6.0, 30), g(BELLARMINE_COLLEGE_PREP, 8, "F", 4.0, 45))
+    w(100, "FINAL BOSS: Palantir (BAD). Three phases, Predictive Surveillance, an escort squadron at each phase change. Victory when its body is destroyed.",
+        g(PALANTIR, 1, 1, 8), g(LOCKHEED_MARTIN, 2, 8.0, 30), g(BELLARMINE_COLLEGE_PREP, 6, "F", 4.0, 45))
 
 
 _define_waves()
@@ -288,8 +312,22 @@ if len(_WAVES) != WAVE_COUNT:
 _WAVES[:] = [_apply_injection(x) for x in _WAVES]
 
 
-def get(wave):
+def get(wave, seed=0):
+    """Base WaveDef of a wave. Waves past WAVE_COUNT (Freeplay only) are generated from the run seed: pass
+    game.get_seed() (or use for_game) wherever the wave can be > WAVE_COUNT."""
+    if wave > WAVE_COUNT:
+        return _freeplay.FreeplayWaves.get(seed, wave)
     return _WAVES[wave - 1]
+
+
+def exists(game, wave):
+    """Whether this game has a wave `wave`: 1..WAVE_COUNT, plus every later wave once the game is in Freeplay."""
+    return 1 <= wave and (wave <= WAVE_COUNT or game.is_freeplay())
+
+
+def for_game(game, wave):
+    """Base WaveDef of `wave` in this game (Freeplay waves come from the game's run seed)."""
+    return get(wave, game.get_seed())
 
 
 def all_waves():
@@ -341,7 +379,7 @@ class WaveManager:
         return sum(gr.count - self._progress[i] for i, gr in enumerate(self._current.groups))
 
     def can_start_next_wave(self):
-        return (not self._wave_active and self._current_wave < WAVE_COUNT
+        return (not self._wave_active and (self._current_wave < WAVE_COUNT or self._game.is_freeplay())
                 and self._game.get_variance().ready_for(self._current_wave + 1))
 
     def start_next_wave(self):
@@ -349,7 +387,7 @@ class WaveManager:
             return False
         gm = self._game
         self._current_wave += 1
-        self._current = gm.get_difficulty().shape(get(self._current_wave), gm.get_seed())
+        self._current = gm.get_difficulty().shape(get(self._current_wave, gm.get_seed()), gm.get_seed())
         self._current = gm.get_variance().shape_wave(self._current)
         self._wave_active = True
         self._wave_time = 0.0
@@ -385,3 +423,7 @@ class WaveManager:
 
     def end_wave(self):
         self._wave_active = False
+
+
+# deferred import (freeplay builds on SpawnGroup / WaveDef above)
+from lindefense.wave import freeplay as _freeplay  # noqa: E402

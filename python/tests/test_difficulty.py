@@ -221,8 +221,9 @@ def test_bosses_and_tuning(check):
     n, m, l = D.ONN, D.ON2, D.ON
     check(n.curve is Curve.QUADRATIC and n.hp_base == 1.25 and n.hp_final == 3.10 and n.count_base == 1.25 and n.count_final == 2.40
           and n.tower_damage == 0.84 and n.income == 0.56 and n.elite_base == 0.03 and n.elite_final == 0.80 and n.elite_mods == 2
-          and n.promote_chance == 0.50 and n.start_cash_mult == 1 and n.start_lives_mult == 1 and n.palantir_extra == 1.06,
+          and n.promote_chance == 0.50 and n.start_cash_mult == 1 and n.start_lives_mult == 1,
           "O(N^N) uses exactly the previous O(N^2) numbers")
+    check([d.palantir_hp() for d in D] == [1.0, 1.15, 1.3, 2.0], "Palantir HP x1 / 1.15 / 1.3 / 2 by mode, on top of the wave curve")
     check(l.hp_final < m.hp_final < n.hp_final and l.count_final < m.count_final < n.count_final, "O(N^2) HP and count in between")
     check(l.tower_damage > m.tower_damage > n.tower_damage and l.income > m.income > n.income, "O(N^2) damage and income in between")
     check(0 < m.elite_final < n.elite_final and m.promote_chance < n.promote_chance, "O(N^2) has fewer, gentler elites")

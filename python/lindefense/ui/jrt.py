@@ -10,6 +10,8 @@ from lindefense.javacompat import JavaRandom
 
 
 # ====================================================================== numbers
+_INF = float("inf")
+
 def idiv(a, b):
     """Java integer division (truncates toward zero)."""
     q = abs(a) // abs(b)
@@ -89,12 +91,20 @@ def shl(a, n):
 
 
 def jround(x):
-    """Math.round: floor(x + 0.5) as a long; NaN -> 0."""
+    """Math.round: the closest long, ties toward positive infinity (exactly, unlike floor(x + 0.5) in doubles, which
+    rounds 0.49999999999999994 up); NaN -> 0; saturates at Long.MIN_VALUE / MAX_VALUE."""
     if x != x:
         return 0
-    if x in (float("inf"), float("-inf")):
-        return (1 << 63) - 1 if x > 0 else -(1 << 63)
-    return int(math.floor(x + 0.5))
+    if x == _INF:
+        return 9223372036854775807
+    if x == -_INF:
+        return -9223372036854775808
+    r = math.floor(x)
+    if x - r >= 0.5:
+        r += 1
+    if -9223372036854775808 <= r <= 9223372036854775807:
+        return r
+    return 9223372036854775807 if r > 0 else -9223372036854775808
 
 
 def signum(x):
@@ -104,7 +114,12 @@ def signum(x):
 
 
 def rint(x):
-    return float(round(x))
+    """Math.rint: nearest integer value as a double, ties to even; NaN / infinities / signed zeros pass through."""
+    x = float(x)
+    if x != x or (x == _INF or x == -_INF):
+        return x
+    r = float(round(x))
+    return math.copysign(r, x) if r == 0 else r
 
 
 def clamp(v, lo, hi):
@@ -144,11 +159,11 @@ def is_nan(x):
 
 
 def is_infinite(x):
-    return x in (float("inf"), float("-inf"))
+    return (x == _INF or x == -_INF)
 
 
 def is_finite(x):
-    return not (x != x or x in (float("inf"), float("-inf")))
+    return not (x != x or (x == _INF or x == -_INF))
 
 
 def nano_time():
@@ -164,9 +179,9 @@ def jstr_double(d):
     """Double.toString."""
     if d != d:
         return "NaN"
-    if d == float("inf"):
+    if d == _INF:
         return "Infinity"
-    if d == float("-inf"):
+    if d == -_INF:
         return "-Infinity"
     if d == 0:
         return "-0.0" if math.copysign(1, d) < 0 else "0.0"
@@ -466,7 +481,7 @@ def _half_up(v, p):
     from decimal import ROUND_HALF_UP, Decimal
     if v != v:
         return "NaN"
-    if v in (float("inf"), float("-inf")):
+    if (v == _INF or v == -_INF):
         return "Infinity" if v > 0 else "-Infinity"
     q = Decimal(1).scaleb(-p)
     d = Decimal(repr(v)).quantize(q, rounding=ROUND_HALF_UP)
@@ -475,11 +490,11 @@ def _half_up(v, p):
 
 
 def format_decimal(d, p):
+    """A rounded Decimal as Formatter prints it. Java keeps the sign of a negative value that rounds to zero
+    (String.format("%.1f", -0.04) is "-0.0")."""
     txt = "{:f}".format(d)
     if p == 0:
         txt = txt.split(".")[0]
-    if txt.startswith("-") and float(txt) == 0:
-        txt = txt[1:] if not (1 / float("-0.0") < 0 and False) else txt
     return txt
 
 
@@ -1436,6 +1451,18 @@ def _j_iter(coll):
 
 
 def _j_remove_if(coll, pred):
+    if isinstance(coll, _MapView):   # map.keySet() / entrySet() / values().removeIf(...) removes from the map itself
+        m = coll._map
+        if coll._kind == "k":
+            gone = [k for k in list(m.keys()) if pred(k)]
+        elif coll._kind == "e":
+            gone = [k for k, v in list(m.items()) if pred((k, v))]
+        else:
+            gone = [k for k, v in list(m.items()) if pred(v)]
+        for k in gone:
+            m.pop(k, None)
+        list.__init__(coll, m.keys() if coll._kind == "k" else (m.items() if coll._kind == "e" else m.values()))
+        return bool(gone)
     if isinstance(coll, list):
         n = len(coll)
         coll[:] = [v for v in coll if not pred(v)]
@@ -1611,21 +1638,22 @@ class Break(Exception):
 
 
 def dmin(a, b):
-    """Math.min for doubles: NaN propagates."""
+    """Math.min for doubles: NaN propagates. The result is always a float, as in Java (an int operand is widened):
+    callers such as Font.deriveFont(float) / AlphaComposite.derive(float) pick their overload by that type."""
     if a != a:
-        return a
+        return float(a)
     if b != b:
-        return b
-    return a if a <= b else b
+        return float(b)
+    return float(a if a <= b else b)
 
 
 def dmax(a, b):
-    """Math.max for doubles: NaN propagates."""
+    """Math.max for doubles: NaN propagates; always returns a float (see dmin)."""
     if a != a:
-        return a
+        return float(a)
     if b != b:
-        return b
-    return a if a >= b else b
+        return float(b)
+    return float(a if a >= b else b)
 
 
 # ====================================================================== java.io writers

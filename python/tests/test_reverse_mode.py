@@ -244,7 +244,9 @@ def test_spawning(check):
         if e.is_regrow():
             regrow += 1
     check(isinstance(boss, Boss) and boss.is_fortified() and boss.is_camo(), "a Fortified Camo MOAB is a real boss")
-    check(boss is not None and boss.get_max_hp() == 2 * EnemyType.BELLARMINE_COLLEGE_PREP.base_hp, "Fortified doubles its HP")
+    check(boss is not None and boss.get_max_hp() == 2 * A.MOAB.base_hp(), "Fortified doubles its (reverse-mode) HP")
+    check(A.MOAB.base_hp() < EnemyType.BELLARMINE_COLLEGE_PREP.base_hp and boss.get_ability() is not None,
+          "reverse-mode bosses keep their old health but bring their signature ability")
     check(regrow == 2, "Regrow applied to the Quick Sorts")
     waiting = rb.get_queued()
     added = rb.send(A.PRIMITIVE, None, 1000, -1)

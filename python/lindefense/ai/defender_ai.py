@@ -8,6 +8,7 @@ from lindefense.map.game_map import WIDTH, HEIGHT
 from lindefense.sim.vec import Vec
 from lindefense.tower import catalog, shop
 from lindefense.tower.tower_type import Targeting, TowerType
+from lindefense.ui import jrt as _j
 
 _MAX = sys.float_info.max
 
@@ -41,6 +42,7 @@ class Options:
         self.unlock_abilities = False
         self.unlock_min_towers = 8
         self.unlock_towers_per = 0
+        self.boss_focus = False   # on boss waves, hold abilities until a boss is on the track (the balance bot's player model)
         self.wave_source = None   # callable -> int
         self.camo_alarm = None    # callable -> bool
         self.pressure_window = 0.0
@@ -270,6 +272,9 @@ class DefenderAI:
                 continue
             if self._upgrade(t):
                 return
+            if o.verbose and g.get_cash() > 2500 and g.get_tick() % 600 == 0:
+                print(_j.cat("      BLOCKED w", wave, " on ", st.type, " copy ", st.copy, " tier ", st.tier, " cash ", g.get_cash(),
+                             " cost ", t.next_upgrade().cost))
             return
         if o.unlock_abilities and not pressure and self._try_ability_unlock():
             return
@@ -304,6 +309,8 @@ class DefenderAI:
         if p is None:
             return False
         t = g.place_tower(type_, p)
+        if self.o.verbose and t is not None:
+            print(_j.format("      buy w%d %s cash %.0f", g.get_wave(), type_, g.get_cash()))
         if t is not None:
             if type_.is_hero():
                 self._report(Action.HERO_DEPLOY, t, "deployed hero " + type_.display_name)
@@ -424,6 +431,8 @@ class DefenderAI:
         if alive == 0:
             return
         danger = boss or alive >= 18 or leak_risk
+        cur = g.get_wave_manager().get_current_def()
+        hold = self.o.boss_focus and not boss and cur is not None and cur.contains_boss()
         for t in list(g.get_tower_manager().get_towers()):
             if t.is_temporary() or not t.is_ability_ready():
                 continue
@@ -433,14 +442,14 @@ class DefenderAI:
                     self._cast(t, None)
                 continue
             if tt is TowerType.DEEPSEEK:
-                if alive >= 6:
+                if boss or (alive >= 6 and not hold):
                     self._cast(t, None)
                 continue
             if tt is TowerType.SORA:
                 if leak_risk:
                     self._cast(t, None)
                 continue
-            if not danger:
+            if not danger or hold:
                 continue
             if t.get_ability().needs_target:
                 n = [0]
@@ -456,7 +465,7 @@ class DefenderAI:
         r = t.get_ability().p("radius")
         n = 0
         for e in self.g.get_enemy_manager().get_enemies():
-            if e.is_stored() or e.get_position().dist(t.get_position()) > r:
+            if e.is_stored() or e.get_position().exceeds_dist(t.get_position(), r):
                 continue
             if e.is_boss():
                 return True

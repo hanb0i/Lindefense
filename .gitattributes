@@ -1,11 +1,8 @@
 # Keep scripts runnable on every platform and never mangle binary assets.
 * text=auto
 *.sh   text eol=lf
-*.bat  text eol=crlf
-*.java text
 *.md   text
 *.wav  binary
 *.ttf  binary
 *.png  binary
-*.jar  binary
 *.m4a  binary

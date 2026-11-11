@@ -1,6 +1,6 @@
 """Hero collection (permanent Hero Store unlocks), admin mode cheats and Palantir's window link."""
 from lindefense import prefs
-from lindefense.jenum import JEnum
+from lindefense.jenum import EnumSet, JEnum
 
 
 # ====================================================================== HeroCollection
@@ -9,7 +9,7 @@ class HeroCollection:
     _shared = None
 
     def __init__(self, storage=None):
-        self._unlocked = set()
+        self._unlocked = EnumSet()   # ordinal order, like Java's EnumSet (a plain set iterates in hash order)
         self._storage = storage
         if storage is not None:
             try:
@@ -37,7 +37,8 @@ class HeroCollection:
         return type_ in self._unlocked
 
     def unlocked(self):
-        return frozenset(self._unlocked)
+        """Copy of the unlocked heroes, iterating in TowerType order."""
+        return EnumSet(self._unlocked)
 
     def unlock(self, type_):
         if type_ is None or not type_.is_hero() or type_ in self._unlocked:

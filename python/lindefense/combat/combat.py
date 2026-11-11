@@ -7,7 +7,8 @@ from lindefense.combat import clusters
 from lindefense.combat.hit_spec import DamageType
 from lindefense.combat.projectile import AttackContext, HitContext, Projectile, Shot
 from lindefense.combat.visual_event import VisualEvent
-from lindefense.enemy.types import StatusKind
+from lindefense.enemy.enemy import max_magnitude
+from lindefense.enemy.types import Modifier, StatusKind
 from lindefense.map.path import Path
 from lindefense.tower.stats import UNLIMITED_RANGE
 from lindefense.tower.tower_type import AttackKind, Targeting
@@ -17,6 +18,13 @@ SONIC_LEAD_KNOCKBACK = 20.0
 CERAMIC_MULT = 2.0
 FROZEN_MULT = 2.0
 CRACKED_FORTIFIED_MULT = 2.0
+_TRUE, _SHARP, _EXPLOSIVE, _SONIC = DamageType.TRUE, DamageType.SHARP, DamageType.EXPLOSIVE, DamageType.SONIC
+_CAMO, _FORTIFIED = Modifier.CAMO, Modifier.FORTIFIED
+_ARMOR_CRACK = StatusKind.ARMOR_CRACK.ordinal
+_REVEALED = StatusKind.REVEALED.ordinal
+_FREEZE = StatusKind.FREEZE.ordinal
+_MARKED = StatusKind.MARKED.ordinal
+_MARKED_FLAT = StatusKind.MARKED_FLAT.ordinal
 
 
 def _first(e):
@@ -81,14 +89,27 @@ class Combat:
     def acquire_targets_from(self, origin, rng, detection, ignore_los, targeting, n, priority):
         g = self._game
         gmap = g.get_map()
+        check_los = not ignore_los and gmap.can_block_line_of_sight()
         candidates = []
         pool = g.get_enemy_manager().get_grid().near(origin.x, origin.y, rng, self._near)
+        ox, oy = origin.x, origin.y
         for e in pool:
-            if not e.is_targetable_by(detection):
+            # e.is_targetable_by(detection), inlined: tower ranges make these pools large
+            if not e._alive or e._stored or (_CAMO in e._modifiers and not detection and not e._statuses[_REVEALED]):
                 continue
-            if origin.exceeds_dist(e.get_position(), rng + e.get_radius()):
+            q = e._cached_pos
+            lim = rng + e._radius
+            # origin.exceeds_dist(q, lim) inlined: squared lengths decide outside the rounding band
+            if 1e-6 < lim < 1e100:
+                dx = ox - q.x
+                dy = oy - q.y
+                d2 = dx * dx + dy * dy
+                l2 = lim * lim
+                if d2 > l2 * (1 + 1e-9) or (not d2 < l2 * (1 - 1e-9) and origin.dist(q) > lim):
+                    continue
+            elif origin.exceeds_dist(q, lim):
                 continue
-            if not ignore_los and not gmap.has_line_of_sight(origin, e.get_position()):
+            if check_los and not gmap.has_line_of_sight(origin, q):
                 continue
             candidates.append(e)
         if not candidates:
@@ -279,14 +300,20 @@ class Combat:
     def nearest_enemy(self, p, radius, exclude, sees_camo):
         best = None
         best_d = radius * radius
-        pool = self._game.get_enemy_manager().get_grid().near(p.x, p.y, radius, self._near)
+        # the test is on centres alone and nothing moves in this loop
+        pool = self._game.get_enemy_manager().get_grid().near_centers(p.x, p.y, radius, self._near)
+        px, py = p.x, p.y
         for e in pool:
-            d = e.get_position().dist_sq(p)
+            q = e._cached_pos   # e.get_position().dist_sq(p), inlined
+            dx = q.x - px
+            dy = q.y - py
+            d = dx * dx + dy * dy
             if not (d <= best_d):
                 continue
-            if not e.is_targetable_by(sees_camo):
+            # e.is_targetable_by(sees_camo), inlined
+            if not e._alive or e._stored or (_CAMO in e._modifiers and not sees_camo and not e._statuses[_REVEALED]):
                 continue
-            if exclude is not None and e.get_id() in exclude:
+            if exclude is not None and e._id in exclude:
                 continue
             best_d = d
             best = e
@@ -307,6 +334,8 @@ class Combat:
             projectiles.extend(self._new_projectiles)
             self._new_projectiles.clear()
         grid = self._game.get_enemy_manager().get_grid()
+        candidates = grid.candidates
+        on_hit = self._on_projectile_hit
         i = 0
         while i < len(projectiles):
             p = projectiles[i]
@@ -314,17 +343,36 @@ class Combat:
             if not p.move(dt):
                 continue
             sees = p.has_detection()
-            pp = p.get_position()
+            pp = p.get_position()   # only move() changes it
+            px, py = pp.x, pp.y
             psize = p.get_size()
             hit_ids = p.get_hit_ids()
-            scan = grid.scan(pp.x, pp.y, psize)
-            e = scan.next()
-            while e is not None and p.is_alive():
-                r = e.get_radius() + psize
-                if e.get_position().dist_sq(p.get_position()) <= r * r:
-                    if e.is_targetable_by(sees) and e.get_id() not in hit_ids:
-                        self._on_projectile_hit(p, e)
-                e = scan.next()
+            # grid.scan(px, py, psize) inlined (see EnemyGrid.candidates): only a hit can move enemies, change the
+            # list or kill p, so staleness and p.is_alive() are checked after hits only
+            x0, y0, x1, y1 = px - psize, py - psize, px + psize, py + psize
+            buf = candidates(x0, y0, x1, y1, 0)
+            while buf:
+                stamp = grid.stamp()
+                rest = ()
+                for e in buf:
+                    # hot loop: the Enemy fields behind get_radius() / get_position(), and dist_sq inlined
+                    r = e._radius + psize
+                    q = e._cached_pos
+                    dx = q.x - px
+                    dy = q.y - py
+                    if dx * dx + dy * dy <= r * r and e._alive and not e._stored \
+                            and (_CAMO not in e._modifiers or sees or e._statuses[_REVEALED]) \
+                            and e._id not in hit_ids:   # (is_targetable_by(sees) inlined)
+                        nxt = e.grid_index + 1
+                        on_hit(p, e)
+                        if grid.stamp() != stamp:
+                            rest = candidates(x0, y0, x1, y1, nxt)
+                            break
+                        if not p._alive:
+                            break
+                if not p._alive:
+                    break
+                buf = rest
         for i in range(len(projectiles) - 1, -1, -1):
             if not projectiles[i].is_alive():
                 projectiles[i] = projectiles[-1]
@@ -399,11 +447,11 @@ class Combat:
         in_range = []
         pool = self._game.get_enemy_manager().get_grid().near(center.x, center.y, radius, self._near)
         for e in pool:
-            if not e.is_alive() or e.is_stored():
+            if not e._alive or e._stored:
                 continue
-            if not e.get_position().within_dist(center, radius + e.get_radius()):
+            if not e._cached_pos.within_dist(center, radius + e._radius):
                 continue
-            if exclude is not None and e.get_id() in exclude:
+            if exclude is not None and e._id in exclude:
                 continue
             in_range.append(e)
         in_range.sort(key=lambda e: e.get_position().dist_sq(center))
@@ -453,8 +501,9 @@ class Combat:
         return self.apply_hit(h)
 
     def apply_hit(self, c) -> float:
+        # the single damage formula: Enemy / EnemyType getters are read as fields here (every hit in the game runs it)
         e = c.target
-        if e is None or not e.is_alive() or e.is_stored():
+        if e is None or not e._alive or e._stored:
             return 0.0
         g = self._game
         src = c.source
@@ -462,22 +511,23 @@ class Combat:
             src.get_behavior().before_hit(g, src, c)
         h = c.hit()
         type_ = h.type
-        is_true = type_ is DamageType.TRUE
-        cracked = e.is_armor_cracked()
+        is_true = type_ is _TRUE
+        statuses = e._statuses
+        cracked = bool(statuses[_ARMOR_CRACK])   # is_armor_cracked()
         immune = False
         if not is_true:
-            if type_ is DamageType.SHARP and e.is_lead_type() and not cracked and not h.ignores_resistance:
+            if type_ is _SHARP and e.is_lead_type() and not cracked and not h.ignores_resistance:
                 immune = True
-            if type_ is DamageType.EXPLOSIVE and e.is_camo() and not c.detection and not e.is_revealed():
+            if type_ is _EXPLOSIVE and _CAMO in e._modifiers and not c.detection and not statuses[_REVEALED]:
                 immune = True
         c.immune = immune
         dmg = 0.0
         if not immune:
-            et = e.get_type()
-            is_boss = e.is_boss()
-            is_fort = e.is_fortified()
+            et = e._type
+            is_boss = e._is_boss
+            is_fort = _FORTIFIED in e._modifiers
             is_lead = e.is_lead_type()
-            is_cer = e.is_ceramic_type()
+            is_cer = et._ceramic_body
             base = h.damage + c.extra
             if c.from_attack and src is not None:
                 base += src.flat_damage_buff()
@@ -496,15 +546,15 @@ class Combat:
                 bonus += h.bonus_vs_fortified
             else:
                 bonus += h.bonus_vs_non_fortified
-            if et.is_complex():
+            if et.complex:
                 bonus += h.bonus_vs_complex
-            if et.is_fast():
+            if et.fast:
                 bonus += h.bonus_vs_fast
-            if et.has_children():
+            if et.splits:
                 bonus += h.bonus_vs_splitters
             m = max(0.1, bonus)
             if not is_true:
-                if is_cer and (type_.is_blunt_like() or type_ is DamageType.SONIC):
+                if is_cer and (type_.is_blunt_like() or type_ is _SONIC):
                     m *= CERAMIC_MULT
                 if is_cer:
                     m *= h.mult_vs_ceramic
@@ -518,34 +568,34 @@ class Combat:
                     m *= h.mult_vs_boss
                     if src is not None:
                         m *= 1 + src.boss_damage_buff()
-                if et.is_sorting_algorithm() or et.is_linked_list():
+                if et.sorting_or_list:
                     m *= h.mult_vs_sorting_and_lists
                 if et.base_hp >= 5:
                     m *= h.mult_vs_high_hp
-                if e.is_frozen():
+                if statuses[_FREEZE]:   # is_frozen()
                     m *= FROZEN_MULT
             dmg = base * c.mult * m
             if not is_true:
                 armor = e.effective_armor() * (1 - h.armor_pierce)
                 dmg *= (1 - max(0.0, min(0.95, armor)))
-                weak = et.get_weak_hit_threshold()
+                weak = et._weak_hit_threshold
                 if weak > 0 and h.damage < weak:
                     dmg *= 0.5
-            if e.is_shielded(g.get_tick()):
+            if e._shielded_tick >= g.get_tick() - 1:   # is_shielded(tick)
                 dmg *= 0.5
             if not is_true:
-                dmg *= 1 + e.get_marked_bonus()
+                dmg *= 1 + max_magnitude(statuses[_MARKED])   # get_marked_bonus()
                 if dmg > 0:
-                    dmg += e.get_marked_flat()
+                    dmg += max_magnitude(statuses[_MARKED_FLAT])   # get_marked_flat()
             if h.pct_max_hp > 0:
-                dmg += min(h.pct_cap, h.pct_max_hp * e.get_max_hp())
+                dmg += min(h.pct_cap, h.pct_max_hp * e._max_hp)
             dmg = dmg * c.final_mult + c.final_flat
             dmg *= g.get_variance().damage_against(e)
         dealt = 0.0
         if not immune and dmg > 0:
             dealt = e.take_damage(dmg, g.get_time())
             if src is not None:
-                e.set_last_hit_by(src)
+                e._last_hit_by = src   # set_last_hit_by
                 src.add_damage_dealt(dealt)
         elif immune and src is not None and g.get_rng().chance(0.05):
             self.emit(VisualEvent.text(e.get_position(), "Immune", 0xaaaaaa))

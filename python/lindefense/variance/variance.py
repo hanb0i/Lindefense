@@ -6,6 +6,7 @@ import time
 
 from lindefense.javacompat import jint, jround, wrap64
 from lindefense.jenum import JEnum
+from lindefense.sim.challenges import Challenge as _Challenge
 from lindefense.sim.rng import Rng
 
 _INF = float("inf")
@@ -348,7 +349,7 @@ class BreakingNews(JEnum):
     @staticmethod
     def roll(seed, wave, boss_wave, routes):
         from lindefense.wave.waves import WAVE_COUNT
-        if wave < NEWS_FIRST_WAVE or wave >= WAVE_COUNT:
+        if wave < NEWS_FIRST_WAVE or wave == WAVE_COUNT:
             return None
         r = Rng(mix(seed, wave, NEWS_SALT))
         if not r.chance(NEWS_CHANCE):
@@ -409,6 +410,8 @@ class Picker(JEnum):
 
 
 DRAFT_WAVES = (1, 20, 40, 60, 80)
+FREEPLAY_DRAFT_FIRST = 121    # Freeplay keeps drafting: waves 121, 141, 161, ...
+FREEPLAY_DRAFT_EVERY = 20
 OFFER_SIZE = 3
 NEWS_CHANCE = 0.22
 NEWS_FIRST_WAVE = 6
@@ -429,6 +432,8 @@ def draft_index(wave):
     for i, w in enumerate(DRAFT_WAVES):
         if w == wave:
             return i
+    if wave >= FREEPLAY_DRAFT_FIRST and (wave - FREEPLAY_DRAFT_FIRST) % FREEPLAY_DRAFT_EVERY == 0:
+        return len(DRAFT_WAVES) + (wave - FREEPLAY_DRAFT_FIRST) // FREEPLAY_DRAFT_EVERY
     return -1
 
 
@@ -450,6 +455,8 @@ def _price(lst, mult):
 class RunVariance:
     Picker = Picker
     DRAFT_WAVES = DRAFT_WAVES
+    FREEPLAY_DRAFT_FIRST = FREEPLAY_DRAFT_FIRST
+    FREEPLAY_DRAFT_EVERY = FREEPLAY_DRAFT_EVERY
     OFFER_SIZE = OFFER_SIZE
     NEWS_CHANCE = NEWS_CHANCE
     NEWS_FIRST_WAVE = NEWS_FIRST_WAVE
@@ -517,21 +524,24 @@ class RunVariance:
 
     def prepare_for(self, wave):
         from lindefense.wave.waves import WAVE_COUNT
-        if not self._enabled or wave < 1 or wave > WAVE_COUNT:
+        if not self._enabled or wave < 1 or (wave > WAVE_COUNT and not self._game.is_freeplay()):
             return
         d = draft_index(wave)
-        if d >= 0 and not self._drafted[d] and self._offer is None:
+        if d >= 0 and not self.is_drafted(d) and self._offer is None:
             self._open_draft(d, wave)
         if wave > self._news_rolled_for:
             self._roll_news(wave)
 
     def _open_draft(self, index, wave):
-        self._offer = offer_for(self._game.get_seed(), wave, self._active)
+        taken = list(self._active)
+        if self._game.has_challenge(_Challenge.ONE_LIFE):
+            taken.append(PatchNote.SYNTHETIC_DATA)   # One Life: no card may hand out extra lives
+        self._offer = offer_for(self._game.get_seed(), wave, taken)
         self._offer_wave = wave
         self._offer_index = index
         if not self._offer:
             self._offer = None
-            self._drafted[index] = True
+            self._mark_drafted(index)
             return
         if self._picker is not Picker.PLAYER:
             self._auto_pick()
@@ -549,6 +559,14 @@ class RunVariance:
         if self._pick_rng is None:
             self._pick_rng = Rng(mix(self._game.get_seed(), 0, PICK_SALT))
         self.pick(self._pick_rng.next_int(len(self._offer)))
+
+    def is_drafted(self, index):
+        return index < len(self._drafted) and self._drafted[index]
+
+    def _mark_drafted(self, index):
+        while len(self._drafted) <= index:   # Freeplay drafts extend the list
+            self._drafted.append(False)
+        self._drafted[index] = True
 
     def is_draft_pending(self):
         return self._offer is not None
@@ -570,7 +588,7 @@ class RunVariance:
         p = self._offer[index]
         self._active.append(p)
         self._picked_before.append(self._offer_wave)
-        self._drafted[self._offer_index] = True
+        self._mark_drafted(self._offer_index)
         self._offer = None
         self._cards = self._cards.combine(p.mods())
         self._refresh()
@@ -619,7 +637,7 @@ class RunVariance:
         from lindefense.wave import waves
         g = self._game
         self._news_rolled_for = wave
-        boss = g.get_difficulty().shape(waves.get(wave), g.get_seed()).contains_boss()
+        boss = g.get_difficulty().shape(waves.get(wave, g.get_seed()), g.get_seed()).contains_boss()
         r = BreakingNews.roll(g.get_seed(), wave, boss, len(g.get_map().get_routes()))
         if r is None:
             return
@@ -677,18 +695,30 @@ class RunVariance:
         if self._news is not None and self._news_wave == wave:
             self._news = None
             self._refresh()
-        if wave < WAVE_COUNT:
+        if wave < WAVE_COUNT or g.is_freeplay():
             self.prepare_for(wave + 1)
 
     def get_last_interest(self):
         return self._last_interest
 
     def shape_wave(self, d):
+        return self._shape_wave(d, self._current)
+
+    def forecast_wave(self, d):
+        """shape_wave for a wave whose Breaking News is still to be rolled (#news_pending): only the drafted Patch Notes
+        apply. Read-only; the HUD's next-wave preview uses it while the previous wave is still running."""
+        return self._shape_wave(d, self._cards.clamped() if self._enabled else Mods.NONE)
+
+    def news_pending(self, wave):
+        """True while the given wave's Breaking News is still to be rolled (it is rolled when the wave before ends)."""
+        return self._enabled and wave > self._news_rolled_for
+
+    def _shape_wave(self, d, mods):
         from lindefense.enemy.types import Modifier
         from lindefense.wave.waves import SpawnGroup, WaveDef
-        count = self._current.get(Knob.ENEMY_COUNT)
-        gap = self._current.get(Knob.SPAWN_GAP)
-        camo = self._current.has(Knob.ALL_CAMO)
+        count = mods.get(Knob.ENEMY_COUNT)
+        gap = mods.get(Knob.SPAWN_GAP)
+        camo = mods.has(Knob.ALL_CAMO)
         if count == 1 and gap == 1 and not camo:
             return d
         out = []

@@ -6,6 +6,7 @@ renders the same pictures. Everything draws through Skia, so it is anti-aliased 
 """
 import math
 import os
+import weakref
 
 import skia
 
@@ -48,6 +49,42 @@ class Color:
         c = Color.__new__(Color)
         c._argb = argb & 0xFFFFFFFF
         return c
+
+    @staticmethod
+    def _mix_rgb(a, b, t):
+        """new Color(round(a.r + (b.r - a.r) * t), ... g, ... b, a.alpha) with t clamped to [0, 1] as
+        Math.max(0, Math.min(1, t)) and Math.round per channel (NaN t gives 0): the sprites' Art.mix, which recolours
+        every enemy part whenever it is hit, without a dozen helper calls per channel."""
+        av, bv = a._argb, b._argb
+        if t != t:
+            return Color._of(av & 0xFF000000)
+        if t > 1:
+            t = 1.0
+        elif t < 0:
+            t = 0.0
+        ar, ag, ab = (av >> 16) & 255, (av >> 8) & 255, av & 255
+        x = ar + (((bv >> 16) & 255) - ar) * t
+        r = math.floor(x)
+        if x - r >= 0.5:
+            r += 1
+        x = ag + (((bv >> 8) & 255) - ag) * t
+        g = math.floor(x)
+        if x - g >= 0.5:
+            g += 1
+        x = ab + ((bv & 255) - ab) * t
+        bb = math.floor(x)
+        if x - bb >= 0.5:
+            bb += 1
+        c = Color.__new__(Color)
+        c._argb = (av & 0xFF000000) | (r << 16) | (g << 8) | bb
+        return c
+
+    @staticmethod
+    def _with_alpha(c, a):
+        """new Color(c.r, c.g, c.b, max(0, min(255, a))) for an int a."""
+        o = Color.__new__(Color)
+        o._argb = (c._argb & 0xFFFFFF) | ((0 if a < 0 else 255 if a > 255 else a) << 24)
+        return o
 
     def get_red(self):
         return (self._argb >> 16) & 255
@@ -717,26 +754,38 @@ GeneralPath = Path2DDouble
 
 
 class Polygon(Shape):
+    """java.awt.Polygon. The Skia path is built once and reused until add_point / reset (the point lists are only
+    read elsewhere)."""
+
     def __init__(self, xs=None, ys=None, n=None):
         self.xpoints = list(xs[:n]) if xs is not None else []
         self.ypoints = list(ys[:n]) if ys is not None else []
         self.npoints = len(self.xpoints)
+        self._p = None
 
     def add_point(self, x, y):
         self.xpoints.append(int(x))
         self.ypoints.append(int(y))
         self.npoints += 1
+        self._p = None
 
     def reset(self):
         self.xpoints, self.ypoints, self.npoints = [], [], 0
+        self._p = None
 
     def path(self):
+        p = self.__dict__.get("_p")
+        if p is not None:
+            return p
         p = skia.Path()
-        if self.npoints:
-            p.moveTo(self.xpoints[0], self.ypoints[0])
-            for i in range(1, self.npoints):
-                p.lineTo(self.xpoints[i], self.ypoints[i])
+        n = self.npoints
+        if n:
+            xs, ys = self.xpoints, self.ypoints
+            p.moveTo(xs[0], ys[0])
+            for i in range(1, n):
+                p.lineTo(xs[i], ys[i])
             p.close()
+        self._p = p
         return p
 
 
@@ -970,11 +1019,20 @@ class BasicStroke:
             paint.setPathEffect(self._effect)
 
     def skpaint(self):
-        """The cached Skia paint configured for this stroke (colour / blend are set per draw)."""
+        """The cached Skia paint configured for this stroke (colour / blend are set per draw). Equal strokes share one
+        paint: the UI builds a fresh BasicStroke for most outlines it paints (Cyber.stroke, HeroFigure.round, ...),
+        hundreds per frame, and configuring a new Skia paint for each cost ~10 us apiece."""
         p = self._skp
         if p is None:
-            p = skia.Paint(AntiAlias=True)
-            self.apply(p)
+            key = (self.width, self.cap, self.join, self.miterlimit, tuple(self.dash) if self.dash else None,
+                   self.dash_phase)
+            p = _STROKE_PAINTS.get(key)
+            if p is None:
+                p = skia.Paint(AntiAlias=True)
+                self.apply(p)
+                if len(_STROKE_PAINTS) >= 2048:   # animated dash phases make endless keys: start over
+                    _STROKE_PAINTS.clear()
+                _STROKE_PAINTS[key] = p
             self._skp = p
         return p
 
@@ -994,6 +1052,7 @@ class BasicStroke:
 
 
 Stroke = BasicStroke
+_STROKE_PAINTS = {}
 _DEFAULT_STROKE = BasicStroke(1.0)
 
 
@@ -1231,7 +1290,7 @@ class Font:
         self.name = name
         self.style = int(style)
         self.size2d = float(size)
-        self.size = int(size)
+        self.size = int(self.size2d + 0.5)   # Java: (int) (sizePts + 0.5), so getSize() of a 12.5pt font is 13
         self._file = _file
         self._tf = _tf if _tf is not None else _logical_typeface(name, self.style)
         self._sk = None
@@ -1307,7 +1366,8 @@ class Font:
         return Rectangle2DDouble(0, -fm.ascent_f, fm.string_width_f(s), fm.ascent_f + fm.descent_f + fm.leading_f)
 
     def get_line_metrics(self, s, frc=None):
-        return font_metrics(self)
+        """java.awt.font.LineMetrics: the fractional ascent / descent / leading (FontMetrics rounds them up)."""
+        return font_metrics(self).line_metrics
 
     def __eq__(self, o):
         return isinstance(o, Font) and o._tf is self._tf and o.size2d == self.size2d and o.style == self.style
@@ -1356,18 +1416,12 @@ def _runs(font, s):
     return runs
 
 
-class FontMetrics:
-    def __init__(self, font):
-        self.font = font
-        m = font.skfont().getMetrics()
-        self.ascent_f = -m.fAscent
-        self.descent_f = m.fDescent
-        self.leading_f = m.fLeading
-        # Java rounds the line metrics to whole pixels
-        self.ascent = int(math.floor(self.ascent_f + 0.5))
-        self.descent = int(math.floor(self.descent_f + 0.5))
-        self.leading = int(math.floor(self.leading_f + 0.5))
-        self._w = {}
+class LineMetrics:
+    """java.awt.font.LineMetrics: fractional line metrics (what Font.getLineMetrics returns)."""
+    __slots__ = ("ascent", "descent", "leading")
+
+    def __init__(self, ascent, descent, leading):
+        self.ascent, self.descent, self.leading = ascent, descent, leading
 
     def get_ascent(self):
         return self.ascent
@@ -1381,8 +1435,45 @@ class FontMetrics:
     def get_height(self):
         return self.ascent + self.descent + self.leading
 
+
+# sun.font.FontDesignMetrics rounds the fractional line metrics UP with this much leeway: (int) (0.95f + value)
+_ROUNDING_UP = 0.95
+
+
+class FontMetrics:
+    def __init__(self, font):
+        self.font = font
+        m = font.skfont().getMetrics()
+        self.ascent_f = -m.fAscent
+        self.descent_f = m.fDescent
+        self.leading_f = m.fLeading
+        self.line_metrics = LineMetrics(self.ascent_f, self.descent_f, self.leading_f)
+        # Java (FontDesignMetrics) rounds the line metrics up to whole pixels; height is ascent plus the separately
+        # rounded descent + leading, and leading is whatever keeps ascent + descent + leading == height.
+        self.ascent = int(_ROUNDING_UP + self.ascent_f)
+        self.descent = int(_ROUNDING_UP + self.descent_f)
+        below = int(_ROUNDING_UP + self.descent_f + self.leading_f)
+        self.leading = below - self.descent
+        self.height = self.ascent + below
+        self._w = {}
+
+    def get_ascent(self):
+        return self.ascent
+
+    def get_descent(self):
+        return self.descent
+
+    def get_leading(self):
+        return self.leading
+
+    def get_height(self):
+        return self.height
+
     def get_max_ascent(self):
         return self.ascent
+
+    def get_max_descent(self):
+        return self.descent
 
     def get_font(self):
         return self.font
@@ -1404,7 +1495,7 @@ class FontMetrics:
         return self.string_width(ch if isinstance(ch, str) else chr(ch))
 
     def get_string_bounds(self, s, g=None):
-        return Rectangle2DDouble(0, -self.ascent, self.string_width_f(s), self.get_height())
+        return self.font.get_string_bounds(s)
 
 
 _FM = {}
@@ -1427,6 +1518,7 @@ class BufferedImage(Image):
     TYPE_INT_RGB, TYPE_INT_ARGB, TYPE_INT_ARGB_PRE = 1, 2, 3
 
     def __init__(self, w, h=None, type_=2, _img=None):
+        self._cst = None   # this image's canvas state (see Graphics2D): owned here so it dies with the image
         if _img is not None:
             self._surface = None
             self._snap = _img
@@ -1459,6 +1551,12 @@ class BufferedImage(Image):
 
     def _dirty(self):
         self._snap = None
+
+    def _canvas_state(self, canvas):
+        st = self._cst
+        if st is None or st.canvas is not canvas:
+            st = self._cst = _CanvasState(canvas)
+        return st
 
     def snapshot(self):
         if self._snap is None:
@@ -1517,8 +1615,8 @@ class _CanvasState:
     """Per-canvas bookkeeping: which clip is currently applied (clips are pushed with save/restore)."""
     __slots__ = ("canvas", "base", "clip", "mtok", "fc", "fm", "solid")
 
-    def __init__(self, canvas):
-        self.canvas = canvas
+    def __init__(self, canvas, keep=True):
+        self.canvas = canvas if keep else None
         self.base = canvas.getSaveCount()
         self.clip = None
         self.mtok = None    # token of the Graphics matrix currently set on the canvas
@@ -1527,17 +1625,18 @@ class _CanvasState:
         self.solid = skia.Paint(AntiAlias=True)
 
 
-_STATES = {}
+# States of the canvases that belong to no BufferedImage (the window surface, tool surfaces), weakly keyed: a state
+# that held its canvas would keep the canvas's surface alive forever, and the window surface is replaced on every
+# resize. A BufferedImage keeps its canvas state itself (BufferedImage._canvas_state) and frees it with the image.
+_STATES = weakref.WeakKeyDictionary()
 _SOLID = skia.Paint(AntiAlias=True)
 _IMG = skia.Paint(AntiAlias=True)
 
 
 def _state_for(canvas):
-    k = id(canvas)
-    st = _STATES.get(k)
-    if st is None or st.canvas is not canvas:
-        st = _CanvasState(canvas)
-        _STATES[k] = st
+    st = _STATES.get(canvas)
+    if st is None:
+        st = _STATES[canvas] = _CanvasState(canvas, keep=False)
     return st
 
 
@@ -1554,7 +1653,12 @@ class Graphics2D:
 
     def __init__(self, canvas, owner=None, _copy=None):
         self._cv = canvas
-        self._st = _state_for(canvas)
+        if _copy is not None:
+            self._st = _copy._st
+        elif owner is not None:
+            self._st = owner._canvas_state(canvas)
+        else:
+            self._st = _state_for(canvas)
         self._owner = owner
         if _copy is None:
             self.m = skia.Matrix()
@@ -1776,12 +1880,103 @@ class Graphics2D:
         base.setBlendMode(comp.mode)
         return base
 
+    # ---------------------------------------------------------------- scene-graph fast paths
+    # The ACM shapes (acm.GRect / GOval / GPolygon and the sprite shapes built on them) paint thousands of times a
+    # frame with "set_color(c); fill...(); set_color(c2); draw...()". These do the same in one call each: same pixels,
+    # and the Graphics is left in the same state (colour c / c2, no Paint), with far fewer Python calls.
+    def _solid(self, c, stroke):
+        """The fill paint (stroke=False) or this Graphics' stroke paint for colour c, after the composite's alpha."""
+        comp = self.comp
+        argb = c._argb
+        a = comp.alpha
+        if a < 1.0:
+            argb = (int(((argb >> 24) & 255) * a + 0.5) << 24) | (argb & 0xFFFFFF)
+        if stroke:
+            p = self.stroke.skpaint()
+            p.setColor(argb)
+            p.setBlendMode(comp.mode)
+            return p
+        st = self._st
+        p = st.solid
+        if st.fc != argb:
+            p.setColor(argb)
+            st.fc = argb
+        if st.fm is not comp.mode:
+            p.setBlendMode(comp.mode)
+            st.fm = comp.mode
+        return p
+
+    def _fill_draw_path(self, path, fc, lc):
+        cv = self._begin()
+        cv.drawPath(path, self._solid(fc, False))
+        cv.drawPath(path, self._solid(lc, True))
+        self.color = lc
+        self.paint = None
+
+    def _fill_path_c(self, path, c):
+        self._begin().drawPath(path, self._solid(c, False))
+        self.color = c
+        self.paint = None
+
+    def _draw_path_c(self, path, c):
+        self._begin().drawPath(path, self._solid(c, True))
+        self.color = c
+        self.paint = None
+
+    def _fill_draw_oval(self, x, y, w, h, fc, lc):
+        cv = self._begin()
+        r = skia.Rect.MakeXYWH(x, y, w, h)
+        cv.drawOval(r, self._solid(fc, False))
+        cv.drawOval(r, self._solid(lc, True))
+        self.color = lc
+        self.paint = None
+
+    def _fill_oval_c(self, x, y, w, h, c):
+        self._begin().drawOval(skia.Rect.MakeXYWH(x, y, w, h), self._solid(c, False))
+        self.color = c
+        self.paint = None
+
+    def _draw_oval_c(self, x, y, w, h, c):
+        self._begin().drawOval(skia.Rect.MakeXYWH(x, y, w, h), self._solid(c, True))
+        self.color = c
+        self.paint = None
+
+    def _fill_draw_rect(self, x, y, w, h, fc, lc):
+        """set_color(fc); fill_rect(); set_color(lc); draw_rect() (fill_rect skips w or h <= 0, draw_rect w or h < 0)."""
+        cv = self._begin()
+        r = skia.Rect.MakeXYWH(x, y, w, h)
+        if w > 0 and h > 0:
+            cv.drawRect(r, self._solid(fc, False))
+        if w >= 0 and h >= 0:
+            cv.drawRect(r, self._solid(lc, True))
+        self.color = lc
+        self.paint = None
+
+    def _fill_rect_c(self, x, y, w, h, c):
+        if w > 0 and h > 0:
+            self._begin().drawRect(skia.Rect.MakeXYWH(x, y, w, h), self._solid(c, False))
+        self.color = c
+        self.paint = None
+
+    def _draw_rect_c(self, x, y, w, h, c):
+        if w >= 0 and h >= 0:
+            self._begin().drawRect(skia.Rect.MakeXYWH(x, y, w, h), self._solid(c, True))
+        self.color = c
+        self.paint = None
+
     # ---------------------------------------------------------------- shapes
     def fill(self, s):
+        # (filled rectangles / ellipses stay paths: Skia's direct drawRect / drawOval anti-alias edges differently)
         self._begin().drawPath(s.path(), self._fill_paint())
 
     def draw(self, s):
-        self._begin().drawPath(s.path(), self._stroke_paint())
+        t = type(s)
+        if t is Rectangle2DDouble and s.width >= 0 and s.height >= 0:   # no path to build; same pixels
+            self._begin().drawRect(skia.Rect.MakeXYWH(s.x, s.y, s.width, s.height), self._stroke_paint())
+        elif t is Ellipse2DDouble and s.width >= 0 and s.height >= 0:
+            self._begin().drawOval(skia.Rect.MakeXYWH(s.x, s.y, s.width, s.height), self._stroke_paint())
+        else:
+            self._begin().drawPath(s.path(), self._stroke_paint())
 
     def fill_rect(self, x, y, w, h):
         if w <= 0 or h <= 0:

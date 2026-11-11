@@ -5,7 +5,7 @@ import math
 from kit import (DT, buildable_near, force_place, hit, hit_for, kill_outright, mods, new_game, run_seconds,
                  spawn_at, ticks)
 from lindefense.combat.hit_spec import DamageType, HitSpec
-from lindefense.enemy.boss import Boss
+from lindefense.enemy.boss import Boss, PalantirProtocols
 from lindefense.enemy.enemy import Enemy
 from lindefense.enemy.types import EnemyType, Modifier, StatusKind
 from lindefense.javacompat import jround
@@ -551,13 +551,26 @@ def test_palantir_phases_and_surveillance(check):
     g.run(1)
     check(pal.get_phase() == 1, "phase 2 at <70%")
     check(abs(pal.effective_armor() - 0.35) < 1e-9, "phase 2 armour 35%")
+    check(pal.is_control_immune(), "phase 2 is control immune too")
+    escorts = sum(n for _, n, _ in PalantirProtocols.ESCORTS[1])
+    check(sum(1 for e in g.get_enemy_manager().get_enemies() if e.is_boss() and e is not pal) == escorts, "phase 2 launches its escorts")
+    for e in list(g.get_enemy_manager().get_enemies()):
+        if e is not pal:
+            g.get_enemy_manager().destroy_without_children(e, None)
+    g.run(1)
     before = len(g.get_enemy_manager().get_enemies())
     cb.apply_hit_simple(pal, HitSpec(pal.get_max_hp() * 0.35, DamageType.TRUE), None, 1, 0)
     g.run(1)
     check(pal.get_phase() == 2, "phase 3 at <35%")
-    check(abs(pal.effective_armor() - 0.10) < 1e-9, "phase 3 armour 10%")
-    check(g.get_enemy_manager().count_of_type(EnemyType.LOCKHEED_MARTIN) == 2
-          and len(g.get_enemy_manager().get_enemies()) == before + 2, "phase 3 launches 2 Lockheed escorts")
+    check(abs(pal.effective_armor() - 0.10) < 1e-9 and not pal.is_control_immune(), "phase 3 armour 10%, controllable")
+    p3 = sum(n for _, n, _ in PalantirProtocols.ESCORTS[2])
+    ddt = sum(n for t, n, _ in PalantirProtocols.ESCORTS[2] if t is EnemyType.LOCKHEED_MARTIN)
+    check(ddt >= 1 and g.get_enemy_manager().count_of_type(EnemyType.LOCKHEED_MARTIN) == ddt
+          and len(g.get_enemy_manager().get_enemies()) == before + p3, "phase 3 launches its Lockheed Martin escort and a BFB")
+    for e in list(g.get_enemy_manager().get_enemies()):
+        if e is not pal:
+            g.get_enemy_manager().destroy_without_children(e, None)
+    g.run(1)
     pal.begin_surveillance(g)
     check(pal.is_telegraphing(), "telegraph active")
     check(len(pal.get_marked_towers()) == 3, "phase 3 marks 3 available towers")

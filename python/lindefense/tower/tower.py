@@ -7,6 +7,8 @@ from lindefense.tower.tower_type import AttackKind, BuffStat, Targeting, TowerTy
 
 _STAT_COUNT = len(BuffStat)
 _TYPE_COUNT = len(TowerType)
+_ZERO_ROW = [0.0] * _TYPE_COUNT
+_ZERO_SUMS = [0.0] * _STAT_COUNT
 _MAX = sys.float_info.max
 
 
@@ -193,6 +195,7 @@ class Tower:
         self._surveilled_remaining = 0.0
         self._intrusion = Intrusion()
         self._aura_buffs = [[0.0] * _TYPE_COUNT for _ in range(_STAT_COUNT)]
+        self._aura_sums = [0.0] * _STAT_COUNT   # per stat: the row's left-to-right sum, None once the row changed
         self._timed_buffs = []
         self._self_buffs = []
         self._map_buffs = []
@@ -327,6 +330,7 @@ class Tower:
         row = self._aura_buffs[stat.ordinal]
         if value > row[source.ordinal]:
             row[source.ordinal] = value
+            self._aura_sums[stat.ordinal] = None
 
     def add_timed_buff(self, stat, source, value, duration):
         for b in self._timed_buffs:
@@ -339,9 +343,14 @@ class Tower:
         row = self._aura_buffs[stat.ordinal]
         timed = [b for b in self._timed_buffs if b.stat is stat]
         if not timed:
-            s = 0.0
-            for v in row:
-                s += v
+            # the row only changes in add_aura_buff / reset_aura_bonuses, so its sum is cached between changes
+            # (the same left-to-right additions; sum() would round differently)
+            s = self._aura_sums[stat.ordinal]
+            if s is None:
+                s = 0.0
+                for v in row:
+                    s += v
+                self._aura_sums[stat.ordinal] = s
             return s
         total = 0.0
         for ti in range(_TYPE_COUNT):
@@ -422,8 +431,8 @@ class Tower:
 
     def reset_aura_bonuses(self):
         for row in self._aura_buffs:
-            for i in range(len(row)):
-                row[i] = 0.0
+            row[:] = _ZERO_ROW
+        self._aura_sums[:] = _ZERO_SUMS   # 0.0 + 0.0 + ... = 0.0
         self._granted_detection = False
         self._surveillance_immune = False
         self._intrusion.set_firewalled(False)

@@ -6,7 +6,7 @@ from lindefense.combat.hit_spec import DamageType, HitSpec
 from lindefense.combat.visual_event import VisualEvent
 from lindefense.effects.effects import Barrage, Mine, TrackZone
 from lindefense.enemy.types import StatusKind
-from lindefense.javacompat import jint, jround
+from lindefense.javacompat import jint, jpow, jround
 from lindefense.map.path import Path
 from lindefense.sim.vec import Vec
 from lindefense.tower.behavior.base import TowerBehavior, all_on_track
@@ -38,7 +38,7 @@ def plant(game, t, hit, spacing, kind):
         while d <= ln:
             q = r.position_at(d)
             d += 16
-            if q.dist(tp) > rng:
+            if q.exceeds_dist(tp, rng):
                 continue
             nearest = _MAX
             for m in existing:
@@ -310,7 +310,7 @@ class ZippyMattBehavior(TowerBehavior):
         if falloff >= 1.0 or not c.from_attack:
             return
         hop = jint(t.counter("hop"))
-        c.final_mult *= math.pow(falloff, hop)
+        c.final_mult *= jpow(falloff, hop)   # Java's (fdlibm) pow: math.pow differs by an ulp
         t.set_counter("hop", hop + 1)
 
     def on_fire(self, game, t, c):
@@ -417,7 +417,7 @@ class SpearHanboBehavior(TowerBehavior):
         for p in list(live):
             if p.get_source() is not t or p.handler_mark == _RETURNING or not p.is_alive():
                 continue
-            if p.get_position().dist(t.get_position()) < rng:
+            if p.get_position().closer_than(t.get_position(), rng):
                 continue
             p.handler_mark = _RETURNING
             p.restore_pierce(t.get_stats().pierce)
@@ -524,7 +524,7 @@ class TanimbusBehavior(TowerBehavior):
         for o in game.get_tower_manager().get_towers():
             if o is t or o.is_temporary() or not o.is_alive():
                 continue
-            if o.get_position().dist(t.get_position()) > rng:
+            if o.get_position().exceeds_dist(t.get_position(), rng):
                 continue
             score = o.get_invested_cost()
             if score > best_score:
@@ -631,7 +631,7 @@ class MrLindemannBehavior(TowerBehavior):
         holes = game.get_effects().zones_of(t, HOLE)
         grid = game.get_enemy_manager().get_grid()
         for z in holes:
-            scan = grid.scan(z.center.x, z.center.y, z.radius)
+            scan = grid.scan_centers(z.center.x, z.center.y, z.radius)   # z.contains: centres
             e = scan.next()
             while e is not None:
                 if (e.is_alive() and not e.is_stored() and not e.is_boss() and z.contains(e)

@@ -97,7 +97,7 @@ class GrokBehavior(TowerBehavior):
         splash = p.get_shot().splash
         blasted = set()
         for e in game.get_enemy_manager().get_grid().near(at.x, at.y, splash, []):
-            if e.is_alive() and not e.is_stored() and e.get_position().dist(at) <= splash + e.get_radius():
+            if e.is_alive() and not e.is_stored() and e.get_position().within_dist(at, splash + e.get_radius()):
                 blasted.add(e.get_id())
         blasted.add(c.target.get_id())
         sees = t.can_see_camo()
@@ -325,7 +325,7 @@ class _Tempest:
 
 def _push_bosses(game, tp):
     c = tp.zone.center
-    scan = game.get_enemy_manager().get_grid().scan(c.x, c.y, tp.zone.radius)
+    scan = game.get_enemy_manager().get_grid().scan_centers(c.x, c.y, tp.zone.radius)   # zone.contains: centres
     e = scan.next()
     while e is not None:
         if (e.is_boss() and e.is_alive() and not e.is_stored() and not e.is_control_immune()
@@ -364,7 +364,7 @@ class MistralBehavior(TowerBehavior):
         scan = game.get_enemy_manager().get_grid().scan(tp.x, tp.y, rng)
         e = scan.next()
         while e is not None:
-            if e.is_alive() and not e.is_stored() and not e.is_boss() and e.get_position().dist(tp) <= rng + e.get_radius():
+            if e.is_alive() and not e.is_stored() and not e.is_boss() and e.get_position().within_dist(tp, rng + e.get_radius()):
                 if e.apply_knockback_uncapped(fast if e.is_fast_for_knockback() else other) > 0:
                     n += 1
             e = scan.next()

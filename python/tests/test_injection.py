@@ -5,6 +5,7 @@ import math
 from kit import DT, buildable_near, force_place, kill_outright, new_game, run_seconds, spawn_at
 from lindefense.combat.hit_spec import DamageType, HitSpec
 from lindefense.enemy.boss import PalantirProtocols
+from lindefense.enemy.enemy import Enemy
 from lindefense.enemy.types import EnemyType, Modifier, StatusKind
 from lindefense.jenum import EnumSet
 from lindefense.sim.difficulty import Difficulty
@@ -66,9 +67,19 @@ def _palantir(g, d):
 
 
 def _hp_to(g, pal, fraction):
+    """Drops Palantir to exactly fraction of its max HP (straight to the hull: the Swarm Uplink of the escorts that each
+    phase launches would otherwise soften the blow) and lets one tick run the phase change."""
     dmg = pal.get_hp() - pal.get_max_hp() * fraction
     if dmg > 0:
-        g.get_combat().apply_hit_simple(pal, HitSpec(dmg, DamageType.TRUE), None, 1, 0)
+        Enemy.take_damage(pal, dmg, g.get_time())
+    g.run(1)
+
+
+def _clear_escorts(g, pal):
+    """Removes the escort bosses Palantir launched (and their uplink) so damage numbers can be checked exactly."""
+    for e in list(g.get_enemy_manager().get_enemies()):
+        if e.is_boss() and e is not pal:
+            g.get_enemy_manager().destroy_without_children(e, None)
     g.run(1)
 
 
@@ -447,12 +458,14 @@ def test_palantir_decoys(check):
     _hp_to(g, pal, 0.69)
     decoys = [e for e in g.get_enemy_manager().get_enemies() if e.get_type() is EnemyType.PALANTIR_HOLOGRAM]
     check(len(decoys) == PP.DECOYS, "phase 2 projects %d decoys (%d)" % (PP.DECOYS, len(decoys)))
-    check(len(g.get_enemy_manager().get_enemies()) == before_n + PP.DECOYS, "nothing else spawns")
+    escorts = sum(n for _, n, _ in PP.ESCORTS[1])
+    check(len(g.get_enemy_manager().get_enemies()) == before_n + PP.DECOYS + escorts, "nothing but the decoys and the escorts spawns")
+    _clear_escorts(g, pal)
     check(len(pal.get_protocols().get_decoys()) == PP.DECOYS and g.get_injection().has_decoys(), "the decoys are tracked")
     for d in decoys:
         check(abs(d.get_max_hp() - round(pal.get_max_hp() * PP.DECOY_HP_FRACTION)) <= 1, "decoy HP fraction (%s)" % d.get_max_hp())
         check(not d.is_boss() and d.get_type().reward == 0 and d.get_type().lives == 0, "decoys pay nothing and cost no lives")
-        check(abs(d.get_distance() - pal.get_distance()) <= PP.DECOY_SPACING + 1, "decoys fly next to Palantir")
+        check(abs(d.get_distance() - pal.get_distance()) <= PP.DECOY_SPACING * (1 + (PP.DECOYS - 1) // 2) + 1, "decoys fly next to Palantir")
         check(not d.get_type().is_spawnable_species(), "the hologram is never part of a wave")
     t = g.get_combat().acquire_targets(gpt, 1)
     check(t and t[0].get_type() is EnemyType.PALANTIR_HOLOGRAM, "decoys draw a non-immune tower's fire")
@@ -465,7 +478,8 @@ def test_palantir_decoys(check):
     g.set_global_enemy_speed_multiplier(0)
     check(not leak.is_alive() and g.get_lives() == lives, "a leaking hologram costs no lives")
     before = g.get_cash()
-    kill_outright(g, decoys[1])
+    for d in decoys[1:]:
+        kill_outright(g, d)
     check(g.get_cash() == before and not decoys[1].is_alive(), "a destroyed hologram pays nothing")
     check(not g.get_injection().has_decoys(), "no decoys left")
     check(g.get_combat().acquire_targets(gpt, 1)[0] is pal, "with the decoys gone the GPT targets Palantir again")
@@ -495,7 +509,8 @@ def test_palantir_kill_switch(check):
     check(ds.get_ability_cooldown_remaining() == 0, "DeepSeek keeps its ability ready")
     check(locked.is_ability_locked() and locked.get_ability_cooldown_remaining() == 0, "a locked ability is untouched")
     check(pr.get_kill_switch_resets() == 2, "two abilities reset (%d)" % pr.get_kill_switch_resets())
-    check(g.get_enemy_manager().count_of_type(EnemyType.LOCKHEED_MARTIN) == lockheeds + 2, "the Lockheed escorts still launch")
+    ddt = sum(n for t, n, _ in PP.ESCORTS[2] if t is EnemyType.LOCKHEED_MARTIN)
+    check(ddt >= 1 and g.get_enemy_manager().count_of_type(EnemyType.LOCKHEED_MARTIN) == lockheeds + ddt, "the Lockheed escorts still launch")
     check(g.get_window_link().consume_grab_requests() >= 1, "System Takeover asks the UI to grab the window")
     gpt.reset_ability_cooldown()
     run_seconds(g, 2)
@@ -507,6 +522,7 @@ def test_window_seal(check):
     pal = _palantir(g, 500)
     check(g.get_window_fraction() == 1.0, "the window fraction defaults to 1.0")
     _hp_to(g, pal, 0.30)
+    _clear_escorts(g, pal)
     link = g.get_window_link()
     check(pal.get_phase() == 2 and link.is_takeover_active(), "phase 3 starts the takeover")
     check(not pal.is_sealed(), "an untouched window never seals Palantir")

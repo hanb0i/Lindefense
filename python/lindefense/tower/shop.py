@@ -1,14 +1,25 @@
 """Pricing helpers: purchase, upgrade, ability unlock, sell refunds (70%) and shop availability."""
 import math
 
+from lindefense.javacompat import jint, jround
 from lindefense.tower import catalog
 
 SELL_FRACTION = 0.70
+PRICE_STEP = 5
+
+
+def _challenge_price(price, game):
+    """The Frugal challenge's markup (Game.get_price_multiplier), on top of Patch Notes, rounded to $5. Refunds follow
+    what was paid: TowerManager reports the price paid to RunVariance, which tracks the difference from list."""
+    m = game.get_price_multiplier()
+    if m == 1 or price <= 0:
+        return price
+    return jint(jround(price * m / PRICE_STEP) * PRICE_STEP)
 
 
 def price_of(type_, game=None) -> int:
     base = catalog.get(type_).base_cost
-    return base if game is None else game.get_variance().tower_price(base)
+    return base if game is None else _challenge_price(game.get_variance().tower_price(base), game)
 
 
 def upgrade_cost(t, game=None) -> int:
@@ -19,7 +30,7 @@ def upgrade_cost(t, game=None) -> int:
 
 
 def upgrade_price(game, u) -> int:
-    return 0 if u is None else game.get_variance().upgrade_price(u.cost)
+    return 0 if u is None else _challenge_price(game.get_variance().upgrade_price(u.cost), game)
 
 
 def ability_unlock_cost(game) -> int:

@@ -8,7 +8,28 @@ _SLOW = StatusKind.SLOW.ordinal
 _STUN = StatusKind.STUN.ordinal
 _FREEZE = StatusKind.FREEZE.ordinal
 _DOT = StatusKind.DOT
-_MULTI = (StatusKind.SLOW, StatusKind.MARKED, StatusKind.MARKED_FLAT)
+_K_SLOW = StatusKind.SLOW
+_K_STUN = StatusKind.STUN
+_K_FREEZE = StatusKind.FREEZE
+_K_MARKED = StatusKind.MARKED
+_K_MARKED_FLAT = StatusKind.MARKED_FLAT
+_CAMO = Modifier.CAMO
+_REGROW = Modifier.REGROW
+_DISRUPTED = StatusKind.DISRUPTED.ordinal
+_REVEALED = StatusKind.REVEALED.ordinal
+_ARMOR_CRACK = StatusKind.ARMOR_CRACK.ordinal
+_MARKED = StatusKind.MARKED.ordinal
+_MARKED_FLAT = StatusKind.MARKED_FLAT.ordinal
+
+
+def max_magnitude(lst) -> float:
+    """status_magnitude: the strongest entry of one status list (0 when there is none)."""
+    m = 0.0
+    if lst:
+        for s in lst:
+            if s.magnitude > m:
+                m = s.magnitude
+    return m
 
 
 class Enemy:
@@ -26,6 +47,7 @@ class Enemy:
         self._id = Enemy._next_id
         Enemy._next_id += 1
         self._type = type_
+        self._is_boss = type_.is_boss()   # the type never changes; read on every hit, status and zone check
         self._modifiers = EnumSet() if modifiers is None else EnumSet(set.__iter__(modifiers) if isinstance(modifiers, set) else modifiers)
         if type_.has_innate_camo():
             self._modifiers.add(Modifier.CAMO)
@@ -34,13 +56,15 @@ class Enemy:
         base = float(max(1, jround(type_.base_hp * hp_scale)))
         self._max_hp = base * 2 if Modifier.FORTIFIED in self._modifiers else base
         self._hp = self._max_hp
+        self._radius = self._compute_radius()   # read thousands of times a step; changes only in strip_fortified
         self._route = route
         self._route_index = route_index
         self._distance = max(0.0, distance)
         self._alive = True
         self._leaked = False
         self._stored = False
-        self._statuses = [None] * _KIND_COUNT
+        self._statuses = [None] * _KIND_COUNT   # per StatusKind ordinal: None until first applied, then a list
+        self._status_lists = []   # the lists created so far (what tick_statuses walks)
         self._dot_source = None
         self._reverse_remaining = 0.0
         self._reverse_dps = 0.0
@@ -92,7 +116,7 @@ class Enemy:
         return Modifier.REGROW in self._modifiers
 
     def is_boss(self):
-        return self._type.is_boss()
+        return self._is_boss
 
     def get_max_hp(self):
         return self._max_hp
@@ -134,6 +158,9 @@ class Enemy:
         return self._cached_pos
 
     def get_radius(self):
+        return self._radius
+
+    def _compute_radius(self):
         return self._type.radius * (1.0 if self.is_boss() else (1.15 if self.is_fortified() else 1.0))
 
     def get_stored_enemies(self):
@@ -186,6 +213,7 @@ class Enemy:
         if Modifier.FORTIFIED not in self._modifiers:
             return False
         self._modifiers.discard(Modifier.FORTIFIED)
+        self._radius = self._compute_radius()
         import math
         self._max_hp = max(1.0, float(math.ceil(self._max_hp / 2)))
         self._hp = min(self._hp, self._max_hp)
@@ -203,24 +231,26 @@ class Enemy:
     def apply_status(self, kind, magnitude: float, duration: float, boss_override: bool = False) -> bool:
         if duration <= 0 or not self._alive:
             return False
-        if kind is StatusKind.SLOW:
+        if kind is _K_SLOW:
             if self.is_control_immune():
                 return False
-            if self.is_boss():
+            if self._is_boss:
                 magnitude /= self.BOSS_SLOW_DIVISOR
-        elif kind is StatusKind.STUN or kind is StatusKind.FREEZE:
+        elif kind is _K_STUN or kind is _K_FREEZE:
             if self.is_control_immune():
                 return False
-            if self.is_boss() and not boss_override:
+            if self._is_boss and not boss_override:
                 return False
-        lst = self._statuses[kind.ordinal]
+        lst = self._statuses[kind._value_]   # kind.ordinal
         if lst is None:
             lst = []
-            self._statuses[kind.ordinal] = lst
-        if kind in _MULTI:
+            self._statuses[kind._value_] = lst
+            self._status_lists.append(lst)
+        if kind is _K_SLOW or kind is _K_MARKED or kind is _K_MARKED_FLAT:   # several magnitudes may coexist
             for s in lst:
-                if abs(s.magnitude - magnitude) < 1e-9:
-                    s.remaining = max(s.remaining, duration)
+                if -1e-9 < s.magnitude - magnitude < 1e-9:   # abs(...) < 1e-9
+                    if duration > s.remaining:   # s.remaining = max(s.remaining, duration)
+                        s.remaining = duration
                     return True
             lst.append(StatusEffect(kind, magnitude, duration))
             return True
@@ -250,13 +280,7 @@ class Enemy:
         return bool(lst)
 
     def status_magnitude(self, kind) -> float:
-        lst = self._statuses[kind.ordinal]
-        m = 0.0
-        if lst:
-            for s in lst:
-                if s.magnitude > m:
-                    m = s.magnitude
-        return m
+        return max_magnitude(self._statuses[kind.ordinal])
 
     def clear_status(self, kind) -> None:
         lst = self._statuses[kind.ordinal]
@@ -270,23 +294,24 @@ class Enemy:
     def is_frozen(self) -> bool:
         return bool(self._statuses[_FREEZE])
 
+    # the status queries below are has_status / status_magnitude with the kind's ordinal precomputed
     def is_disrupted(self) -> bool:
-        return self.has_status(StatusKind.DISRUPTED)
+        return bool(self._statuses[_DISRUPTED])
 
     def is_revealed(self) -> bool:
-        return self.has_status(StatusKind.REVEALED)
+        return bool(self._statuses[_REVEALED])
 
     def get_slow_fraction(self) -> float:
-        return self.status_magnitude(StatusKind.SLOW)
+        return max_magnitude(self._statuses[_SLOW])
 
     def is_armor_cracked(self) -> bool:
-        return self.has_status(StatusKind.ARMOR_CRACK)
+        return bool(self._statuses[_ARMOR_CRACK])
 
     def get_marked_bonus(self) -> float:
-        return self.status_magnitude(StatusKind.MARKED)
+        return max_magnitude(self._statuses[_MARKED])
 
     def get_marked_flat(self) -> float:
-        return self.status_magnitude(StatusKind.MARKED_FLAT)
+        return max_magnitude(self._statuses[_MARKED_FLAT])
 
     # ---------------- armour classes
     def is_lead_type(self) -> bool:
@@ -304,7 +329,7 @@ class Enemy:
     def is_targetable_by(self, tower_sees_camo: bool) -> bool:
         if not self._alive or self._stored:
             return False
-        return Modifier.CAMO not in self._modifiers or tower_sees_camo or self.is_revealed()
+        return _CAMO not in self._modifiers or tower_sees_camo or self.is_revealed()
 
     # ---------------- shielding (Heap Sort)
     def set_shielded_tick(self, tick: int) -> None:
@@ -340,7 +365,8 @@ class Enemy:
         if not self._alive or amount <= 0:
             return 0.0
         before = self._hp
-        self._hp = max(0.0, self._hp - amount)
+        hp = before - amount
+        self._hp = hp if hp > 0.0 else 0.0   # max(0.0, hp)
         self._times_hit += 1
         self._last_hit_time = now
         if self._type.mechanic is Mechanic.ACCELERATE_ON_DAMAGE:
@@ -375,21 +401,36 @@ class Enemy:
     def advance(self, dt: float, external: float) -> bool:
         if not self._alive or self._stored:
             return False
+        dist = self._distance
         if self._hold_remaining > 0:
             step = self._hold_pull * dt
-            diff = self._hold_distance - self._distance
-            self._distance += max(-step, min(step, diff))
-        elif not self.is_stunned():
-            d = self._live_speed(external) * dt
-            if self._reverse_remaining > 0:
-                self._distance = max(0.0, self._distance - d)
-            else:
-                self._distance += d
-        self._distance = max(0.0, self._distance)
-        self._cached_pos = self._route.position_at(self._distance)
+            diff = self._hold_distance - dist
+            dist += max(-step, min(step, diff))
+        else:
+            st = self._statuses
+            if not (st[_STUN] or st[_FREEZE]):   # is_stunned()
+                # _live_speed(external) * dt with the getters inlined (same operations, same order)
+                slow = 0.0   # get_slow_fraction()
+                slows = st[_SLOW]
+                if slows:
+                    for s in slows:
+                        if s.magnitude > slow:
+                            slow = s.magnitude
+                # own_speed_multiplier(): only Boss overrides it (and returns the same for a non-boss type)
+                osm = self.own_speed_multiplier() if self._is_boss else 1.0 + self._accel_bonus
+                d = (self._type.speed * self._speed_scale * osm * self.BASE_SPEED
+                     * (1.0 - (slow if slow < 0.9 else 0.9)) * external) * dt   # min(0.9, slow)
+                if self._reverse_remaining > 0:
+                    dist = max(0.0, dist - d)
+                else:
+                    dist += d
+        dist = dist if dist > 0.0 else 0.0   # max(0.0, dist)
+        self._distance = dist
+        route = self._route
+        self._cached_pos = route.position_at(dist)
         if self.grid is not None:
             self.grid.moved(self)
-        return self._distance >= self._route.get_total_length()
+        return dist >= route._total_length
 
     def current_speed(self, external: float) -> float:
         if self.is_stunned() or self._hold_remaining > 0:
@@ -469,8 +510,18 @@ class Enemy:
     # ---------------- per-tick upkeep
     def tick_statuses(self, dt: float) -> float:
         dot = 0.0
-        for lst in self._statuses:
+        # lists are independent and only DOT entries add to dot, so walking them in creation order (instead of
+        # ordinal order, skipping kinds never applied) changes nothing
+        for lst in self._status_lists:
             if not lst:
+                continue
+            if len(lst) == 1:   # the common case, without the index loop
+                s = lst[0]
+                s.remaining -= dt
+                if s.kind is _DOT:
+                    dot += s.magnitude * dt
+                if s.remaining <= 0:
+                    lst.clear()
                 continue
             for i in range(len(lst) - 1, -1, -1):
                 s = lst[i]
@@ -483,7 +534,7 @@ class Enemy:
             self._hold_remaining = max(0.0, self._hold_remaining - dt)
         if self._reverse_remaining > 0:
             self._reverse_remaining = max(0.0, self._reverse_remaining - dt)
-        if Modifier.REGROW in self._modifiers and self._hp < self._max_hp:
+        if _REGROW in self._modifiers and self._hp < self._max_hp:
             self._regrow_timer += dt
             if self._regrow_timer >= self.REGROW_INTERVAL:
                 self._regrow_timer = 0.0

@@ -102,7 +102,7 @@ class GptBehavior(TowerBehavior):
             e = scan.next()
             while e is not None:
                 if e.is_alive() and not e.is_stored() and e.is_targetable_by(sees) \
-                        and e.get_position().dist(m) <= size + e.get_radius():
+                        and e.get_position().within_dist(m, size + e.get_radius()):
                     key = i * 1_000_000 + e.get_id()
                     ready = cd.get(key)
                     if ready is None or ready <= now:

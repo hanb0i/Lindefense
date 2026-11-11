@@ -6,6 +6,9 @@ from lindefense.combat.visual_event import VisualEvent
 from lindefense.enemy.types import EnemyType, Modifier
 
 
+_INJECTION = Modifier.INJECTION
+
+
 def _decoys_first(e):
     return 0 if e.get_type() is EnemyType.PALANTIR_HOLOGRAM else 1
 
@@ -32,10 +35,17 @@ class PromptInjection:
         self._ticks = 0
         self._broadcasts = self._hijacks = self._zaps = self._disables = self._blocks = 0
 
+    def __setstate__(self, state):
+        """Loading a saved run (savegame): the dicts are keyed by id(enemy), so re-key them for the new objects."""
+        self.__dict__.update(state)
+        self._cooldowns = {id(v[0]): v for v in self._cooldowns.values()}
+        self._last_broadcast = {id(v[0]): v for v in self._last_broadcast.values()}
+
     def update(self, dt):
         g = self._game
         for e in g.get_enemy_manager().get_enemies():
-            if not e.is_alive() or e.is_stored() or not e.has(Modifier.INJECTION):
+            # is_alive() / is_stored() / has(INJECTION) read directly: this walks every enemy every tick
+            if not e._alive or e._stored or _INJECTION not in e._modifiers:
                 continue
             k = id(e)
             lb = self._last_broadcast.get(k)

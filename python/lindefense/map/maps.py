@@ -75,7 +75,7 @@ class SiliconCircuit(GameMap):
 
     def pad_index_for(self, t):
         for i, p in enumerate(self._pads):
-            if p.dist(t.get_position()) <= 44:
+            if p.within_dist(t.get_position(), 44):
                 return i
         return -1
 
@@ -90,7 +90,7 @@ class SiliconCircuit(GameMap):
             if self._pad_charge[i] >= self.PAD_CHARGE_TIME:
                 occupant = None
                 for t in towers:
-                    if (not t.is_temporary() and pad.dist(t.get_position()) <= 44
+                    if (not t.is_temporary() and pad.within_dist(t.get_position(), 44)
                             and t.get_type().faction in (Faction.SUPPORT, Faction.HERO)):
                         occupant = t
                         break
@@ -98,7 +98,7 @@ class SiliconCircuit(GameMap):
                     self._pad_charge[i] = 0.0
                     game.add_cash(self.PAD_CASH, pad)
                     for t in towers:
-                        if t.get_position().dist(pad) <= self.PAD_BOOST_RADIUS:
+                        if t.get_position().within_dist(pad, self.PAD_BOOST_RADIUS):
                             t.add_buff(1.4, 1.0, 1.0, 6)
                     game.emit_text(pad, "Capacitor discharge!", 0x7fd8a8)
         if self._short_remaining > 0:
@@ -296,7 +296,7 @@ class HallucinationCanyon(GameMap):
     def on_enemy_moved(self, game, e):
         if e.has_drifted() or e.is_stored():
             return
-        if e.get_position().dist(self._center) <= 18:
+        if e.get_position().within_dist(self._center, 18):
             e.set_drifted(True)
             if game.get_rng().chance(self.DRIFT_CHANCE):
                 n = self._nodes[game.get_rng().next_int(len(self._nodes))]

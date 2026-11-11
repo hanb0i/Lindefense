@@ -8,8 +8,10 @@ from lindefense.effects.effects import Effects
 from lindefense.enemy.boss import Boss
 from lindefense.enemy.manager import EnemyManager
 from lindefense.enemy.types import EnemyType, StatusKind
-from lindefense.javacompat import jint, jround
+from lindefense.javacompat import fmt1, jint, jround
 from lindefense.jenum import JEnum
+from lindefense.sim.challenges import Challenge, FRUGAL_PRICE, GLASS_CANNON_DAMAGE, GLASS_CANNON_LIVES, ONE_LIFE_LIVES
+from lindefense.sim.challenges import ordered as _ordered_challenges
 from lindefense.sim.difficulty import Difficulty
 from lindefense.sim.misc import HeroCollection, WindowLink
 from lindefense.sim.prompt_injection import PromptInjection
@@ -57,6 +59,7 @@ class Game:
         self._banner_rgb = 0
         self._banner_time = 0.0
         self._palantir = None
+        self._ability_banners = set()
         self._victory_timer = -1.0
         self._defeat_timer = -1.0
         self._last_completed_wave = 0
@@ -66,9 +69,19 @@ class Game:
         self._invincible = False
         self._heroes = HeroCollection.in_memory()
         self._deployed_heroes = set()
+        self._boss_kills = []        # records: boss types killed this run (pure counters, read at run end)
+        self._heroes_bought = []
+        self._tags = []
         self._admin_heroes = self._admin_money = self._admin_health = False
         self._hero_limit = MAX_HEROES_PER_GAME
+        self._challenges = ()            # challenge rules (set_challenges); all off by default
+        self._selling_locked = False
+        self._price_multiplier = 1.0
+        self._challenge_damage = 1.0
+        self._run_tags = []              # "daily:YYYY-MM-DD", "custom-seed" (see run_tags)
+        self._seed_fixed = False         # True when the seed was chosen (typed, daily, replayed): RESTART keeps it
         self._reverse = None
+        self._freeplay = False
         self._window_link = WindowLink()
         self._enemy_manager = EnemyManager(self)
         self._tower_manager = TowerManager(self)
@@ -81,16 +94,30 @@ class Game:
         gmap.reset()
 
     @staticmethod
-    def fresh_copy(old, seed=None):
+    def fresh_copy(old, seed=None, today=None):
+        """A new match like `old` (RESTART / RETRY; with a seed: REPLAY SEED). A daily run stays the daily run only when
+        it is restarted on its own date: replayed (or restarted another day) it becomes a chosen-seed run with the same
+        rule, so it never updates that date's daily best. today: a date or "YYYY-MM-DD" (default: the local date)."""
         from lindefense.map import maps
+        replay = seed is not None
         if seed is None:
-            seed = seed_next()
+            seed = old._seed if old._seed_fixed else seed_next()
         idx = maps.index_of(old.get_map())
         if idx < 0:
             raise ValueError("map is not in the catalog: " + old.get_map().get_name())
         g = Game(maps.create(idx), seed, old.get_difficulty())
         g.set_hero_collection(old.get_hero_collection())
         g.copy_admin_from(old)
+        g.set_challenges(old._challenges)
+        if not isinstance(today, str):
+            import datetime
+            from lindefense.sim.run_setup import date_key
+            today = date_key(datetime.date.today() if today is None else today)
+        for t in old._run_tags:
+            g.add_run_tag("custom-seed" if t.startswith("daily:") and (replay or t[6:] != today) else t)
+        g._seed_fixed = old._seed_fixed or replay
+        if replay and not old._seed_fixed:
+            g.add_run_tag("custom-seed")
         if old._variance.is_enabled():
             g._variance.enable(old._variance.get_picker())
         return g
@@ -136,6 +163,70 @@ class Game:
     def set_hero_limit(self, limit):
         self._hero_limit = max(0, limit)
 
+    # ---------------- challenge rules and run tags
+    def set_challenges(self, challenges):
+        """Switches on challenge rules (sim.challenges.Challenge) for a fresh match, before the first wave. With none (the
+        default) nothing changes. Reverse matches never take challenges, so the defender AI is unaffected."""
+        cs = _ordered_challenges(challenges)
+        if self._reverse is not None or not cs:
+            return
+        self._challenges = cs
+        if Challenge.NO_HEROES in cs:
+            self.set_hero_limit(0)
+        if Challenge.ONE_LIFE in cs:
+            self.set_starting_lives(ONE_LIFE_LIVES)
+        elif Challenge.GLASS_CANNON in cs:
+            self.set_starting_lives(GLASS_CANNON_LIVES)
+        self._selling_locked = Challenge.NO_SELLING in cs
+        self._price_multiplier = FRUGAL_PRICE if Challenge.FRUGAL in cs else 1.0
+        self._challenge_damage = GLASS_CANNON_DAMAGE if Challenge.GLASS_CANNON in cs else 1.0
+
+    def get_challenges(self):
+        return self._challenges
+
+    def has_challenge(self, c):
+        return c in self._challenges
+
+    def is_selling_locked(self):
+        """No Selling challenge: towers cannot be sold nor heroes dismissed."""
+        return self._selling_locked
+
+    def get_price_multiplier(self):
+        """Frugal challenge: tower, hero and upgrade prices x1.5 (applied by tower.shop after Patch Notes)."""
+        return self._price_multiplier
+
+    def set_seed_fixed(self, fixed):
+        self._seed_fixed = fixed
+
+    def is_seed_fixed(self):
+        """True when the player chose this run's seed (typed it, daily run, REPLAY SEED): RESTART keeps the seed."""
+        return self._seed_fixed
+
+    def add_run_tag(self, tag):
+        if tag and tag not in self._run_tags:
+            self._run_tags.append(tag)
+
+    @property
+    def run_tags(self):
+        """Labels for career records / run history: "daily:2026-11-09" for a daily run, "custom-seed" for a chosen
+        seed, one tag per challenge rule ("no-heroes", "one-life", "no-selling", "frugal", "glass-cannon") and
+        "no-patch-notes" when Patch Notes are off. Empty for a standard run with Patch Notes on."""
+        tags = list(self._run_tags)
+        tags.extend(c.tag for c in self._challenges)
+        if self._reverse is None and not self._variance.is_enabled():
+            tags.append("no-patch-notes")
+        return tuple(tags)
+
+    def get_run_tags(self):
+        return self.run_tags
+
+    def get_daily_date(self):
+        """The date ("YYYY-MM-DD") of a daily run, else None."""
+        for t in self._run_tags:
+            if t.startswith("daily:"):
+                return t[6:]
+        return None
+
     def is_hero_deployed(self, type_):
         return type_ in self._deployed_heroes
 
@@ -161,6 +252,7 @@ class Game:
         if not self.spend_cash(price):
             return False
         self._heroes.unlock(type_)
+        self._heroes_bought.append(type_)
         self.set_banner(type_.display_name.upper() + " UNLOCKED", type_.primary_rgb, 2.5)
         self._log_line("Hero unlocked: " + type_.display_name + " for $" + str(price))
         audio.sfx(Sfx.CASH)
@@ -182,6 +274,41 @@ class Game:
         self._state = State.VICTORY
         self.set_banner(banner_text, 0x7fd8a8, 4)
         self._log_line(banner_text)
+
+    # ---------------- freeplay (endless waves after Palantir)
+    def is_freeplay(self):
+        """True once the player chose CONTINUE - FREEPLAY on the victory screen (stays true after freeplay ends)."""
+        return self._freeplay
+
+    def can_continue_freeplay(self):
+        return (self._state is State.VICTORY and not self._freeplay and self._reverse is None
+                and self.get_wave() >= waves.WAVE_COUNT)
+
+    def continue_freeplay(self):
+        """Resumes a won campaign as Freeplay: the board, cash, lives and towers carry over, whatever was left on the
+        track after Palantir fell is cleared, and wave 101 onwards are generated (wave/freeplay.py). Freeplay ends
+        when lives reach zero; the run still ends in VICTORY."""
+        if not self.can_continue_freeplay():
+            return False
+        self._freeplay = True
+        self.add_tag("freeplay")
+        self._state = State.PLAYING
+        self._victory_timer = -1.0
+        self._defeat_timer = -1.0
+        self._paused = False
+        self._accumulator = 0.0
+        self._last_completed_wave = max(self._last_completed_wave, waves.WAVE_COUNT)
+        for e in self._enemy_manager.get_enemies():
+            e.mark_dead()
+        for e in self._enemy_manager.get_pending():
+            e.mark_dead()
+        self._enemy_manager.clear()
+        self._combat.clear()
+        self._palantir = None
+        self._wave_manager.end_wave()
+        self.set_banner("FREEPLAY: ENDLESS WAVES", 0xffd166, 3)
+        self._log_line("Freeplay started after wave " + str(self.get_wave()))
+        return True
 
     # ---------------- accessors
     def get_map(self):
@@ -262,6 +389,22 @@ class Game:
     def get_last_completed_wave(self):
         return self._last_completed_wave
 
+    # ---------------- run records (read by sim/records.py at run end; never feed back into the simulation)
+    def get_boss_kills(self):
+        return self._boss_kills
+
+    def get_heroes_bought(self):
+        return self._heroes_bought
+
+    def get_tags(self):
+        """Run tags for the run history: free tags (add_tag, e.g. "freeplay") plus the run-setup tags (run_tags: daily
+        run, chosen seed, challenge rules, Patch Notes off)."""
+        return self._tags + [t for t in self.run_tags if t not in self._tags]
+
+    def add_tag(self, tag):
+        if tag and tag not in self._tags:
+            self._tags.append(tag)
+
     def get_total_cash_earned(self):
         return self._total_cash_earned
 
@@ -276,6 +419,12 @@ class Game:
 
     def is_victory_sequence_active(self):
         return self._victory_timer > 0
+
+    def is_campaign_won(self):
+        """True from the moment the campaign is won (Palantir destroyed or wave 100 cleared), through the victory
+        sequence and screen, until Freeplay resumes play. (_victory_timer is exactly -1.0 until then; the sequence
+        counts down from 0.5 / 5 s and stops at or just below 0.)"""
+        return self._victory_timer != -1.0
 
     def get_victory_timer(self):
         return self._victory_timer
@@ -294,7 +443,8 @@ class Game:
 
     def get_global_damage_multiplier(self):
         r = self._reverse
-        return self._difficulty.tower_damage * (r.get_profile().tower_damage if r is not None else 1)
+        m = self._difficulty.tower_damage * (r.get_profile().tower_damage if r is not None else 1)
+        return m if self._challenge_damage == 1.0 else m * self._challenge_damage
 
     def get_global_enemy_speed_multiplier(self):
         return self._global_enemy_speed_multiplier
@@ -355,7 +505,7 @@ class Game:
         return self._lives - before
 
     def add_lives(self, n):
-        if self._state is State.PLAYING and n > 0:
+        if self._state is State.PLAYING and n > 0 and not self.has_challenge(Challenge.ONE_LIFE):
             self._lives += n
 
     def get_max_lives(self):
@@ -380,6 +530,8 @@ class Game:
             self._defeat_timer = 2.0
             self.set_banner("DEFENSES BREACHED", 0xff5a5a, 3)
             self._log_line("Lives reached zero on wave " + str(self.get_wave()))
+            if self._freeplay:
+                self.set_banner("FREEPLAY OVER  -  REACHED WAVE " + str(self.get_wave()), 0xffd166, 3)
 
     # ---------------- player actions
     def start_next_wave(self):
@@ -452,7 +604,7 @@ class Game:
             self._enemy_manager.update(dt)
             self._combat.update_projectiles(dt)
             if self._defeat_timer <= 0:
-                self._state = State.DEFEAT
+                self._state = State.VICTORY if self._freeplay else State.DEFEAT
             return
         if self._state is not State.PLAYING:
             return
@@ -504,19 +656,27 @@ class Game:
         self._log_line("Wave " + str(wave) + " complete: +$" + str(bonus)
                        + (" (+$" + str(jint(income)) + " research income)" if income > 0 else ""))
         self._variance.on_wave_completed(wave)
-        if wave >= waves.WAVE_COUNT and self._victory_timer < 0 and self._state is State.PLAYING:
+        if wave >= waves.WAVE_COUNT and self._victory_timer < 0 and self._state is State.PLAYING and not self._freeplay:
             self._victory_timer = 0.5
 
     def on_enemy_killed(self, e):
         if e.get_type().is_boss():
             audio.sfx(Sfx.BOSS_DEATH)
-        if e.get_type() is EnemyType.PALANTIR and self._victory_timer < 0 and self._reverse is None:
+            self._boss_kills.append(e.get_type())
+        if e.get_type() is EnemyType.PALANTIR and self._freeplay:
+            self.set_banner("PALANTIR DESTROYED AGAIN", 0xffd166, 3)
+            self._events.append(VisualEvent.phase(e.get_position(), "PALANTIR DESTROYED", 0xffd166))
+            self._log_line("Freeplay Palantir destroyed on wave " + str(self.get_wave()))
+        elif e.get_type() is EnemyType.PALANTIR and self._victory_timer < 0 and self._reverse is None:
             self._victory_timer = self.VICTORY_SEQUENCE_TIME
+            # the final wave ends here (end_wave below, no completion): count it as cleared for the records, the
+            # end screen and the daily best
+            self._last_completed_wave = max(self._last_completed_wave, self.get_wave())
             self.set_banner("PALANTIR DESTROYED", 0xffd166, self.VICTORY_SEQUENCE_TIME)
             self._events.append(VisualEvent.phase(e.get_position(), "PALANTIR DESTROYED", 0xffd166))
             for o in self._enemy_manager.get_enemies():
                 if o is not e:
-                    o.apply_status(StatusKind.STUN, 1, 99)
+                    o.apply_status(StatusKind.STUN, 1, 99, True)   # bosses too: Palantir's escorts freeze with the rest
             self._wave_manager.end_wave()
             self._log_line("Palantir destroyed. Campaign complete.")
 
@@ -533,10 +693,18 @@ class Game:
     def on_palantir_phase(self, b, phase):
         self.set_banner("PALANTIR PHASE " + str(phase + 1) + ": " + b.get_phase_name(), 0xff4d4d, 3)
         self._events.append(VisualEvent.phase(b.get_position(), b.get_phase_name(), 0xff4d4d))
-        if phase == 2:
-            for i in range(2):
-                self._enemy_manager.spawn(EnemyType.LOCKHEED_MARTIN, None, b.get_route_index(), max(0.0, b.get_distance() - 40 * (i + 1)))
         self._log_line("Palantir entered phase " + str(phase + 1) + " (" + b.get_phase_name() + ")")
+
+    def announce_boss_ability(self, b, text, rgb):
+        """A corporate boss used its signature ability: banner the first use of each boss type per wave (never over
+        Palantir's own banners: its escorts are announced by the phase change)."""
+        key = (self.get_wave(), b.get_type())
+        if key in self._ability_banners:
+            return
+        self._ability_banners.add(key)
+        self._log_line(text)
+        if self._palantir is None or not self._palantir.is_alive():
+            self.set_banner(text, rgb, 3)
 
     def on_surveillance_telegraph(self, b, marked):
         audio.sfx(Sfx.PALANTIR_WARNING)
@@ -562,6 +730,6 @@ class Game:
         self._banner_time = seconds
 
     def _log_line(self, s):
-        self._log.append("[%6.1fs] %s" % (self._time, s))
+        self._log.append("[" + fmt1(self._time).rjust(6) + "s] " + s)   # String.format("%6.1f") rounds half up
         if len(self._log) > 200:
             del self._log[0]
